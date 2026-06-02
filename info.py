@@ -30,9 +30,9 @@ DB_NAME = environ.get("DATABASE_NAME", "testing")
 # =========================================================
 ADMINS = int(environ.get("ADMINS", "1383239349"))
 
-LOG_CHANNEL = int(environ.get("LOG_CHANNEL", "0"))
-PREMIUM_LOGS = int(environ.get("PREMIUM_LOGS", "-100"))
-VERIFIED_LOG = int(environ.get("VERIFIED_LOG", "-100"))
+LOG_CHANNEL = int(environ.get("LOG_CHANNEL", "-1002016227618")"))
+PREMIUM_LOGS = int(environ.get("PREMIUM_LOGS", "-1002016227618"))
+VERIFIED_LOG = int(environ.get("VERIFIED_LOG", "-1002016227618"))
 
 POST_CHANNEL = int(environ.get("POST_CHANNEL", "-1001866287032"))
 VIDEO_CHANNEL = int(environ.get("VIDEO_CHANNEL", "-1001866287032"))
@@ -71,18 +71,18 @@ TUTORIAL_LINK = environ.get("TUTORIAL_LINK", "")
 # =========================================================
 # 💳 PAYMENT SETTINGS
 # =========================================================
-UPI_ID = environ.get("UPI_ID", "")
-QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "")
+UPI_ID = environ.get("UPI_ID", "Wolverine")
+QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "http://ibb.co/zCGSdbR")
 
 # =========================================================
 # 🖼️ IMAGES
 # =========================================================
 START_PIC = environ.get("START_PIC", "http://ibb.co/zCGSdbR")
-AUTH_PICS = environ.get("AUTH_PICS", "")
-VERIFY_IMG = environ.get("VERIFY_IMG", "")
-NO_IMG = environ.get("NO_IMG", "")
+AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
+VERIFY_IMG = environ.get("VERIFY_IMG", "http://ibb.co/zCGSdbR")
+NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
 
 # =========================================================
 # 🌐 WEB APP
 # =========================================================
-WEB_APP_URL = environ.get("WEB_APP_URL", "")
+WEB_APP_URL = environ.get("WEB_APP_URL", "https://protestant-lulu-misslazy-c67202fa.koyeb.app/")
