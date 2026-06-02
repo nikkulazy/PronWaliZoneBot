@@ -22,7 +22,7 @@ OWNER_USERNAME = environ.get("OWNER_USERNAME", "WOLVERIN_P")
 # =========================================================
 # 💾 DATABASE CONFIGURATION
 # =========================================================
-DB_URL = environ.get("DATABASE_URI", "mongodb+srv://mastitime:mastitime@cluster0.rephea4.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DB_URL = environ.get("DATABASE_URI", "mongodb+srv://mastitime:mastitime@cluster0.tohbael.mongodb.net/?appName=Cluster0")
 DB_NAME = environ.get("DATABASE_NAME", "testing")
 
 # =========================================================
