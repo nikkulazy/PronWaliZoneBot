@@ -31,7 +31,7 @@ DB_NAME = environ.get("DATABASE_NAME", "testing")
 ADMINS = int(environ.get("ADMINS", "1383239349"))
 
 LOG_CHANNEL = int(environ.get("LOG_CHANNEL", "-1002016227618"))
-PREMIUM_LOGS = int(environ.get("PREMIUM_LOGS", "-1002016227618"))
+PREMIUM_LOGS = int(environ.get("PREMIUM_LOGS", "-1002229751777"))
 VERIFIED_LOG = int(environ.get("VERIFIED_LOG", "-1002016227618"))
 
 POST_CHANNEL = int(environ.get("POST_CHANNEL", "-1001866287032"))
