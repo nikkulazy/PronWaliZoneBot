@@ -71,8 +71,8 @@ TUTORIAL_LINK = environ.get("TUTORIAL_LINK", "")
 # =========================================================
 # 💳 PAYMENT SETTINGS
 # =========================================================
-UPI_ID = environ.get("UPI_ID", "Wolverine")
-QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "http://ibb.co/zCGSdbR")
+UPI_ID = environ.get("UPI_ID", "Not Found")
+QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "https://i.ibb.co/kWtBcgx/photo-2025-08-04-09-11-58-7534655638404595732.jpg")
 
 # =========================================================
 # 🖼️ IMAGES
