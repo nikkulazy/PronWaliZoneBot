@@ -21,7 +21,7 @@ def hash_code(code):
 
 async def generate_code(duration_str):
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-    return f"PWZONE{code}"
+    return f"MASTITIME{code}"
 
 # ------------------------------------------------------------------
 # 🛠️ ADMIN COMMAND: GENERATE CODES
