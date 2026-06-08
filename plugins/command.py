@@ -8,6 +8,7 @@ from database.users_db import db
 from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID
 from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
+from plugins.verification import IS_VERIFY
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 
