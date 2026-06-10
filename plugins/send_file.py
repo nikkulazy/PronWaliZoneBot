@@ -12,14 +12,14 @@ async def send_requested_file(client, message, user_id, search_id):
             return await message.reply("❌ File not found.")
 
         video_id = file_data['file_id']
-        prev_video = await db.get_prev_video(video_id)
-        next_video = await db.get_next_video(video_id)
+        prev_obj = await db.get_prev_video_id(video_id)
+        next_obj = await db.get_next_video_id(video_id)
 
         nav_buttons = []
-        if prev_video:
-            nav_buttons.append(InlineKeyboardButton("◀ Previous", callback_data=f"nav_{prev_video}"))
-        if next_video:
-            nav_buttons.append(InlineKeyboardButton("Next ▶", callback_data=f"nav_{next_video}"))
+        if prev_obj:
+            nav_buttons.append(InlineKeyboardButton("◀ Previous", callback_data=f"nav_{prev_obj}"))
+        if next_obj:
+            nav_buttons.append(InlineKeyboardButton("Next ▶", callback_data=f"nav_{next_obj}"))
 
         row1 = nav_buttons if nav_buttons else []
         row2 = [
