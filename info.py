@@ -28,7 +28,7 @@ DB_NAME = environ.get("DATABASE_NAME", "testing")
 # =========================================================
 # 📢 CHANNELS & ADMINS
 # =========================================================
-ADMINS = int(environ.get("ADMINS", "1383239349"))
+ADMINS = [int(x) for x in environ.get("ADMINS", "1383239349").split() if x.strip().isdigit()]
 
 LOG_CHANNEL = int(environ.get("LOG_CHANNEL", "-1002016227618"))
 PREMIUM_LOGS = int(environ.get("PREMIUM_LOGS", "-1002229751777"))
