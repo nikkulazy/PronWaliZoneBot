@@ -46,31 +46,20 @@ async def handle_video_request(client, m: Message):
             else:
                 return await m.reply(limit_reached_msg, reply_markup=buy_button)
 
-    # Get video
+    # Random video लें (unseen या random)
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
         video_id = await db.get_random_video()
     if not video_id:
-        return await m.reply("❌ No videos found in database. Please add videos first.")
+        return await m.reply("❌ No videos found in database.")
 
-    # Get previous/next using ObjectId (short)
-    prev_obj = await db.get_prev_video_id(video_id)
-    next_obj = await db.get_next_video_id(video_id)
-
-    nav_buttons = []
-    if prev_obj:
-        nav_buttons.append(InlineKeyboardButton("◀ Previous", callback_data=f"nav_{prev_obj}"))
-    if next_obj:
-        nav_buttons.append(InlineKeyboardButton("Next ▶", callback_data=f"nav_{next_obj}"))
-    
-    row1 = nav_buttons if nav_buttons else []
-    row2 = [
-        InlineKeyboardButton("📁 Category", callback_data="category"),
-        InlineKeyboardButton("❓ Help", callback_data="help_me")
+    # ⭐ बस एक "Next Video" बटन (कोई Previous नहीं)
+    buttons = [
+        [InlineKeyboardButton("⏩ Next Video", callback_data="next_video")],
+        [InlineKeyboardButton("📁 Category", callback_data="category"), InlineKeyboardButton("❓ Help", callback_data="help_me")],
+        [InlineKeyboardButton("❌ Close", callback_data="close_data")]
     ]
-    row3 = [InlineKeyboardButton("❌ Close", callback_data="close_data")]
-
-    reply_markup = InlineKeyboardMarkup([row1, row2, row3] if row1 else [row2, row3])
+    reply_markup = InlineKeyboardMarkup(buttons)
 
     try:
         sent = await client.send_video(
@@ -89,4 +78,3 @@ async def handle_video_request(client, m: Message):
         asyncio.create_task(auto_delete_message(m, sent))
     except Exception as e:
         await m.reply(f"❌ Failed to send video: {str(e)}")
-        print(f"Error in send_video: {e}")
