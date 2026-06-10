@@ -472,7 +472,29 @@ class Database:
             return True
             
         return False
+   
+    async def get_prev_video(self, current_file_id):
+    """current_file_id से पिछली video ढूंढे (sorted by _id)"""
+    collection = self.videos
+    current = await collection.find_one({"file_id": current_file_id})
+    if not current:
+        return None
+    prev_vid = await collection.find({"_id": {"$lt": current["_id"]}}).sort("_id", -1).limit(1).to_list(1)
+    if prev_vid:
+        return prev_vid[0].get("file_id")
+    return None
 
+    async def get_next_video(self, current_file_id):
+    """current_file_id से अगली video ढूंढे (sorted by _id)"""
+    collection = self.videos
+    current = await collection.find_one({"file_id": current_file_id})
+    if not current:
+        return None
+    next_vid = await collection.find({"_id": {"$gt": current["_id"]}}).sort("_id", 1).limit(1).to_list(1)
+    if next_vid:
+        return next_vid[0].get("file_id")
+    return None
+    
     async def create_verify_id(self, user_id: int, hash, file_id=None):
         res = {"user_id": user_id, "hash": hash, "verified": False, "file_id": file_id}
         return await self.verify_id.insert_one(res)
