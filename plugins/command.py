@@ -148,3 +148,45 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
+
+from plugins.get_video import send_video_and_next_button  # या तुम्हारा फ़ंक्शन
+
+@Client.on_callback_query(filters.regex("next_video"))
+async def next_video_callback(client, query):
+    # पुरानी वीडियो वाला मैसेज हटाओ
+    await query.message.delete()
+    
+    # नई वीडियो भेजने के लिए उसी फ़ंक्शन को कॉल करो
+    # अगर तुम्हारे पास कोई फ़ंक्शन नहीं है तो नीचे वाला लॉजिक इस्तेमाल करो
+    
+    user_id = query.from_user.id
+    chat_id = query.message.chat.id
+    
+    # लिमिट चेक करो
+    is_premium = await db.has_premium_access(user_id)
+    used = await db.get_video_count(user_id) or 0
+    limit = PREMIUM_DAILY_LIMIT if is_premium else DAILY_LIMIT
+    
+    if used >= limit:
+        await client.send_message(chat_id, "❌ दैनिक सीमा समाप्त")
+        return
+    
+    # नई वीडियो आईडी लो
+    video_id = await db.get_unseen_video(user_id)
+    if not video_id:
+        video_id = await db.get_random_video()
+    if not video_id:
+        await client.send_message(chat_id, "❌ कोई वीडियो नहीं")
+        return
+    
+    # वीडियो भेजो (फिर से Next बटन के साथ)
+    next_button = InlineKeyboardMarkup([[InlineKeyboardButton("⏩ Next", callback_data="next_video")]])
+    sent = await client.send_video(
+        chat_id=chat_id,
+        video=video_id,
+        protect_content=PROTECT_CONTENT,
+        caption="...तुम्हारा caption...",
+        reply_markup=next_button
+    )
+    await db.increase_video_count(user_id, None)
+    await query.answer()
