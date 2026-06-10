@@ -86,7 +86,18 @@ async def handle_video_request(client, m: Message):
     # ------------------------------------------------
     try:
         # Fixed: Using client.send_video instead of m.reply_video
-        sent = await client.send_video(
+        # बटन बनाओ (सिर्फ एक लाइन)
+next_button = InlineKeyboardMarkup([[InlineKeyboardButton("⏩ Next", callback_data="next_video")]])
+
+# वीडियो भेजो, बटन के साथ
+sent = await client.send_video(
+    chat_id=m.chat.id,
+    video=video_id,
+    protect_content=PROTECT_CONTENT,
+    caption=f"...तुम्हारा caption...",
+    reply_to_message_id=m.id,
+    reply_markup=next_button   # 👈 यही जोड़ना है
+)
             chat_id=m.chat.id,
             video=video_id,
             protect_content=PROTECT_CONTENT,
