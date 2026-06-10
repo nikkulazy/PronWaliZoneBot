@@ -12,33 +12,23 @@ from utils import temp, auto_delete_message, is_user_joined
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
 
-    # Safety check
     if not m.from_user:
         return
 
-    # Force subscribe check
     if FSUB and not await is_user_joined(client, m):
         return
 
     user_id = m.from_user.id
     username = m.from_user.username or m.from_user.first_name or "Unknown"
 
-    # Ban check
     if await ban_manager.check_ban(client, m):
         return
 
-    # Premium + limit info
     is_premium = await db.has_premium_access(user_id)
-    # Define limits based on status
     current_limit = PREMIUM_DAILY_LIMIT if is_premium else DAILY_LIMIT
     
     used = await db.get_video_count(user_id) or 0
 
-    # ------------------------------------------------
-    # LIMIT & VERIFICATION & PREMIUM SYSTEM
-    # ------------------------------------------------
-    
-    # Message for when any absolute max limit is reached
     limit_reached_msg = (
         f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {used} 𝖥𝗂𝗅𝖾𝗌.\n\n"
         "𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐!\n"
@@ -49,7 +39,6 @@ async def handle_video_request(client, m: Message):
     ])
 
     if is_premium:
-        # Premium User Logic
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(
                 f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌.\n"
@@ -66,11 +55,7 @@ async def handle_video_request(client, m: Message):
             else:
                 return await m.reply(limit_reached_msg, reply_markup=buy_button)
 
-    # ------------------------------------------------
-    # GET VIDEO
-    # ------------------------------------------------
     video_id = await db.get_unseen_video(user_id)
-
     if not video_id:
         try:
             video_id = await db.get_random_video()
@@ -81,11 +66,12 @@ async def handle_video_request(client, m: Message):
     if not video_id:
         return await m.reply("❌ No videos found in the database.")
 
-    # ------------------------------------------------
-    # SEND VIDEO
-    # ------------------------------------------------
+    # ---------- 🔥 NEXT BUTTON ADD KARENGE ----------
+    next_button = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⏩ Next Video", callback_data="next_video")]
+    ])
+
     try:
-        # Fixed: Using client.send_video instead of m.reply_video
         sent = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
@@ -98,15 +84,12 @@ async def handle_video_request(client, m: Message):
                 "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
                 "</blockquote>"
             ),
+            reply_markup=next_button,   # 👈 Button yahan attach hua
             reply_to_message_id=m.id
         )
 
-        # Increase daily count ONLY after successful send
         await db.increase_video_count(user_id, username)
-
-        # Auto delete in background
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
         await m.reply(f"❌ Failed to send video: {str(e)}")
-        
