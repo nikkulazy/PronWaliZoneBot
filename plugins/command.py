@@ -191,7 +191,7 @@ async def next_video_callback(client: Client, query: CallbackQuery):
 
     # Create Next button again
     next_button = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⏩ Next", callback_data="next_video")]
+        [InlineKeyboardButton("⏩ Next", callback_data="get_video")]
     ])
 
     try:
