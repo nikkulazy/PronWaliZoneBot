@@ -51,7 +51,7 @@ async def handle_video_request(client, m: Message):
 
     # ✅ Next button (inline keyboard)
     next_button = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⏩ Next", callback_data="next_video")]
+        [InlineKeyboardButton("⏩ Next", callback_data="get_video")]
     ])
 
     try:
