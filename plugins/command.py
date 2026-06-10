@@ -10,6 +10,7 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
+from plugins.get_video import handle_video_request
 
 # =================================================
 # 🚀 START COMMAND
@@ -19,6 +20,12 @@ async def start_command(client, message: Message):
     user_id = message.from_user.id
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
+
+@Client.on_callback_query(filters.regex("next_video"))
+async def next_video_callback(client, query: CallbackQuery):
+    # पुरानी वीडियो डिलीट नहीं होगी, नई नीचे आएगी
+    await handle_video_request(client, query.message)
+    await query.answer()    
     
     if FSUB and not await is_user_joined(client, message):
         return
