@@ -8,7 +8,6 @@ from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
 
-
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
     if not m.from_user:
@@ -35,6 +34,7 @@ async def handle_video_request(client, m: Message):
         [InlineKeyboardButton("• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •", callback_data="get")]
     ])
 
+    # ---------- LIMIT CHECK ----------
     if is_premium:
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖫𝗂𝗆𝗂𝗍...")
@@ -49,18 +49,20 @@ async def handle_video_request(client, m: Message):
             else:
                 return await m.reply(limit_reached_msg, reply_markup=buy_button)
 
-    # Get random video
+    # ---------- GET VIDEO ID ----------
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
         video_id = await db.get_random_video()
+    
     if not video_id:
-        return await m.reply("❌ No videos found.")
-
-    # Get previous and next video IDs (for navigation)
+        # कोई वीडियो ही नहीं है डेटाबेस में
+        return await m.reply("❌ No videos found in database. Please add videos first.")
+    
+    # ---------- GET PREV / NEXT ----------
     prev_video = await db.get_prev_video(video_id)
     next_video = await db.get_next_video(video_id)
 
-    # Build buttons
+    # ---------- BUILD BUTTONS ----------
     nav_buttons = []
     if prev_video:
         nav_buttons.append(InlineKeyboardButton("◀ Previous", callback_data=f"nav_{prev_video}"))
@@ -76,6 +78,7 @@ async def handle_video_request(client, m: Message):
 
     reply_markup = InlineKeyboardMarkup([row1, row2, row3] if row1 else [row2, row3])
 
+    # ---------- SEND VIDEO ----------
     try:
         sent = await client.send_video(
             chat_id=m.chat.id,
@@ -92,4 +95,6 @@ async def handle_video_request(client, m: Message):
         await db.increase_video_count(user_id, username)
         asyncio.create_task(auto_delete_message(m, sent))
     except Exception as e:
+        # अगर file_id invalid है या कोई और एरर है तो यहाँ दिखेगा
         await m.reply(f"❌ Failed to send video: {str(e)}")
+        print(f"Error in send_video: {e}")
