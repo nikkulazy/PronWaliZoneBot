@@ -1,4 +1,3 @@
-from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.users_db import db
@@ -22,7 +21,6 @@ async def handle_video_request(client, m: Message):
         return
 
     is_premium = await db.has_premium_access(user_id)
-    current_limit = PREMIUM_DAILY_LIMIT if is_premium else DAILY_LIMIT
     used = await db.get_video_count(user_id) or 0
 
     limit_reached_msg = (
@@ -34,7 +32,6 @@ async def handle_video_request(client, m: Message):
         [InlineKeyboardButton("• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •", callback_data="get")]
     ])
 
-    # ---------- LIMIT CHECK ----------
     if is_premium:
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖫𝗂𝗆𝗂𝗍...")
@@ -49,25 +46,22 @@ async def handle_video_request(client, m: Message):
             else:
                 return await m.reply(limit_reached_msg, reply_markup=buy_button)
 
-    # ---------- GET VIDEO ID ----------
+    # Get video
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
         video_id = await db.get_random_video()
-    
     if not video_id:
-        # कोई वीडियो ही नहीं है डेटाबेस में
         return await m.reply("❌ No videos found in database. Please add videos first.")
-    
-    # ---------- GET PREV / NEXT ----------
-    prev_video = await db.get_prev_video(video_id)
-    next_video = await db.get_next_video(video_id)
 
-    # ---------- BUILD BUTTONS ----------
+    # Get previous/next using ObjectId (short)
+    prev_obj = await db.get_prev_video_id(video_id)
+    next_obj = await db.get_next_video_id(video_id)
+
     nav_buttons = []
-    if prev_video:
-        nav_buttons.append(InlineKeyboardButton("◀ Previous", callback_data=f"nav_{prev_video}"))
-    if next_video:
-        nav_buttons.append(InlineKeyboardButton("Next ▶", callback_data=f"nav_{next_video}"))
+    if prev_obj:
+        nav_buttons.append(InlineKeyboardButton("◀ Previous", callback_data=f"nav_{prev_obj}"))
+    if next_obj:
+        nav_buttons.append(InlineKeyboardButton("Next ▶", callback_data=f"nav_{next_obj}"))
     
     row1 = nav_buttons if nav_buttons else []
     row2 = [
@@ -78,7 +72,6 @@ async def handle_video_request(client, m: Message):
 
     reply_markup = InlineKeyboardMarkup([row1, row2, row3] if row1 else [row2, row3])
 
-    # ---------- SEND VIDEO ----------
     try:
         sent = await client.send_video(
             chat_id=m.chat.id,
@@ -95,6 +88,5 @@ async def handle_video_request(client, m: Message):
         await db.increase_video_count(user_id, username)
         asyncio.create_task(auto_delete_message(m, sent))
     except Exception as e:
-        # अगर file_id invalid है या कोई और एरर है तो यहाँ दिखेगा
         await m.reply(f"❌ Failed to send video: {str(e)}")
         print(f"Error in send_video: {e}")
