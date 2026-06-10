@@ -101,14 +101,14 @@ async def payment_screenshot_handler(client, message: Message):
     # ✅ FIXED: Callback data में special characters नहीं होने चाहिए
     admin_btns = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("✅ 1 Day", callback_data=f"approve_{user_id}_1"),
-            InlineKeyboardButton("✅ 1 Week", callback_data=f"approve_{user_id}_7")
+            InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝗗𝗮𝘆)", callback_data=f"approve_{user_id}_1"),
+            InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝘄𝗲𝗲𝗸)", callback_data=f"approve_{user_id}_7")
         ],
         [
-            InlineKeyboardButton("✅ 1 Month", callback_data=f"approve_{user_id}_30")
+            InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝗠𝗼𝗻𝘁𝗵)", callback_data=f"approve_{user_id}_30")
         ],
         [
-            InlineKeyboardButton("❌ Reject", callback_data=f"reject_{user_id}")
+            InlineKeyboardButton("❌ 𝗥𝗲𝗷𝗲𝗰𝘁  ❌", callback_data=f"reject_{user_id}")
         ]
     ])
     
