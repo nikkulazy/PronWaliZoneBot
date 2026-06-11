@@ -63,7 +63,14 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-            
+
+    inline_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📁 Get File", callback_data="get_file")],
+        [InlineKeyboardButton("🍑 Brazzers", callback_data="brazzers")],
+        [InlineKeyboardButton("📋 My Plan", callback_data="my_plan")],
+        [InlineKeyboardButton("💳 Subscription", callback_data="subscription")]
+    ])
+    
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
