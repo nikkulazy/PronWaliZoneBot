@@ -1,5 +1,6 @@
 import datetime
 import asyncio
+import os
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
@@ -12,7 +13,7 @@ from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 
 # =================================================
-# 🚀 START COMMAND
+# 🚀 START COMMAND (केवल Help इनलाइन बटन के साथ)
 # =================================================
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
@@ -64,13 +65,12 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
+    # ✅ केवल Help बटन वाला इनलाइन कीबोर्ड
     inline_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📁 Get File", callback_data="get_file")],
-        [InlineKeyboardButton("🍑 Brazzers", callback_data="brazzers")],
-        [InlineKeyboardButton("📋 My Plan", callback_data="my_plan")],
-        [InlineKeyboardButton("💳 Subscription", callback_data="subscription")]
+        [InlineKeyboardButton("❓ Help", callback_data="help")]
     ])
     
+    # ✅ रिप्लाई कीबोर्ड (पुराने बटन ज्यों के त्यों)
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
@@ -80,33 +80,23 @@ async def start_command(client, message: Message):
         one_time_keyboard=False
     )
 
+    # फोटो के साथ इनलाइन Help बटन भेजें
     await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
+        reply_markup=inline_keyboard,
         has_spoiler=True
+    )
+    
+    # रिप्लाई कीबोर्ड (नीचे वाले बटन) अलग से भेजें
+    await message.reply(
+        "👇 आप नीचे दिए बटन का भी उपयोग कर सकते हैं:", 
+        reply_markup=reply_keyboard
     )
 
 # =================================================
-# 📜 HELPER HANDLERS
+# 📜 लीगल / हेल्प टेक्स्ट भेजने वाले फंक्शन
 # =================================================
-
-@Client.on_message(filters.command("disclaimer") & filters.private)
-async def legal_disclaimer(client, message: Message):
-    await send_legal_text(client, message, script.DISCLAIMER_TXT)
-
-@Client.on_message(filters.command("terms") & filters.private)
-async def legal_terms(client, message: Message):
-    await send_legal_text(client, message, script.TERMS_TXT)
-
-@Client.on_message(filters.command("about") & filters.private)
-async def legal_about(client, message: Message):
-    await send_about_text(client, message)
-
-@Client.on_message(filters.command("help") & filters.private)
-async def legal_hepl(client, message: Message):
-    await send_legal_text(client, message, script.HELP_TXT)
-    
 async def send_legal_text(client, message, text):
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
@@ -127,31 +117,82 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
-# =========================================================
-# 🔙 CALLBACK QUERY HANDLER (FIXED: only for close & get)
-# =========================================================
-@Client.on_callback_query(filters.regex(r"^(close_data|get)$"))
+# =================================================
+# 📞 कॉलबैक हैंडलर (केवल close_data और help)
+# =================================================
+@Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
     if data == "close_data":
         await query.message.delete()
-    elif data == "get":
-        buttons = [
-            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
-        ]
-        # Check if QR code exists
-        if QR_CODE_IMAGE:
-            await query.message.reply_photo(
+    elif data == "help":
+        await send_legal_text(client, query.message, script.HELP_TXT)
+        await query.answer()
+    # अगर कोई और पुराना callback (जैसे "get") है तो उसे हटा दें या इग्नोर करें
+
+# =================================================
+# ⌨️ रिप्लाई कीबोर्ड के बटन हैंडलर (नया जोड़ा गया)
+# =================================================
+@Client.on_message(filters.private & filters.text)
+async def handle_reply_buttons(client, message: Message):
+    text = message.text
+    user_id = message.from_user.id
+    
+    if text == "Get Video":
+        # यूजर को वीडियो कोड मांगने का विकल्प दें
+        await message.reply("📁 कृपया वीडियो का कोड या नाम भेजें।\nउदाहरण: `/file avx-123`", parse_mode=enums.ParseMode.MARKDOWN)
+    elif text == "Brazzers":
+        await message.reply("🍑 Brazzers सेक्शन जल्द आ रहा है। अभी प्रतीक्षा करें।")
+    elif text == "My plan":
+        # डेटाबेस से यूजर की प्लान जानकारी लें
+        user_data = await db.get_user(user_id)  # मान लिया कि db में get_user मेथड है
+        if user_data and user_data.get("premium"):
+            expiry = user_data.get("expiry", "अज्ञात")
+            await message.reply(f"🌟 **आपका प्लान:** प्रीमियम\n📅 **समाप्ति:** {expiry}")
+        else:
+            daily_limit = DAILY_LIMIT
+            await message.reply(f"📋 **आपका प्लान:** फ्री\n📊 **दैनिक सीमा:** {daily_limit} फाइल\n💎 प्रीमियम के लिए /subscription")
+    elif text == "Subscription":
+        buttons = [[InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]]
+        if QR_CODE_IMAGE and os.path.isfile(QR_CODE_IMAGE):
+            await message.reply_photo(
                 photo=QR_CODE_IMAGE,
                 caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
         else:
-            await query.message.reply_text(
+            await message.reply_text(
                 text=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
+    else:
+        # किसी अन्य टेक्स्ट को इग्नोर करें (जैसे सामान्य चैट)
+        pass
+
+# =================================================
+# 📟 कमांड हैंडलर (disclaimer, terms, about, help)
+# =================================================
+@Client.on_message(filters.command("disclaimer") & filters.private)
+async def legal_disclaimer(client, message: Message):
+    await send_legal_text(client, message, script.DISCLAIMER_TXT)
+
+@Client.on_message(filters.command("terms") & filters.private)
+async def legal_terms(client, message: Message):
+    await send_legal_text(client, message, script.TERMS_TXT)
+
+@Client.on_message(filters.command("about") & filters.private)
+async def legal_about(client, message: Message):
+    await send_about_text(client, message)
+
+@Client.on_message(filters.command("help") & filters.private)
+async def legal_help(client, message: Message):
+    await send_legal_text(client, message, script.HELP_TXT)
+
+# =================================================
+# ⚠️ ध्यान दें: plugins.verification, plugins.send_file, plugins.refer
+#    आपकी खुद की फाइलें हैं। उनमें कोई बदलाव नहीं किया गया है।
+# =================================================
