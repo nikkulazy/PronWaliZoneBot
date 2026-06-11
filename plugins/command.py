@@ -66,7 +66,7 @@ async def start_command(client, message: Message):
             
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
+            [KeyboardButton("💢 Get Video 💢")],
             [KeyboardButton("My plan"), KeyboardButton("Subscription")]
         ],
         resize_keyboard=True,
