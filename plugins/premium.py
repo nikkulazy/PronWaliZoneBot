@@ -209,7 +209,7 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
                         f"- Invalid Screenshot\n"
                         f"- Payment not received\n"
                         f"- Wrong Amount\n\n"
-                        f"<i>Contact Admin for support.</i>"
+                        f"<i>Contact Admin for support @WOLVERIN_P.</i>"
                     )
                 except Exception as e:
                     print(f"Could not notify user: {e}")
