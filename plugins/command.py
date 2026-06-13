@@ -73,7 +73,7 @@ async def start_command(client, message: Message):
     # 🔥 सिर्फ रिप्लाई कीबोर्ड (बिना अतिरिक्त टेक्स्ट के)
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("💢 Get Video 💢")],
+            [KeyboardButton("Get Video")],
             [KeyboardButton("My plan"), KeyboardButton("Subscription")]
         ],
         resize_keyboard=True,
