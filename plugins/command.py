@@ -117,7 +117,7 @@ async def send_about_text(client, message):
     await message.reply_text(
         text=script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK),
         reply_markup=InlineKeyboardMarkup(inline_buttons),
-        disable_web_page_preview=True
+        disable_web_page_preview=True,
         await asyncio.sleep(30)
         await m.delete()
     )
