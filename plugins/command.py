@@ -79,7 +79,15 @@ async def start_command(client, message: Message):
         reply_markup=reply_keyboard,
         has_spoiler=True
     )
-
+except:
+                pass
+            # 🔥 60 सेकंड बाद डिलीट
+            await asyncio.sleep(60)
+            try:
+                await msg.delete()
+            except:
+                pass
+        else:
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
