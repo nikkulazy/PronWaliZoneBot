@@ -132,35 +132,25 @@ async def send_legal_text(client, message, text):
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
     ]]
-    sent_msg = await message.reply_text(
+    await message.reply_text(
         text=text,
         reply_markup=InlineKeyboardMarkup(inline_buttons),
         disable_web_page_preview=True
     )
-    await asyncio.sleep(60)
-    try:
-        await sent_msg.delete()
-    except:
-        pass
 
 async def send_about_text(client, message):
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
     ]]
-    sent_msg = await message.reply_text(
+    await message.reply_text(
         text=script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK),
         reply_markup=InlineKeyboardMarkup(inline_buttons),
         disable_web_page_preview=True
     )
-    await asyncio.sleep(60)
-    try:
-        await sent_msg.delete()
-    except:
-        pass
 
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER (सभी बटन के लिए)
+# 🔙 CALLBACK QUERY HANDLER (बिना fake message के - सीधा command भेजो)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -174,32 +164,36 @@ async def cb_handler(client: Client, query: CallbackQuery):
             pass
     
     elif data == "get_video":
-        await query.answer("🎬 Sending /getvideo command...", show_alert=False)
+        await query.answer("🎬 Getting video...", show_alert=False)
         try:
             await query.message.delete()
         except:
             pass
+        # 🔥 सीधा command send करो
         await client.send_message(user_id, "/getvideo")
     
     elif data == "myplan":
-        await query.answer("📊 Sending /myplan command...", show_alert=False)
+        await query.answer("📊 Your plan...", show_alert=False)
         try:
             await query.message.delete()
         except:
             pass
+        # 🔥 सीधा command send करो
         await client.send_message(user_id, "/myplan")
     
     elif data == "buy":
-        await query.answer("💎 Sending /buy command...", show_alert=False)
+        await query.answer("💎 Purchase...", show_alert=False)
         try:
             await query.message.delete()
         except:
             pass
+        # 🔥 सीधा command send करो
         await client.send_message(user_id, "/buy")
     
+    # पुराना get callback के लिए (Subscription button से)
     elif data == "get":
         buttons = [
-            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
+            [InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')]
         ]
         if QR_CODE_IMAGE:
             await query.message.reply_photo(
