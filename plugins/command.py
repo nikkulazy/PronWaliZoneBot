@@ -20,12 +20,6 @@ async def start_command(client, message: Message):
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
     
-    # कमांड वाला मैसेज डिलीट करो
-    try:
-        await message.delete()
-    except:
-        pass
-    
     if FSUB and not await is_user_joined(client, message):
         return
         
@@ -69,18 +63,16 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-    
-    # 🔥 सिर्फ रिप्लाई कीबोर्ड (बिना अतिरिक्त टेक्स्ट के)
+            
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("Get Video")],
+            [KeyboardButton("💢 Get Video 💢")],
             [KeyboardButton("My plan"), KeyboardButton("Subscription")]
         ],
         resize_keyboard=True,
         one_time_keyboard=False
     )
 
-    # सिर्फ फोटो भेजो (कोई अतिरिक्त टेक्स्ट नहीं)
     await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
