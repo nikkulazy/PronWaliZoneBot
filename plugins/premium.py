@@ -48,6 +48,7 @@ async def premium_user(client, message):
         with open('usersplan.txt', 'w+') as outfile:
             outfile.write(new)
         await message.reply_document('usersplan.txt', caption="Paid Users:")
+        await auto_delete_msg(doc_msg, 30)
 
 # -------------------------------------------------------------------------
 # 🛍️ BUY COMMAND (Shows Plan & QR Code)
