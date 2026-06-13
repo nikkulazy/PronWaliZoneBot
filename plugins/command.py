@@ -20,7 +20,7 @@ async def start_command(client, message: Message):
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
     
-    # Delete user command message
+    # कमांड वाला मैसेज डिलीट करो
     try:
         await message.delete()
     except:
@@ -70,13 +70,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
     
-    # Inline Buttons (फोटो के नीचे)
-    inline_buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Get Video 🎬", callback_data="get_video")],
-        [InlineKeyboardButton("📚 My Plan", callback_data="myplan"), InlineKeyboardButton("💎 Buy", callback_data="buy")]
-    ])
-    
-    # Reply Keyboard (नीचे टाइपिंग एरिया के ऊपर)
+    # 🔥 सिर्फ रिप्लाई कीबोर्ड (बिना अतिरिक्त टेक्स्ट के)
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("💢 Get Video 💢")],
@@ -86,26 +80,13 @@ async def start_command(client, message: Message):
         one_time_keyboard=False
     )
 
-    # Send Photo with inline buttons
-    sent_msg = await message.reply_photo(
+    # सिर्फ फोटो भेजो (कोई अतिरिक्त टेक्स्ट नहीं)
+    await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=inline_buttons,
+        reply_markup=reply_keyboard,
         has_spoiler=True
     )
-    
-    # Send reply keyboard separately
-    await message.reply_text(
-        "📱 **Use the buttons below:**",
-        reply_markup=reply_keyboard
-    )
-    
-    # Auto delete after 60 seconds
-    await asyncio.sleep(60)
-    try:
-        await sent_msg.delete()
-    except:
-        pass
 
 
 # =================================================
@@ -150,50 +131,18 @@ async def send_about_text(client, message):
 
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER (बिना fake message के - सीधा command भेजो)
+# 🔙 CALLBACK QUERY HANDLER
 # =========================================================
-@Client.on_callback_query()
+@Client.on_callback_query(filters.regex(r"^(close_data|get)$"))
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
     if data == "close_data":
-        try:
-            await query.message.delete()
-        except:
-            pass
-    
-    elif data == "get_video":
-        await query.answer("🎬 Getting video...", show_alert=False)
-        try:
-            await query.message.delete()
-        except:
-            pass
-        # 🔥 सीधा command send करो
-        await client.send_message(user_id, "/getvideo")
-    
-    elif data == "myplan":
-        await query.answer("📊 Your plan...", show_alert=False)
-        try:
-            await query.message.delete()
-        except:
-            pass
-        # 🔥 सीधा command send करो
-        await client.send_message(user_id, "/myplan")
-    
-    elif data == "buy":
-        await query.answer("💎 Purchase...", show_alert=False)
-        try:
-            await query.message.delete()
-        except:
-            pass
-        # 🔥 सीधा command send करो
-        await client.send_message(user_id, "/buy")
-    
-    # पुराना get callback के लिए (Subscription button से)
+        await query.message.delete()
     elif data == "get":
         buttons = [
-            [InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')]
+            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
         if QR_CODE_IMAGE:
             await query.message.reply_photo(
