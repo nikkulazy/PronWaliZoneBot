@@ -454,16 +454,13 @@ async def remove_premium(client, message):
             pass
 
 # =========================================================
-# 🎬 GET VIDEO BUTTON HANDLER
+# 🎬 GET VIDEO BUTTON HANDLER (premium.py में जोड़ो)
 # =========================================================
 @Client.on_callback_query(filters.regex("get_video"))
 async def get_video_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
-    await query.answer("💢 Get Video 💢", show_alert=False)
-    try:
-        await query.message.delete()
-    except:
-        pass
+    await query.answer("🎬 Getting video...", show_alert=False)
+    await query.message.delete()
     await client.send_message(user_id, "/getvideo")
 
 
@@ -471,10 +468,7 @@ async def get_video_callback(client, query: CallbackQuery):
 async def myplan_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
     await query.answer("📊 Your plan...", show_alert=False)
-    try:
-        await query.message.delete()
-    except:
-        pass
+    await query.message.delete()
     await client.send_message(user_id, "/myplan")
 
 
@@ -482,8 +476,5 @@ async def myplan_callback(client, query: CallbackQuery):
 async def buy_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
     await query.answer("💎 Purchase...", show_alert=False)
-    try:
-        await query.message.delete()
-    except:
-        pass
+    await query.message.delete()
     await client.send_message(user_id, "/buy")
