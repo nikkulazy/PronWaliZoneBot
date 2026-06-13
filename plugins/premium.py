@@ -48,7 +48,7 @@ async def premium_user(client, message):
         with open('usersplan.txt', 'w+') as outfile:
             outfile.write(new)
         await message.reply_document('usersplan.txt', caption="Paid Users:")
-        await asyncio.sleep(10)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
+        await asyncio.sleep(300)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
     try:
         await aa.delete()
     except:
@@ -92,6 +92,13 @@ async def buy_handler(client, message: Message):
             text=text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
+    
+    # 🔥 ये 4 लाइनें ऑटो-डिलीट के लिए
+    await asyncio.sleep(30)
+    try:
+        await sent_msg.delete()
+    except:
+        pass
 
 # -------------------------------------------------------------------------
 # 📸 SCREENSHOT HANDLER (Direct Auto-Forward to Admin) - FIXED
