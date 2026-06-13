@@ -48,7 +48,11 @@ async def premium_user(client, message):
         with open('usersplan.txt', 'w+') as outfile:
             outfile.write(new)
         await message.reply_document('usersplan.txt', caption="Paid Users:")
-        await auto_delete_msg(doc_msg, 30)
+        await asyncio.sleep(10)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
+    try:
+        await aa.delete()
+    except:
+        pass
 
 # -------------------------------------------------------------------------
 # 🛍️ BUY COMMAND (Shows Plan & QR Code)
