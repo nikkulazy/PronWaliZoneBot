@@ -72,7 +72,7 @@ async def start_command(client, message: Message):
     
     # Inline Buttons (फोटो के नीचे)
     inline_buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Get Video 🎬", callback_data="get_video")],
+        [InlineKeyboardButton("🎬 Get Video 🎬", callback_data="get video")],
         [InlineKeyboardButton("📚 My Plan", callback_data="myplan"), InlineKeyboardButton("💎 Buy", callback_data="buy")]
     ])
     
