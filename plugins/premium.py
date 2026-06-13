@@ -245,7 +245,7 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
         except Exception as e:
             print(f"Reject error: {e}")
             await callback_query.answer(f"Error: {str(e)}", show_alert=True)
-            await asyncio.sleep(300)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
+            await asyncio.sleep(30)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
     try:
         await aa.delete()
     except:
@@ -302,7 +302,7 @@ async def myplan_handler(_, m: Message):
 ⏰ 𝖤𝗑𝗉𝗂𝗋𝗒 𝖳𝗂𝗆𝖾 - {expiry_ist.strftime('%I:%M %p')}</i>"""
 
     await m.reply(text)
-    await asyncio.sleep(300)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
+    await asyncio.sleep(30)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
     try:
         await aa.delete()
     except:
@@ -355,7 +355,7 @@ async def give_premium_cmd_handler(client, message):
             await message.reply_text("Invalid time format. Please use '1 day', '1 hour', '1 min', '1 month', or '1 year'")
     else:
         await message.reply_text("Usage : /add_premium user_id time (e.g., '1 day', '1 hour', '1 min', '1 month', or '1 year')")
-        await asyncio.sleep(300)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
+        await asyncio.sleep(30)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
     try:
         await aa.delete()
     except:
@@ -388,7 +388,7 @@ async def remove_premium(client, message):
             await message.reply_text("ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?")
     else:
         await message.reply_text("ᴜꜱᴀɢᴇ : /remove_premium user_id")
-        await asyncio.sleep(300)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
+        await asyncio.sleep(30)  # 10 सेकंड बाद डिलीट होगा (अपनी मर्जी से 10 की जगह 30 या 5 लगा सकते हो)
     try:
         await aa.delete()
     except:
