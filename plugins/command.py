@@ -64,30 +64,30 @@ async def start_command(client, message: Message):
         except Exception:
             pass
     
+    # ✅ INLINE BUTTONS - BILKUL SAHI TAREEKA
     inline_keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
-        [
-            InlineKeyboardButton("🎭 HELP", callback_data='help'),
-            InlineKeyboardButton("🧑‍💻 ABOUT", callback_data='about')
-        ],
-        [InlineKeyboardButton("✨ Subscription ✨", callback_data='subscription')],
-        [InlineKeyboardButton("❌ Close", callback_data='close_data')]
-    ]
-)
+        inline_keyboard=[
+            [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
+            [
+                InlineKeyboardButton("🎭 HELP", callback_data='help'),
+                InlineKeyboardButton("🧑‍💻 ABOUT", callback_data='about')
+            ],
+            [InlineKeyboardButton("✨ Subscription ✨", callback_data='subscription')],
+            [InlineKeyboardButton("❌ Close", callback_data='close_data')]
+        ]
+    )
 
-await message.reply_photo(
-    photo=START_PIC,
-    caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-    reply_markup=inline_keyboard,
-    has_spoiler=True
-)
-await asyncio.sleep(30)
-try:
-    await message.delete()  # user ka /start command wala message
-    await sent_msg.delete()  # photo + buttons
-except:
-    pass
+    sent_msg = await message.reply_photo(
+        photo=START_PIC,
+        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+        reply_markup=inline_keyboard,
+        has_spoiler=True
+    )
+    
+    # ✅ 30 SECOND BAAD AUTO DELETE
+    asyncio.create_task(auto_delete_message(message, sent_msg, 30))
+
+
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
@@ -128,8 +128,21 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
+
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER - UPDATED WITH ALL BUTTONS
+# 🔙 AUTO DELETE FUNCTION
+# =========================================================
+async def auto_delete_message(original_msg, sent_msg, delay=30):
+    await asyncio.sleep(delay)
+    try:
+        await sent_msg.delete()
+        await original_msg.delete()
+    except:
+        pass
+
+
+# =========================================================
+# 🔙 CALLBACK QUERY HANDLER
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -146,31 +159,26 @@ async def cb_handler(client: Client, query: CallbackQuery):
             pass
         return
     
-    # Get Video button - calls handle_video_request
+    # Get Video button
     elif data == "get_video":
-        # Create a fake message object to pass to handle_video_request
+        # Call existing get_video handler
+        from plugins.get_video import handle_video_request
+        
+        # Create fake message object
         class FakeMessage:
-            def __init__(self, original_query):
-                self.from_user = original_query.from_user
-                self.chat = original_query.message.chat
-                self.id = original_query.message.id
-                self.reply = self._reply
-                self._client = client
-                self._original = original_query
+            def __init__(self, query):
+                self.from_user = query.from_user
+                self.chat = query.message.chat
+                self.id = query.message.id
+                self._query = query
             
-            async def _reply(self, text, **kwargs):
-                return await self._original.message.reply(text, **kwargs)
+            async def reply(self, text, **kwargs):
+                return await self._query.message.reply(text, **kwargs)
             
             async def reply_video(self, **kwargs):
-                return await self._original.message.reply_video(**kwargs)
-            
-            def __getattr__(self, name):
-                return getattr(self._original.message, name)
+                return await self._query.message.reply_video(**kwargs)
         
         fake_msg = FakeMessage(query)
-        
-        # Import and call handle_video_request
-        from plugins.get_video import handle_video_request
         await handle_video_request(client, fake_msg)
     
     # Help button
@@ -184,21 +192,21 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # My Plan button
     elif data == "myplan":
         from plugins.premium import myplan_handler
-        # Create fake message
+        
         class FakePlanMessage:
             def __init__(self, query):
                 self.from_user = query.from_user
                 self.chat = query.message.chat
                 self.reply = query.message.reply
                 self.id = query.message.id
-            async def reply(self, text, **kwargs):
-                return await query.message.reply(text, **kwargs)
+        
         fake_plan_msg = FakePlanMessage(query)
         await myplan_handler(client, fake_plan_msg)
     
     # Subscription button
     elif data == "subscription":
         from plugins.premium import buy_handler
+        
         class FakeBuyMessage:
             def __init__(self, query):
                 self.from_user = query.from_user
@@ -207,32 +215,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 self.reply_photo = query.message.reply_photo
                 self.reply_text = query.message.reply_text
                 self.id = query.message.id
-            async def reply_text(self, text, **kwargs):
-                return await query.message.reply(text, **kwargs)
+        
         fake_buy_msg = FakeBuyMessage(query)
         await buy_handler(client, fake_buy_msg)
     
-    # GIF button
-    elif data == "gif":
-        gif_buttons = [[
-            InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
-        ]]
-        await query.message.reply_text(
-            text="🎭 **GIF Section Coming Soon!**\n\nStay tuned for amazing GIFs.",
-            reply_markup=InlineKeyboardMarkup(gif_buttons)
-        )
-    
-    # WOW button
-    elif data == "wow":
-        wow_buttons = [[
-            InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
-        ]]
-        await query.message.reply_text(
-            text="😲 **Wow Section Coming Soon!**\n\nExciting content on the way!",
-            reply_markup=InlineKeyboardMarkup(wow_buttons)
-        )
-    
-    # Get/Purchase handler (existing)
+    # Existing get callback
     elif data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
