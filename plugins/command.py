@@ -63,23 +63,33 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-            
-    reply_keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton("💢 Get Video 💢")],
-            [KeyboardButton("My plan"), KeyboardButton("Subscription")]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
+    
+    # ✅ NEW: Screenshot jaisa InlineKeyboard - ReplyKeyboard removed
+    inline_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
+            [
+                InlineKeyboardButton("❓ HELP", callback_data='help'),
+                InlineKeyboardButton("ℹ️ ABOUT", callback_data='about')
+            ],
+            [
+                InlineKeyboardButton("📋 My Plan", callback_data='myplan'),
+                InlineKeyboardButton("💎 Subscription", callback_data='subscription')
+            ],
+            [
+                InlineKeyboardButton("🎭 GIF", callback_data='gif'),
+                InlineKeyboardButton("😲 WOW", callback_data='wow'),
+                InlineKeyboardButton("❌ Close", callback_data='close_data')
+            ]
+        ]
     )
 
     await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
+        reply_markup=inline_keyboard,
         has_spoiler=True
     )
-
 
 # =================================================
 # 📜 HELPER HANDLERS
@@ -121,17 +131,111 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
-
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER
+# 🔙 CALLBACK QUERY HANDLER - UPDATED WITH ALL BUTTONS
 # =========================================================
-@Client.on_callback_query(filters.regex(r"^(close_data|get)$"))
+@Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
-
+    
+    await query.answer()
+    
+    # Close button
     if data == "close_data":
-        await query.message.delete()
+        try:
+            await query.message.delete()
+        except:
+            pass
+        return
+    
+    # Get Video button - calls handle_video_request
+    elif data == "get_video":
+        # Create a fake message object to pass to handle_video_request
+        class FakeMessage:
+            def __init__(self, original_query):
+                self.from_user = original_query.from_user
+                self.chat = original_query.message.chat
+                self.id = original_query.message.id
+                self.reply = self._reply
+                self._client = client
+                self._original = original_query
+            
+            async def _reply(self, text, **kwargs):
+                return await self._original.message.reply(text, **kwargs)
+            
+            async def reply_video(self, **kwargs):
+                return await self._original.message.reply_video(**kwargs)
+            
+            def __getattr__(self, name):
+                return getattr(self._original.message, name)
+        
+        fake_msg = FakeMessage(query)
+        
+        # Import and call handle_video_request
+        from plugins.get_video import handle_video_request
+        await handle_video_request(client, fake_msg)
+    
+    # Help button
+    elif data == "help":
+        await send_legal_text(client, query.message, script.HELP_TXT)
+    
+    # About button
+    elif data == "about":
+        await send_about_text(client, query.message)
+    
+    # My Plan button
+    elif data == "myplan":
+        from plugins.premium import myplan_handler
+        # Create fake message
+        class FakePlanMessage:
+            def __init__(self, query):
+                self.from_user = query.from_user
+                self.chat = query.message.chat
+                self.reply = query.message.reply
+                self.id = query.message.id
+            async def reply(self, text, **kwargs):
+                return await query.message.reply(text, **kwargs)
+        fake_plan_msg = FakePlanMessage(query)
+        await myplan_handler(client, fake_plan_msg)
+    
+    # Subscription button
+    elif data == "subscription":
+        from plugins.premium import buy_handler
+        class FakeBuyMessage:
+            def __init__(self, query):
+                self.from_user = query.from_user
+                self.chat = query.message.chat
+                self.reply = query.message.reply
+                self.reply_photo = query.message.reply_photo
+                self.reply_text = query.message.reply_text
+                self.id = query.message.id
+            async def reply_text(self, text, **kwargs):
+                return await query.message.reply(text, **kwargs)
+        fake_buy_msg = FakeBuyMessage(query)
+        await buy_handler(client, fake_buy_msg)
+    
+    # GIF button
+    elif data == "gif":
+        gif_buttons = [[
+            InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
+        ]]
+        await query.message.reply_text(
+            text="🎭 **GIF Section Coming Soon!**\n\nStay tuned for amazing GIFs.",
+            reply_markup=InlineKeyboardMarkup(gif_buttons)
+        )
+    
+    # WOW button
+    elif data == "wow":
+        wow_buttons = [[
+            InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
+        ]]
+        await query.message.reply_text(
+            text="😲 **Wow Section Coming Soon!**\n\nExciting content on the way!",
+            reply_markup=InlineKeyboardMarkup(wow_buttons)
+        )
+    
+    # Get/Purchase handler (existing)
     elif data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
