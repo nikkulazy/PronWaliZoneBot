@@ -84,7 +84,7 @@ async def start_command(client, message: Message):
     )
     
     # ✅ 30 SECOND BAAD AUTO DELETE
-    asyncio.create_task(auto_delete_message(message, sent_msg, 30))
+    asyncio.create_task(auto_delete_message(message, sent_msg, 300))
 
 
 # =================================================
