@@ -64,28 +64,30 @@ async def start_command(client, message: Message):
         except Exception:
             pass
     
-    # ✅ NEW: Screenshot jaisa InlineKeyboard - ReplyKeyboard removed
     inline_keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
-            [
-                InlineKeyboardButton("🎭 HELP", callback_data='help'),
-                InlineKeyboardButton("🧑‍💻 ABOUT", callback_data='about')
-            ],
-                InlineKeyboardButton("✨ Subscription ✨", callback_data='subscription')
-            ],
-                InlineKeyboardButton("❌ Close", callback_data='close_data')
-            ]
-        ]
-    )
+    inline_keyboard=[
+        [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
+        [
+            InlineKeyboardButton("🎭 HELP", callback_data='help'),
+            InlineKeyboardButton("🧑‍💻 ABOUT", callback_data='about')
+        ],
+        [InlineKeyboardButton("✨ Subscription ✨", callback_data='subscription')],
+        [InlineKeyboardButton("❌ Close", callback_data='close_data')]
+    ]
+)
 
-    await message.reply_photo(
-        photo=START_PIC,
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=inline_keyboard,
-        has_spoiler=True
-    )
-
+await message.reply_photo(
+    photo=START_PIC,
+    caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+    reply_markup=inline_keyboard,
+    has_spoiler=True
+)
+await asyncio.sleep(30)
+try:
+    await message.delete()  # user ka /start command wala message
+    await sent_msg.delete()  # photo + buttons
+except:
+    pass
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
