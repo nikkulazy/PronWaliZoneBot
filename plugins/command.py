@@ -67,13 +67,12 @@ async def start_command(client, message: Message):
     # ✅ INLINE BUTTONS - BILKUL SAHI TAREEKA
     inline_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
+            [InlineKeyboardButton("💢𝗚𝗘𝗧 𝗩𝗜𝗗𝗘𝗢𝗦💢", callback_data='get_video')],
             [
-                InlineKeyboardButton("🎭 HELP", callback_data='help'),
-                InlineKeyboardButton("🧑‍💻 ABOUT", callback_data='about')
+                InlineKeyboardButton("ℹ️ ʜᴇʟᴘ", callback_data='help'),
+                InlineKeyboardButton("🧑‍💻 ᴀʙᴏᴜᴛ", callback_data='about')
             ],
-            [InlineKeyboardButton("✨ Subscription ✨", callback_data='subscription')],
-            [InlineKeyboardButton("❌ Close", callback_data='close_data')]
+            [InlineKeyboardButton("✨ɢᴇᴛ  ꜱᴜʙᴄᴏɴꜱᴄɪᴏᴜꜱ ᴀᴄᴄᴇꜱꜱ✨", callback_data='subscription')],
         ]
     )
 
