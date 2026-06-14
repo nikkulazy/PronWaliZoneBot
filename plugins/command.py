@@ -69,16 +69,11 @@ async def start_command(client, message: Message):
         inline_keyboard=[
             [InlineKeyboardButton("🎬 Get Video", callback_data='get_video')],
             [
-                InlineKeyboardButton("❓ HELP", callback_data='help'),
-                InlineKeyboardButton("ℹ️ ABOUT", callback_data='about')
+                InlineKeyboardButton("🎭 HELP", callback_data='help'),
+                InlineKeyboardButton("🧑‍💻 ABOUT", callback_data='about')
             ],
-            [
-                InlineKeyboardButton("📋 My Plan", callback_data='myplan'),
-                InlineKeyboardButton("💎 Subscription", callback_data='subscription')
+                InlineKeyboardButton("✨ Subscription ✨", callback_data='subscription')
             ],
-            [
-                InlineKeyboardButton("🎭 GIF", callback_data='gif'),
-                InlineKeyboardButton("😲 WOW", callback_data='wow'),
                 InlineKeyboardButton("❌ Close", callback_data='close_data')
             ]
         ]
