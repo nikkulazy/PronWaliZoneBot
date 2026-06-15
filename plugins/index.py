@@ -15,6 +15,13 @@ INDEX_CACHE = {}
 # =================================================
 # 📥 CALLBACK QUERY HANDLER (Fixed)
 # =================================================
+# ============== DEBUG - ALL CALLBACKS ==============
+@Client.on_callback_query()
+async def debug_all_callbacks(client, query):
+    print(f"🔴🔴🔴 DEBUG: {query.data} from user {query.from_user.id}")
+    # Yaha kuch mat karo, sirf print karo
+# ===================================================
+
 @Client.on_callback_query(filters.regex(r'^index'))
 async def index_files(bot, query):
     action = query.data.split("#")[1] # yes, start_main, start_brazzers, cancel
