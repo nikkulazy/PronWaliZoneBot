@@ -43,11 +43,11 @@ async def get_stats(bot, message: Message):
         await aVBOTz.edit(f"❌ **Error in Stats Format:** {e}")
 
 # ---------------------------------------------------------------------------------
-# 🗑 DELETE ALL FILES COMMAND
+# 🗑 DELETE ALL FILES COMMAND (FIXED - No callback handler here)
 # ---------------------------------------------------------------------------------
 @Client.on_message(filters.command("deleteall") & filters.user(ADMINS))
 async def delete_command_handler(client, message):
-    # Buttons banate hain selection ke liye
+    # Buttons for selection
     buttons = [
         [
             InlineKeyboardButton("🗑 Delete Main Videos", callback_data="del_ask_main"),
@@ -64,55 +64,6 @@ async def delete_command_handler(client, message):
         "Select karne ke baad confirmation mangunga.",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
-
-# --- Callback Query Handler (Button Click Handle karne ke liye) ---
-@Client.on_callback_query(filters.regex(r"^del_"))
-async def delete_callback_handler(client, callback: CallbackQuery):
-    data = callback.data
-    
-    # 1. Cancel logic
-    if data == "del_cancel":
-        await callback.message.delete()
-        return
-
-    # 2. Confirmation Logic (User ne select kiya, ab confirm karega)
-    if data == "del_ask_main":
-        await callback.message.edit(
-            "⚠️ **CONFIRMATION: MAIN VIDEOS**\n\n"
-            "Kya aap sach mein **Main Videos & History** delete karna chahte hain?",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Yes, Delete Main", callback_data="del_confirm_main")],
-                [InlineKeyboardButton("❌ No, Cancel", callback_data="del_cancel")]
-            ])
-        )
-    
-    elif data == "del_ask_brazzers":
-        await callback.message.edit(
-            "⚠️ **CONFIRMATION: BRAZZERS**\n\n"
-            "Kya aap sach mein **Brazzers Videos & History** delete karna chahte hain?",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Yes, Delete Brazzers", callback_data="del_confirm_brazzers")],
-                [InlineKeyboardButton("❌ No, Cancel", callback_data="del_cancel")]
-            ])
-        )
-
-    # 3. Execution Logic (Database se delete karna)
-    elif data == "del_confirm_main":
-        await callback.message.edit("⏳ **Deleting Main Videos... Please wait.**")
-        try:
-            await db.delete_main_data() # Database function call
-            await callback.message.edit("✅ **Successfully deleted ALL Main Videos and History!**")
-        except Exception as e:
-            await callback.message.edit(f"❌ Error: {e}")
-
-    elif data == "del_confirm_brazzers":
-        await callback.message.edit("⏳ **Deleting Brazzers Data... Please wait.**")
-        try:
-            await db.delete_brazzers_data() # Database function call
-            await callback.message.edit("✅ **Successfully deleted ALL Brazzers Videos and History!**")
-        except Exception as e:
-            await callback.message.edit(f"❌ Error: {e}")
-            
 
 # ---------------------------------------------------------------------------------
 # 📈 ACTIVE USERS REPORT COMMAND
