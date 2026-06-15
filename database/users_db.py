@@ -494,7 +494,6 @@ class Database:
         })
         return level1_count
 
-# Delete all main videos
 async def delete_all_main_videos(self):
     try:
         result = await self.videos.delete_many({})
@@ -503,7 +502,6 @@ async def delete_all_main_videos(self):
         print(f"Delete main videos error: {e}")
         return 0
 
-# Delete all brazzers videos  
 async def delete_all_brazzers_videos(self):
     try:
         result = await self.brazzers_videos.delete_many({})
