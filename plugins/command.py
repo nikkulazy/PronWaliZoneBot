@@ -5,7 +5,7 @@ from pyrogram.types import *
 from pyrogram.errors import *
 from Script import script
 from database.users_db import db
-from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID
+from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, ADMINS
 from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
@@ -149,6 +149,62 @@ async def cb_handler(client: Client, query: CallbackQuery):
     
     await query.answer()
     
+    # ========== DELETE COMMAND CALLBACKS (FIXED) ==========
+    
+    # Cancel button for delete
+    if data == "del_cancel":
+        try:
+            await query.message.delete()
+        except:
+            pass
+        return
+
+    # Ask confirmation for Main Videos delete
+    if data == "del_ask_main":
+        await query.message.edit(
+            "⚠️ **CONFIRMATION: MAIN VIDEOS**\n\n"
+            "Kya aap sach mein **Main Videos & History** delete karna chahte hain?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Yes, Delete Main", callback_data="del_confirm_main")],
+                [InlineKeyboardButton("❌ No, Cancel", callback_data="del_cancel")]
+            ])
+        )
+        return
+    
+    # Ask confirmation for Brazzers delete
+    if data == "del_ask_brazzers":
+        await query.message.edit(
+            "⚠️ **CONFIRMATION: BRAZZERS**\n\n"
+            "Kya aap sach mein **Brazzers Videos & History** delete karna chahte hain?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Yes, Delete Brazzers", callback_data="del_confirm_brazzers")],
+                [InlineKeyboardButton("❌ No, Cancel", callback_data="del_cancel")]
+            ])
+        )
+        return
+
+    # Actually delete Main Videos
+    if data == "del_confirm_main":
+        await query.message.edit("⏳ **Deleting Main Videos... Please wait.**")
+        try:
+            result = await db.delete_all_main_videos()
+            await query.message.edit(f"✅ **Successfully deleted {result} Main Videos and History!**")
+        except Exception as e:
+            await query.message.edit(f"❌ Error: {e}")
+        return
+
+    # Actually delete Brazzers Videos
+    if data == "del_confirm_brazzers":
+        await query.message.edit("⏳ **Deleting Brazzers Data... Please wait.**")
+        try:
+            result = await db.delete_all_brazzers_videos()
+            await query.message.edit(f"✅ **Successfully deleted {result} Brazzers Videos and History!**")
+        except Exception as e:
+            await query.message.edit(f"❌ Error: {e}")
+        return
+    
+    # ========== NORMAL CALLBACKS ==========
+    
     # Close button
     if data == "close_data":
         try:
@@ -201,27 +257,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await myplan_handler(client, query.message)
         return
     
-    # Delete Main Video button
-    if data == "delete_main":
-        await query.answer("🗑 Deleting Main Videos...", show_alert=True)
-        result = await db.delete_all_main_videos()
-        await query.message.edit_text(f"✅ {result} Main Videos Deleted Successfully!")
-        return
-    
-    # Delete Brazzers button
-    if data == "delete_brazzers":
-        await query.answer("🗑 Deleting Brazzers Videos...", show_alert=True)
-        result = await db.delete_all_brazzers_videos()
-        await query.message.edit_text(f"✅ {result} Brazzers Videos Deleted Successfully!")
-        return
-    
-    # Cancel delete button
-    if data == "cancel_delete":
-        await query.answer("❌ Delete Cancelled!")
-        await query.message.delete()
-        return
-    
-    # Existing get callback
+    # Get button (for payment)
     if data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
