@@ -13,32 +13,17 @@ lock = asyncio.Lock()
 INDEX_CACHE = {}
 
 # =================================================
-# 📥 CALLBACK QUERY HANDLER (FIXED - Sab button kaam karenge)
+# 📥 CALLBACK QUERY HANDLER (Fixed)
 # =================================================
-@Client.on_callback_query()
+@Client.on_callback_query(filters.regex(r'^index'))
 async def index_files(bot, query):
-    data = query.data
+    action = query.data.split("#")[1] # yes, start_main, start_brazzers, cancel
     user_id = query.from_user.id
-    
-    await query.answer()
-    
-    # Close button
-    if data == 'close_data':
-        try:
-            await query.message.delete()
-        except:
-            pass
-        return
-    
-    # Index button handle karo
-    if not data.startswith('index#'):
-        return
-    
-    action = data.split("#")[1]
-    
+
     # Cancel Action
     if action == 'cancel':
         temp.CANCEL = True
+        # Clear cache if exists
         if user_id in INDEX_CACHE:
             del INDEX_CACHE[user_id]
         await query.message.edit("🛑 Indexing Cancelled.")
@@ -51,20 +36,21 @@ async def index_files(bot, query):
         return
 
     # Fetch Data from Cache
-    data_cache = INDEX_CACHE[user_id]
-    chat = data_cache['chat']
-    lst_msg_id = data_cache['lst_msg_id']
-    skip = data_cache['skip']
+    data = INDEX_CACHE[user_id]
+    chat = data['chat']
+    lst_msg_id = data['lst_msg_id']
+    skip = data['skip']
 
-    # YES button - Selection Menu
+    # Step 1: Selection Menu show karo
     if action == 'yes':
         buttons = [
             [
-                InlineKeyboardButton('🎬 Video Index', callback_data='index#start_main'),
-                InlineKeyboardButton('🔞 Brazzers Index', callback_data='index#start_brazzers')
+                # Ab hume data pass karne ki jarurat nahi, data already cache me hai
+                InlineKeyboardButton('🎬 Video Index', callback_data=f'index#start_main'),
+                InlineKeyboardButton('🔞 Brazzers Index', callback_data=f'index#start_brazzers')
             ],
             [
-                InlineKeyboardButton('❌ Cancel', callback_data='index#cancel')
+                InlineKeyboardButton('❌ No Index', callback_data='index#cancel')
             ]
         ]
         
@@ -72,40 +58,33 @@ async def index_files(bot, query):
             text="<b>📂 Select Database to Save Files:</b>",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
-        return
 
-    # Start Main Video Indexing
-    elif action == 'start_main':
-        await query.message.edit(f"<b>🚀 Main Video Indexing started...</b>")
-        await index_files_to_db(lst_msg_id, chat, query.message, bot, skip, "main")
+    elif action.startswith('start_'):
+        target_db = action.replace('start_', '') # 'main' or 'brazzers'
+        db_name = "Brazzers" if target_db == "brazzers" else "Main Video"
+        
+        await query.message.edit(f"<b>🚀 {db_name} Indexing started from ID: {skip}...</b>")
+        
+        # Start Indexing
+        await index_files_to_db(lst_msg_id, chat, query.message, bot, skip, target_db)
+        
+        # Cleanup Cache after finish
         if user_id in INDEX_CACHE:
             del INDEX_CACHE[user_id]
-        return
-    
-    # Start Brazzers Indexing
-    elif action == 'start_brazzers':
-        await query.message.edit(f"<b>🚀 Brazzers Indexing started...</b>")
-        await index_files_to_db(lst_msg_id, chat, query.message, bot, skip, "brazzers")
-        if user_id in INDEX_CACHE:
-            del INDEX_CACHE[user_id]
-        return
 
 # =================================================
 # 📥 COMMAND HANDLER (/index)
 # =================================================
 @Client.on_message(filters.command('index') & filters.private & filters.incoming & filters.user(ADMINS))
-async def send_for_index(bot, message: Message):
+async def send_for_index(bot, message):
     if lock.locked():
         return await message.reply('⚠️ Wait until previous process completes.')
         
     i = await message.reply("Forward last message from channel OR send last message link.")
-    
     try:
         msg = await bot.listen(chat_id=message.chat.id, user_id=message.from_user.id)
     except Exception as e:
-        await i.delete()
         return await message.reply(f"Listener Error: {e}")
-    
     await i.delete()
     
     last_msg_id = 0
@@ -138,17 +117,17 @@ async def send_for_index(bot, message: Message):
         return await message.reply(f'Error: {e}')
 
     s = await message.reply("Send skip message number (e.g., 0).")
-    
     try:
         msg = await bot.listen(chat_id=message.chat.id, user_id=message.from_user.id)
         skip = int(msg.text)
     except:
         await s.delete()
         return await message.reply("❌ Invalid Number.")
-    
     await s.delete()
 
-    # Store in Cache
+    # ----------------------------------------------------
+    # FIX: Store Data in Dictionary instead of Callback Data
+    # ----------------------------------------------------
     INDEX_CACHE[message.from_user.id] = {
         'chat': chat.id,
         'lst_msg_id': last_msg_id,
@@ -156,9 +135,10 @@ async def send_for_index(bot, message: Message):
     }
 
     buttons = [[
-        InlineKeyboardButton('✅ YES', callback_data='index#yes')
+        # Sirf 'yes' bhejeinge, baki data cache se lenge
+        InlineKeyboardButton('YES', callback_data='index#yes')
     ],[
-        InlineKeyboardButton('🔚 CLOSE', callback_data='close_data'),
+        InlineKeyboardButton('CLOSE', callback_data='close_data'),
     ]]
     reply_markup = InlineKeyboardMarkup(buttons)
     
@@ -171,7 +151,7 @@ async def send_for_index(bot, message: Message):
     )
 
 # =================================================
-# ⚙️ MAIN INDEXING LOGIC
+# ⚙️ MAIN INDEXING LOGIC (Same as before)
 # =================================================
 async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
     start_time = time.time()
@@ -235,9 +215,10 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                         file_id = media.file_id
                         file_unique_id = media.file_unique_id
                         
-                        # DB SELECTION LOGIC
+                        # --- DB SELECTION LOGIC ---
                         if target_db == "brazzers":
                             is_new = await db.add_brazzers_video(file_unique_id, file_id)
+                            # Handle None return if your DB function doesn't return bool
                             if is_new is None: is_new = True 
                         else:
                             is_new = await db.add_video(file_unique_id, file_id)
@@ -261,7 +242,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                 
                 db_label = "🔞 Brazzers" if target_db == "brazzers" else "🎬 Video"
 
-                btn = [[InlineKeyboardButton('🛑 CANCEL', callback_data='index#cancel')]]
+                btn = [[InlineKeyboardButton('CANCEL', callback_data=f'index#cancel')]]
                 
                 try:
                     await msg.edit(
@@ -288,7 +269,7 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
             await msg.edit(
                 f"✅ <b>{db_label} Indexing Completed!</b>\n"
                 f"⏱ Time: {time_taken}\n"
-                f"📥 Total Scanned: <code>{lst_msg_id - skip}</code>\n"
+                f"📥 Total Scanned: <code>{lst_msg_id}</code>\n"
                 f"✅ Saved: <code>{total_files}</code>\n"
                 f"♻️ Duplicates: <code>{duplicate}</code>\n"
                 f"🗑 Deleted: <code>{deleted}</code>\n"
@@ -298,3 +279,4 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
 
         except Exception as e:
             await msg.edit(f"❌ Critical Error: {e}")
+    
