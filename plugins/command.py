@@ -64,7 +64,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
     
-    # ✅ INLINE BUTTONS - BILKUL SAHI TAREEKA
+    # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton("💢𝗚𝗘𝗧 𝗩𝗜𝗗𝗘𝗢𝗦💢", callback_data='get_video')],
@@ -72,7 +72,7 @@ async def start_command(client, message: Message):
                 InlineKeyboardButton("ℹ️ ʜᴇʟᴘ", callback_data='help'),
                 InlineKeyboardButton("🧑‍💻 ᴀʙᴏᴜᴛ", callback_data='about')
             ],
-            [InlineKeyboardButton("✨ɢᴇᴛ  ꜱᴜʙᴄᴏɴꜱᴄɪᴏᴜꜱ ᴀᴄᴄᴇꜱꜱ✨", callback_data='subscription')],
+            [InlineKeyboardButton("✨ɢᴇᴛ ꜱᴜʙꜱᴄʀɪᴘᴛɪᴏɴ ᴀᴄᴄᴇꜱꜱ✨", callback_data='subscription')],
         ]
     )
 
@@ -83,7 +83,7 @@ async def start_command(client, message: Message):
         has_spoiler=True
     )
     
-    # ✅ 30 SECOND BAAD AUTO DELETE
+    # ✅ 5 MINUTE BAAD AUTO DELETE
     asyncio.create_task(auto_delete_message(message, sent_msg, 300))
 
 
@@ -141,12 +141,11 @@ async def auto_delete_message(original_msg, sent_msg, delay=30):
 
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER
+# 🔙 CALLBACK QUERY HANDLER - COMPLETE FIXED VERSION
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
-    user_id = query.from_user.id
     
     await query.answer()
     
@@ -159,67 +158,71 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
     
     # Get Video button
-    elif data == "get_video":
-        # Call existing get_video handler
+    if data == "get_video":
         from plugins.get_video import handle_video_request
-        
-        # Create fake message object
-        class FakeMessage:
-            def __init__(self, query):
-                self.from_user = query.from_user
-                self.chat = query.message.chat
-                self.id = query.message.id
-                self._query = query
-            
-            async def reply(self, text, **kwargs):
-                return await self._query.message.reply(text, **kwargs)
-            
-            async def reply_video(self, **kwargs):
-                return await self._query.message.reply_video(**kwargs)
-        
-        fake_msg = FakeMessage(query)
-        await handle_video_request(client, fake_msg)
+        try:
+            await handle_video_request(client, query.message)
+        except Exception as e:
+            print(f"Get Video Error: {e}")
+            await query.message.reply_text("❌ Error getting video. Please try /getvideo command.")
+        return
     
     # Help button
-    elif data == "help":
-        await send_legal_text(client, query.message, script.HELP_TXT)
+    if data == "help":
+        text = script.HELP_TXT
+        btn = [[InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')]]
+        await query.message.reply_text(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(btn),
+            disable_web_page_preview=True
+        )
+        return
     
     # About button
-    elif data == "about":
-        await send_about_text(client, query.message)
-    
-    # My Plan button
-    elif data == "myplan":
-        from plugins.premium import myplan_handler
-        
-        class FakePlanMessage:
-            def __init__(self, query):
-                self.from_user = query.from_user
-                self.chat = query.message.chat
-                self.reply = query.message.reply
-                self.id = query.message.id
-        
-        fake_plan_msg = FakePlanMessage(query)
-        await myplan_handler(client, fake_plan_msg)
+    if data == "about":
+        text = script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK)
+        btn = [[InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')]]
+        await query.message.reply_text(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(btn),
+            disable_web_page_preview=True
+        )
+        return
     
     # Subscription button
-    elif data == "subscription":
+    if data == "subscription":
         from plugins.premium import buy_handler
-        
-        class FakeBuyMessage:
-            def __init__(self, query):
-                self.from_user = query.from_user
-                self.chat = query.message.chat
-                self.reply = query.message.reply
-                self.reply_photo = query.message.reply_photo
-                self.reply_text = query.message.reply_text
-                self.id = query.message.id
-        
-        fake_buy_msg = FakeBuyMessage(query)
-        await buy_handler(client, fake_buy_msg)
+        await buy_handler(client, query.message)
+        return
+    
+    # My Plan button
+    if data == "myplan":
+        from plugins.premium import myplan_handler
+        await myplan_handler(client, query.message)
+        return
+    
+    # Delete Main Video button
+    if data == "delete_main":
+        await query.answer("🗑 Deleting Main Videos...", show_alert=True)
+        result = await db.delete_all_main_videos()
+        await query.message.edit_text(f"✅ {result} Main Videos Deleted Successfully!")
+        return
+    
+    # Delete Brazzers button
+    if data == "delete_brazzers":
+        await query.answer("🗑 Deleting Brazzers Videos...", show_alert=True)
+        result = await db.delete_all_brazzers_videos()
+        await query.message.edit_text(f"✅ {result} Brazzers Videos Deleted Successfully!")
+        return
+    
+    # Cancel delete button
+    if data == "cancel_delete":
+        await query.answer("❌ Delete Cancelled!")
+        await query.message.delete()
+        return
     
     # Existing get callback
-    elif data == "get":
+    if data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -236,27 +239,4 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
-
-# =========================================================
-# 🔙 DELETE CALLBACK HANDLERS - ADD IN cb_handler
-# =========================================================
-
-# Delete Main Video button
-elif data == "delete_main":
-    await query.answer("🗑 Deleting Main Videos...", show_alert=True)
-    # Call delete function for main videos
-    from database.users_db import db
-    result = await db.delete_all_main_videos()
-    await query.message.edit_text(f"✅ {result} Main Videos Deleted Successfully!")
-
-# Delete Brazzers button  
-elif data == "delete_brazzers":
-    await query.answer("🗑 Deleting Brazzers Videos...", show_alert=True)
-    from database.users_db import db
-    result = await db.delete_all_brazzers_videos()
-    await query.message.edit_text(f"✅ {result} Brazzers Videos Deleted Successfully!")
-
-# Cancel delete
-elif data == "cancel_delete":
-    await query.answer("❌ Delete Cancelled!")
-    await query.message.delete()
+        return
