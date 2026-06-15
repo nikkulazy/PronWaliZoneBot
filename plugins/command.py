@@ -121,7 +121,7 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER (FIXED: only for close & get)
+# 🔙 CALLBACK QUERY HANDLER (FIXED - Only for close_data & get)
 # =========================================================
 @Client.on_callback_query(filters.regex(r"^(close_data|get)$"))
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -134,7 +134,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
-        # Check if QR code exists
         if QR_CODE_IMAGE:
             await query.message.reply_photo(
                 photo=QR_CODE_IMAGE,
