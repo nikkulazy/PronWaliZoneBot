@@ -236,3 +236,27 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
+
+# =========================================================
+# 🔙 DELETE CALLBACK HANDLERS - ADD IN cb_handler
+# =========================================================
+
+# Delete Main Video button
+elif data == "delete_main":
+    await query.answer("🗑 Deleting Main Videos...", show_alert=True)
+    # Call delete function for main videos
+    from database.users_db import db
+    result = await db.delete_all_main_videos()
+    await query.message.edit_text(f"✅ {result} Main Videos Deleted Successfully!")
+
+# Delete Brazzers button  
+elif data == "delete_brazzers":
+    await query.answer("🗑 Deleting Brazzers Videos...", show_alert=True)
+    from database.users_db import db
+    result = await db.delete_all_brazzers_videos()
+    await query.message.edit_text(f"✅ {result} Brazzers Videos Deleted Successfully!")
+
+# Cancel delete
+elif data == "cancel_delete":
+    await query.answer("❌ Delete Cancelled!")
+    await query.message.delete()
