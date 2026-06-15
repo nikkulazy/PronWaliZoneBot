@@ -149,8 +149,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
     
     await query.answer()
     
-    # ========== DELETE COMMAND CALLBACKS (FIXED) ==========
+    # ========== INDEX CALLBACK - YEH SABSE PEHLE CHECK HOGA ==========
+    if data == 'index#yes' or data.startswith('index#'):
+        from plugins.index import index_files
+        await index_files(client, query)
+        return
     
+    # ========== DELETE COMMAND CALLBACKS ==========
     # Cancel button for delete
     if data == "del_cancel":
         try:
