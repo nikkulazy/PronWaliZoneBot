@@ -9,16 +9,10 @@ from pyrogram.errors.exceptions.bad_request_400 import MessageTooLong
 from utils import temp, get_seconds
 
 # -------------------------------------------------------------------------
-# 📋 ADMIN: LIST PREMIUM USERS (60 Sec Auto-Delete)
+# 📋 ADMIN: LIST PREMIUM USERS
 # -------------------------------------------------------------------------
 @Client.on_message(filters.command("premium_user") & filters.user(ADMINS))
 async def premium_user(client, message):
-    # कमांड मैसेज डिलीट करो
-    try:
-        await message.delete()
-    except:
-        pass
-    
     aa = await message.reply_text("Fetching ...")  
     users = await db.get_all_users()
     users_list = []
@@ -48,27 +42,15 @@ async def premium_user(client, message):
             )
             new_users.append(user_str)
     new = "Paid Users - \n\n" + "\n".join(new_users)   
-    
-    doc_msg = None
     try:
         await aa.edit_text(new)
     except MessageTooLong:
-        with open('usersplan.txt', 'w+', encoding='utf-8') as outfile:
+        with open('usersplan.txt', 'w+') as outfile:
             outfile.write(new)
-        doc_msg = await message.reply_document('usersplan.txt', caption="Paid Users:")
-    
-    # 🔥 60 सेकंड बाद डिलीट
-    await asyncio.sleep(60)
-    try:
-        await aa.delete()
-        if doc_msg:
-            await doc_msg.delete()
-    except:
-        pass
-
+        await message.reply_document('usersplan.txt', caption="Paid Users:")
 
 # -------------------------------------------------------------------------
-# 🛍️ BUY COMMAND (60 Sec Auto-Delete)
+# 🛍️ BUY COMMAND (Shows Plan & QR Code)
 # -------------------------------------------------------------------------
 @Client.on_message(filters.command("buy") | filters.regex(r"(?i)Subscription"))
 async def buy_handler(client, message: Message):
@@ -87,50 +69,27 @@ async def buy_handler(client, message: Message):
         await client.send_message(PREMIUM_LOGS, log_text)
     except Exception as e:
         print(f"Failed to send log to PREMIUM_LOGS: {e}")
-    
-    # यूजर का कमांड मैसेज डिलीट करो
-    try:
-        await message.delete()
-    except:
-        pass
-    
     if is_premium:
-        msg = await message.reply_text("✅ 𝖸𝗈𝗎 𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾𝖽 𝖮𝗎𝗋 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇! 𝖤𝗇𝗃𝗈𝗒 𝖸𝗈𝗎𝗋 𝖡𝖾𝗇𝖾𝖿𝗂𝗍.", quote=True)
-        await asyncio.sleep(60)
-        try:
-            await msg.delete()
-        except:
-            pass
+        await message.reply_text("✅ 𝖸𝗈𝗎 𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾𝖽 𝖮𝗎𝗋 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇! 𝖤𝗇𝗃𝗈𝗒 𝖸𝗈𝗎𝗋 𝖡𝖾𝗇𝖾𝖿𝗂𝗍.", quote=True)
         return
-    
     text = script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID)
     btn = [
         [InlineKeyboardButton('✖️ ᴄʟᴏsᴇ ✖️', callback_data='close_data')]
     ]
-    
-    sent_msg = None
     if QR_CODE_IMAGE:
-        sent_msg = await message.reply_photo(
+        await message.reply_photo(
             photo=QR_CODE_IMAGE,
             caption=text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
     else:
-        sent_msg = await message.reply_text(
+        await message.reply_text(
             text=text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
-    
-    # 🔥 60 सेकंड बाद डिलीट
-    await asyncio.sleep(60)
-    try:
-        await sent_msg.delete()
-    except:
-        pass
-
 
 # -------------------------------------------------------------------------
-# 📸 SCREENSHOT HANDLER (60 Sec Auto-Delete)
+# 📸 SCREENSHOT HANDLER (Direct Auto-Forward to Admin) - FIXED
 # -------------------------------------------------------------------------
 @Client.on_message(filters.photo & filters.private)
 async def payment_screenshot_handler(client, message: Message):
@@ -139,6 +98,7 @@ async def payment_screenshot_handler(client, message: Message):
     user_note = message.caption if message.caption else "No caption provided"
     msg = await message.reply_text("🔄 Sending payment screenshot to Admins... Please wait.")
     
+    # ✅ FIXED: Callback data में special characters नहीं होने चाहिए
     admin_btns = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝗗𝗮𝘆)", callback_data=f"approve_{user_id}_1"),
@@ -160,33 +120,21 @@ async def payment_screenshot_handler(client, message: Message):
             reply_markup=admin_btns
         )
         await msg.edit_text("✅ Screenshot sent!\nAdmin will verify and activate your plan shortly.")
-        # 🔥 60 सेकंड बाद यूजर का मैसेज डिलीट
-        await asyncio.sleep(60)
-        try:
-            await msg.delete()
-            await message.delete()
-        except:
-            pass
     except Exception as e:
-        error_msg = await msg.edit_text(f"❌ Error sending to admin: {e}")
-        await asyncio.sleep(60)
-        try:
-            await error_msg.delete()
-            await message.delete()
-        except:
-            pass
-
+        await msg.edit_text(f"❌ Error sending to admin: {e}")
 
 # -------------------------------------------------------------------------
-# ✅ MAIN CALLBACK HANDLER (SINGLE HANDLER FOR ALL)
+# ✅ MAIN CALLBACK HANDLER (SINGLE HANDLER FOR ALL) - FIXED
 # -------------------------------------------------------------------------
 @Client.on_callback_query()
 async def handle_all_callbacks(client, callback_query: CallbackQuery):
     data = callback_query.data
     admin_id = callback_query.from_user.id
     
+    # ✅ Always answer callback first
     await callback_query.answer()
     
+    # Close button handler
     if data == "close_data":
         try:
             await callback_query.message.delete()
@@ -194,7 +142,9 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
             pass
         return
     
+    # ✅ Approve Payment Handler
     if data.startswith("approve_"):
+        # Check if user is admin
         if admin_id not in ADMINS:
             await callback_query.answer("❌ You are not authorized!", show_alert=True)
             return
@@ -205,10 +155,12 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
                 user_id = int(parts[1])
                 days = int(parts[2])
                 
+                # Add premium access
                 new_expiry = await db.add_premium_access(user_id, days)
                 expiry_ist = new_expiry.astimezone(pytz.timezone("Asia/Kolkata"))
                 expiry_str = expiry_ist.strftime("%d-%m-%Y %I:%M %p")
                 
+                # Notify user
                 try:
                     await client.send_message(
                         user_id,
@@ -220,20 +172,25 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
                 except Exception as e:
                     print(f"Could not notify user: {e}")
                 
+                # Update admin message
                 await callback_query.message.edit_caption(
                     caption=f"✅ <b>Approved by {callback_query.from_user.mention}</b>\n\n"
                            f"🆔 User: <code>{user_id}</code>\n"
                            f"⏳ Added: {days} Days\n"
                            f"📅 Expires: {expiry_str}"
                 )
+                
                 await callback_query.answer(f"✅ Approved {days} days for user {user_id}", show_alert=True)
             else:
                 await callback_query.answer("Invalid data format!", show_alert=True)
+                
         except Exception as e:
             print(f"Approve error: {e}")
             await callback_query.answer(f"Error: {str(e)}", show_alert=True)
     
+    # ✅ Reject Payment Handler
     elif data.startswith("reject_"):
+        # Check if user is admin
         if admin_id not in ADMINS:
             await callback_query.answer("❌ You are not authorized!", show_alert=True)
             return
@@ -243,6 +200,7 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
             if len(parts) >= 2:
                 user_id = int(parts[1])
                 
+                # Notify user
                 try:
                     await client.send_message(
                         user_id,
@@ -251,25 +209,27 @@ async def handle_all_callbacks(client, callback_query: CallbackQuery):
                         f"- Invalid Screenshot\n"
                         f"- Payment not received\n"
                         f"- Wrong Amount\n\n"
-                        f"<i>Contact Admin for support @WOLVERIN_P.</i>"
+                        f"<i>Contact Admin for support.</i>"
                     )
                 except Exception as e:
                     print(f"Could not notify user: {e}")
                 
+                # Update admin message
                 await callback_query.message.edit_caption(
                     caption=f"❌ <b>Rejected by {callback_query.from_user.mention}</b>\n\n"
                            f"🆔 User: <code>{user_id}</code>"
                 )
+                
                 await callback_query.answer(f"❌ Rejected payment for user {user_id}", show_alert=True)
             else:
                 await callback_query.answer("Invalid data format!", show_alert=True)
+                
         except Exception as e:
             print(f"Reject error: {e}")
             await callback_query.answer(f"Error: {str(e)}", show_alert=True)
 
-
 # -------------------------------------------------------------------------
-# 👤 MY PLAN COMMAND (60 Sec Auto-Delete)
+# 👤 MY PLAN COMMAND
 # -------------------------------------------------------------------------
 @Client.on_message((filters.command("myplan") | filters.regex(r"(?i)^my\s?plan$")) & filters.private)
 async def myplan_handler(_, m: Message):
@@ -280,6 +240,7 @@ async def myplan_handler(_, m: Message):
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
 
+    # -------- LIMIT LOGIC --------
     if is_premium:
         daily_limit = PREMIUM_DAILY_LIMIT
         subscription_type = "𝖯𝖺𝗂𝖽"
@@ -291,8 +252,10 @@ async def myplan_handler(_, m: Message):
         subscription_type = "𝖥𝗋𝖾𝖾"
 
     remaining = max(daily_limit - used, 0)
+
     premium_details = await db.get_user(user_id) if is_premium else None
 
+    # -------- SAME STYLE TEXT --------
     text = f"""📊 <blockquote>**𝖯𝗅𝖺𝗇 𝖣𝖾𝗍𝖺𝗂𝗅𝗌**</blockquote>
 
 👤 <b>𝖴𝗌𝖾𝗋 𝖺𝗆𝖾:</b> {username}
@@ -301,39 +264,26 @@ async def myplan_handler(_, m: Message):
 📂 <b>𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍:</b> {daily_limit} 𝖥𝗂𝗅𝖾𝗌
 📉 <b>𝖴𝗌𝖾𝖽:</b> {used} | <b>𝖫𝖾𝖿𝗍:</b> {remaining}"""
 
+    # -------- PREMIUM EXPIRY --------
     if is_premium and premium_details and premium_details.get('expiry_time'):
         expiry = premium_details['expiry_time']
         if expiry.tzinfo is None:
             expiry = pytz.utc.localize(expiry)
         expiry_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata"))
+
         text += f"""
 
 ⏳ <blockquote>**𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖣𝖾𝗍𝖺𝗂𝗅𝗌</blockquote>
 <i> 📅 𝖤𝗑𝗉𝗂𝗋𝗒 𝖣𝖺𝗍𝖾 - {expiry_ist.strftime('%d-%m-%Y')}
 ⏰ 𝖤𝗑𝗉𝗂𝗋𝗒 𝖳𝗂𝗆𝖾 - {expiry_ist.strftime('%I:%M %p')}</i>"""
 
-    sent_msg = await m.reply(text)
-    
-    # 🔥 60 सेकंड बाद डिलीट
-    await asyncio.sleep(60)
-    try:
-        await sent_msg.delete()
-        await m.delete()
-    except:
-        pass
-
-
+    await m.reply(text)
+        
 # -------------------------------------------------------------------------
 # 🛠 ADMIN COMMAND: ADD PREMIUM (Manual)
 # -------------------------------------------------------------------------
 @Client.on_message(filters.command("add_premium") & filters.user(ADMINS))
 async def give_premium_cmd_handler(client, message):
-    # कमांड मैसेज डिलीट
-    try:
-        await message.delete()
-    except:
-        pass
-    
     if len(message.command) == 4:
         time_zone = datetime.datetime.now(pytz.timezone("Asia/Kolkata"))
         current_time = time_zone.strftime("%d-%m-%Y\n⏱️ ᴊᴏɪɴɪɴɢ ᴛɪᴍᴇ : %I:%M:%S %p") 
@@ -341,12 +291,7 @@ async def give_premium_cmd_handler(client, message):
         try:
             user = await client.get_users(user_id)
         except:
-            msg = await message.reply_text("Invalid user ID")
-            await asyncio.sleep(60)
-            try:
-                await msg.delete()
-            except:
-                pass
+            await message.reply_text("Invalid user ID")
             return
         
         duration = message.command[2] + " " + message.command[3]
@@ -360,13 +305,12 @@ async def give_premium_cmd_handler(client, message):
             expiry = data.get("expiry_time")   
             
             if expiry.tzinfo is None:
-                expiry = pytz.utc.localize(expiry)
+                 expiry = pytz.utc.localize(expiry)
 
             expiry_str_in_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
             expiry_str_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y 𝘈𝘵 : %I:%M:%S %p")         
             
-            msg = await message.reply_text(f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ✅\n\n👤 ᴜꜱᴇʀ : {user.mention}\n⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{duration}</code>\n\n⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}", disable_web_page_preview=True)
-            
+            await message.reply_text(f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ✅\n\n👤 ᴜꜱᴇʀ : {user.mention}\n⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{duration}</code>\n\n⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}", disable_web_page_preview=True)
             try:
                 await client.send_message(
                     chat_id=user_id,
@@ -376,55 +320,27 @@ async def give_premium_cmd_handler(client, message):
                 pass
                 
             await client.send_message(PREMIUM_LOGS, text=f"#Added_Premium\n\n👤 ᴜꜱᴇʀ : {user.mention}\n⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{duration}</code>\n\n⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}", disable_web_page_preview=True)
-            
-            # 🔥 60 सेकंड बाद डिलीट
-            await asyncio.sleep(60)
-            try:
-                await msg.delete()
-            except:
-                pass
+                    
         else:
-            msg = await message.reply_text("Invalid time format. Please use '1 day', '1 hour', '1 min', '1 month', or '1 year'")
-            await asyncio.sleep(60)
-            try:
-                await msg.delete()
-            except:
-                pass
+            await message.reply_text("Invalid time format. Please use '1 day', '1 hour', '1 min', '1 month', or '1 year'")
     else:
-        msg = await message.reply_text("Usage : /add_premium user_id time (e.g., '1 day', '1 hour', '1 min', '1 month', or '1 year')")
-        await asyncio.sleep(60)
-        try:
-            await msg.delete()
-        except:
-            pass
-
+        await message.reply_text("Usage : /add_premium user_id time (e.g., '1 day', '1 hour', '1 min', '1 month', or '1 year')")
 
 # -------------------------------------------------------------------------
-# 🛠 ADMIN COMMAND: REMOVE PREMIUM (60 Sec Auto-Delete)
+# 🛠 ADMIN COMMAND: REMOVE PREMIUM
 # -------------------------------------------------------------------------
 @Client.on_message(filters.command("remove_premium") & filters.user(ADMINS))
 async def remove_premium(client, message):
-    # कमांड मैसेज डिलीट
-    try:
-        await message.delete()
-    except:
-        pass
-    
     if len(message.command) == 2:
         user_id = int(message.command[1])
         try:
             user = await client.get_users(user_id)
         except:
-            msg = await message.reply_text("Invalid user ID")
-            await asyncio.sleep(60)
-            try:
-                await msg.delete()
-            except:
-                pass
+            await message.reply_text("Invalid user ID")
             return
             
         if await db.remove_premium_access(user_id):
-            msg = await message.reply_text("ᴜꜱᴇʀ ʀᴇᴍᴏᴠᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ !")
+            await message.reply_text("ᴜꜱᴇʀ ʀᴇᴍᴏᴠᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ !")
             try:
                 await client.send_message(
                     chat_id=user_id,
@@ -432,49 +348,7 @@ async def remove_premium(client, message):
                 )
             except:
                 pass
-            # 🔥 60 सेकंड बाद डिलीट
-            await asyncio.sleep(60)
-            try:
-                await msg.delete()
-            except:
-                pass
         else:
-            msg = await message.reply_text("ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?")
-            await asyncio.sleep(60)
-            try:
-                await msg.delete()
-            except:
-                pass
+            await message.reply_text("ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?")
     else:
-        msg = await message.reply_text("ᴜꜱᴀɢᴇ : /remove_premium user_id")
-        await asyncio.sleep(60)
-        try:
-            await msg.delete()
-        except:
-            pass
-
-# =========================================================
-# 🎬 GET VIDEO BUTTON HANDLER (premium.py में जोड़ो)
-# =========================================================
-@Client.on_callback_query(filters.regex("get_video"))
-async def get_video_callback(client, query: CallbackQuery):
-    user_id = query.from_user.id
-    await query.answer("🎬 Getting video...", show_alert=False)
-    await query.message.delete()
-    await client.send_message(user_id, "/getvideo")
-
-
-@Client.on_callback_query(filters.regex("myplan"))
-async def myplan_callback(client, query: CallbackQuery):
-    user_id = query.from_user.id
-    await query.answer("📊 Your plan...", show_alert=False)
-    await query.message.delete()
-    await client.send_message(user_id, "/myplan")
-
-
-@Client.on_callback_query(filters.regex("buy"))
-async def buy_callback(client, query: CallbackQuery):
-    user_id = query.from_user.id
-    await query.answer("💎 Purchase...", show_alert=False)
-    await query.message.delete()
-    await client.send_message(user_id, "/buy")
+        await message.reply_text("ᴜꜱᴀɢᴇ : /remove_premium user_id")
