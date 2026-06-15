@@ -80,8 +80,9 @@ async def start_command(client, message: Message):
         has_spoiler=True
     )
 
+
 # =================================================
-# 📜 HELPER HANDLERS
+# 📜 HELPER HANDLERS (Terms, Disclaimer, About, Help)
 # =================================================
 
 @Client.on_message(filters.command("disclaimer") & filters.private)
@@ -97,9 +98,10 @@ async def legal_about(client, message: Message):
     await send_about_text(client, message)
 
 @Client.on_message(filters.command("help") & filters.private)
-async def legal_hepl(client, message: Message):
+async def legal_help(client, message: Message):
     await send_legal_text(client, message, script.HELP_TXT)
-    
+
+
 async def send_legal_text(client, message, text):
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
@@ -109,6 +111,7 @@ async def send_legal_text(client, message, text):
         reply_markup=InlineKeyboardMarkup(inline_buttons),
         disable_web_page_preview=True
     )
+
 
 async def send_about_text(client, message):
     inline_buttons = [[
@@ -120,20 +123,33 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
-# =========================================================
-# 🔙 CALLBACK QUERY HANDLER (FIXED - Only for close_data & get)
-# =========================================================
+
+# =================================================
+# 🔙 CALLBACK QUERY HANDLER (SIRF command.py KE BUTTONS KE LIYE)
+# =================================================
+# YAHAN SIRF "close_data" AUR "get" HANDLE HOGA
+# BAAKI SAB ("index#yes", "index#start_main", etc.) INDEX.PY HANDLE KAREGA
+# =================================================
+
 @Client.on_callback_query(filters.regex(r"^(close_data|get)$"))
 async def cb_handler(client: Client, query: CallbackQuery):
+    """SIRF close_data aur get button handle karta hai"""
     data = query.data
-    user_id = query.from_user.id
-
+    
+    # Answer callback to remove loading state
+    await query.answer()
+    
     if data == "close_data":
-        await query.message.delete()
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+            
     elif data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
+        
         if QR_CODE_IMAGE:
             await query.message.reply_photo(
                 photo=QR_CODE_IMAGE,
