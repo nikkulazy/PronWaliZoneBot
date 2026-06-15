@@ -240,10 +240,13 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                 current += BATCH_SIZE
                 
                 # Progress update
-                percentage = (min(current, lst_msg_id) / lst_msg_id) * 100
+                                percentage = (min(current, lst_msg_id) / lst_msg_id) * 100
                 prog_bar = get_progress_bar(percentage)
                 elapsed_time = get_readable_time(time.time() - start_time)
                 db_label = "🔞 Brazzers" if target_db == "brazzers" else "🎬 Video"
+                
+                # 🛑 CANCEL BUTTON - YAHI SE CHANGE HUA HAI
+                btn = [[InlineKeyboardButton('🛑 CANCEL', callback_data='index#cancel')]]
                 
                 try:
                     await msg.edit(
@@ -253,7 +256,8 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                         f"📥 Scanned: <code>{min(current, lst_msg_id)}/{lst_msg_id}</code>\n"
                         f"✅ Saved: <code>{total_files}</code>\n"
                         f"♻️ Duplicates: <code>{duplicate}</code>\n"
-                        f"⏱ Elapsed: <code>{elapsed_time}</code>"
+                        f"⏱ Elapsed: <code>{elapsed_time}</code>",
+                        reply_markup=InlineKeyboardMarkup(btn)  # ✅ YEH LINE ADD HUI HAI
                     )
                 except FloodWait as e:
                     await asyncio.sleep(e.value)
