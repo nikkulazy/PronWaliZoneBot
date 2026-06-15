@@ -63,22 +63,39 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-            
-    reply_keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
-            [KeyboardButton("My plan"), KeyboardButton("Subscription")]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
+
+    # ✅ INLINE BUTTONS (Reply buttons ki jagah)
+    inline_buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📹 Get Video", callback_data="get_video")],
+        [InlineKeyboardButton("🔞 Brazzers", callback_data="brazzers")],
+        [InlineKeyboardButton("📋 My Plan", callback_data="my_plan")],
+        [InlineKeyboardButton("💰 Subscription", callback_data="subscription")]
+    ])
 
     await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
+        reply_markup=inline_buttons,
         has_spoiler=True
     )
+
+
+# =========================================================
+# 📥 INLINE BUTTONS TO COMMAND CONVERTER (SIRF YEH ADD KARO)
+# =========================================================
+@Client.on_callback_query(filters.regex(r"^(get_video|brazzers|my_plan|subscription)$"))
+async def inline_to_command(client: Client, query: CallbackQuery):
+    await query.answer()
+    
+    # Inline button ko command me convert karo
+    if query.data == "get_video":
+        await client.send_message(query.from_user.id, "/getvideo")
+    elif query.data == "brazzers":
+        await client.send_message(query.from_user.id, "/brazzers")
+    elif query.data == "my_plan":
+        await client.send_message(query.from_user.id, "/myplan")
+    elif query.data == "subscription":
+        await client.send_message(query.from_user.id, "/buy")
 
 
 # =================================================
