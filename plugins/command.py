@@ -66,8 +66,8 @@ async def start_command(client, message: Message):
             
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("💢 Get Video 💢")],
-            [KeyboardButton("🔞Brazzers🔞"), KeyboardButton("✨Subscription✨")]
+            [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
+            [KeyboardButton("My plan"), KeyboardButton("Subscription")]
         ],
         resize_keyboard=True,
         one_time_keyboard=False
@@ -79,6 +79,18 @@ async def start_command(client, message: Message):
         reply_markup=reply_keyboard,
         has_spoiler=True
     )
+
+    # ========== 🔥 SIRF YEH ADD KIYA HAI (INLINE BUTTON) ==========
+    inline_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎥 Get Video", callback_data="inline_get_video")]
+    ])
+
+    await message.reply_text(
+        "👇 *Click the button below to get a video:*",
+        reply_markup=inline_keyboard,
+        parse_mode=enums.ParseMode.MARKDOWN
+    )
+    # ========== 🔥 ADDING END ==========
 
 # =================================================
 # 📜 HELPER HANDLERS
@@ -97,7 +109,7 @@ async def legal_about(client, message: Message):
     await send_about_text(client, message)
 
 @Client.on_message(filters.command("help") & filters.private)
-async def legal_help(client, message: Message):
+async def legal_hepl(client, message: Message):
     await send_legal_text(client, message, script.HELP_TXT)
     
 async def send_legal_text(client, message, text):
@@ -121,14 +133,13 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER - SIRF close_data AUR get KE LIYE
+# 🔙 CALLBACK QUERY HANDLER
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
-    # SIRF YE DO CONDITION RAKHO
     if data == "close_data":
         await query.message.delete()
 
@@ -142,6 +153,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
         )
-    
-    # 🔥 BAAKI SAB (index#yes, index#start_main, index#cancel, etc.)
-    # index.py handle karega - yahan kuch nahi karna
+
+    # ========== 🔥 SIRF YEH ADD KIYA HAI (CALLBACK HANDLER) ==========
+    elif data == "inline_get_video":
+        await query.answer()
+        from plugins.get_video import handle_video_request_from_callback
+        await handle_video_request_from_callback(client, query)
+    # ========== 🔥 ADDING END ==========
