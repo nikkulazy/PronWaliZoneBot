@@ -14,6 +14,29 @@ from plugins.refer import refer_on_start
 # =================================================
 # 🚀 START COMMAND
 # =================================================
+admin
+🔧 Start Command Ke Inline Button Fix
+Agar /start command ke baad aane wale inline buttons kaam nahi kar rahe, toh yeh complete fixed command.py hai:
+
+✅ Fixed command.py (Complete File - Copy Paste)
+python
+import datetime
+import asyncio
+from pyrogram import Client, filters, enums
+from pyrogram.types import *
+from pyrogram.errors import *
+from Script import script
+from database.users_db import db
+from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, ADMINS
+from utils import temp, is_user_joined
+from plugins.verification import verify_user_on_start
+from plugins.send_file import send_requested_file
+from plugins.refer import refer_on_start
+import pytz
+
+# =================================================
+# 🚀 START COMMAND
+# =================================================
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
     user_id = message.from_user.id
@@ -64,7 +87,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
-    # ✅ INLINE BUTTONS (Reply buttons ki jagah)
+    # ✅ INLINE BUTTONS - FIXED
     inline_buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("📹 Get Video", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="brazzers")],
