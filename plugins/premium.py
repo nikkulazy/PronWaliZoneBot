@@ -70,7 +70,7 @@ async def buy_handler(client, message: Message):
     except Exception as e:
         print(f"Failed to send log to PREMIUM_LOGS: {e}")
     if is_premium:
-        await message.reply_text("✅ 𝖸𝗈𝗎 𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾𝖽 𝖮𝗎𝗋 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇! 𝖤𝗇𝗃𝗈𝗒 𝖸𝗈𝗎𝗋 𝖡𝖾𝗇𝖾𝖿𝗂𝗍.", quote=True)
+        await message.reply_text("✅ 𝖸𝗈𝗎 �𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾𝖽 �𝖮𝗎𝗋 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇! 𝖤𝗇𝗃𝗈𝗒 𝖸𝗈𝗎𝗋 𝖡𝖾𝗇𝖾𝖿𝗂𝗍.", quote=True)
         return
     text = script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID)
     btn = [
@@ -96,18 +96,17 @@ async def payment_screenshot_handler(client, message: Message):
     user_id = message.from_user.id
     user_name = message.from_user.mention
     user_note = message.caption if message.caption else "No caption provided"
-    msg = await message.reply_text("🔄 Sending payment screenshot to Admins... Please wait.")
-    
+    msg = await message.reply_text("🔄 𝘚𝘦𝘯𝘥𝘪𝘯𝘨 𝘱𝘢𝘺𝘮𝘦𝘯𝘵 𝘴𝘤𝘳𝘦𝘦𝘯𝘴𝘩𝘰𝘵 𝘵𝘰 𝘈𝘥𝘮𝘪𝘯𝘴... 𝘗𝘭𝘦𝘢𝘴𝘦 𝘸𝘢𝘪𝘵.")
     admin_btns = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝗗𝗮𝘆)", callback_data=f"approve_{user_id}_1"),
-            InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝘄𝗲𝗲𝗸)", callback_data=f"approve_{user_id}_7")
+            InlineKeyboardButton("✅ Approve (1 Day)", callback_data=f"add_prem_{user_id}_1"),
+            InlineKeyboardButton("✅ Approve (1 Week)", callback_data=f"add_prem_{user_id}_7")
         ],
         [
-            InlineKeyboardButton("✅ 𝗔𝗽𝗿𝗼𝘃𝗮𝗹 (𝟭 𝗠𝗼𝗻𝘁𝗵)", callback_data=f"approve_{user_id}_30")
+            InlineKeyboardButton("✅ Approve (1 Month)", callback_data=f"add_prem_{user_id}_30")
         ],
         [
-            InlineKeyboardButton("❌ 𝗥𝗲𝗷𝗲𝗰𝘁  ❌", callback_data=f"reject_{user_id}")
+            InlineKeyboardButton("❌ Reject", callback_data=f"reject_pay_{user_id}")
         ]
     ])
     
@@ -115,12 +114,51 @@ async def payment_screenshot_handler(client, message: Message):
         await client.send_photo(
             chat_id=PREMIUM_LOGS,
             photo=message.photo.file_id,
-            caption=f"🧾 **New Payment Screenshot**\n\n👤 User: {user_name}\n🆔 ID: <code>{user_id}</code>\n📝 Note: {user_note}",
+            caption=f"🧾 **New Payment Screenshot**\n\n👤 <b>User:</b> {user_name}\n🆔 <b>ID:</b> <code>{user_id}</code>\n📝 <b>Note:</b> {user_note}",
             reply_markup=admin_btns
         )
-        await msg.edit_text("✅ Screenshot sent!\nAdmin will verify and activate your plan shortly.")
+        await msg.edit_text("✅ 𝘚𝘤𝘳𝘦𝘦𝘯𝘴𝘩𝘰𝘵 𝘴𝘦𝘯𝘵!\n𝘈𝘥𝘮𝘪𝘯 𝘸𝘪𝘭𝘭 𝘷𝘦𝘳𝘪𝘧𝘺 𝘢𝘯𝘥 𝘢𝘤𝘵𝘪𝘷𝘢𝘵𝘦 𝘺𝘰𝘶𝘳 𝘱𝘭𝘢𝘯 𝘴𝘩𝘰𝘳𝘵𝘭𝘺.")
     except Exception as e:
         await msg.edit_text(f"❌ Error sending to admin: {e}")
+
+# -------------------------------------------------------------------------
+# ✅ APPROVE PAYMENT CALLBACK
+# -------------------------------------------------------------------------
+@Client.on_callback_query(filters.regex(r"^add_prem_"))
+async def approve_payment(client, callback_query: CallbackQuery):
+    _, _, user_id, days = callback_query.data.split("_")
+    user_id = int(user_id)
+    days = int(days)
+    new_expiry = await db.add_premium_access(user_id, days)
+    expiry_ist = new_expiry.astimezone(pytz.timezone("Asia/Kolkata"))
+    expiry_str = expiry_ist.strftime("%d-%m-%Y %I:%M %p")
+    try:
+        await client.send_message(
+            user_id,
+            f"🎉 <b>𝘗𝘢𝘺𝘮𝘦𝘯𝘵 𝘈𝘱𝘱𝘳𝘰𝘷𝘦𝘥!</b>\n\n💎 <b>𝘗𝘳𝘦𝘮𝘪𝘶𝘮 𝘈𝘤𝘵𝘪𝘷𝘢𝘵𝘦𝘥</b> 𝘧𝘰𝘳 {days} 𝘋𝘢𝘺𝘴 .\n🗓 <b>𝘌𝘹𝘱𝘪𝘳𝘺:</b> {expiry_str}\n\n<i>𝘌𝘯𝘫𝘰𝘺 𝘜𝘯𝘭𝘪𝘮𝘪𝘵𝘦𝘥 𝘈𝘤𝘤𝘦𝘴𝘴!</i>"
+        )
+    except:
+        pass 
+    await callback_query.message.edit_caption(
+        caption=f"✅ <b>Approved by {callback_query.from_user.mention}</b>\n\n🆔 User: <code>{user_id}</code>\n⏳ Added: {days} Days"
+    )
+
+# -------------------------------------------------------------------------
+# ❌ REJECT PAYMENT CALLBACK
+# -------------------------------------------------------------------------
+@Client.on_callback_query(filters.regex(r"^reject_pay_"))
+async def reject_payment(client, callback_query: CallbackQuery):
+    user_id = int(callback_query.data.split("_")[2])
+    try:
+        await client.send_message(
+            user_id,
+            f"❌ <b>𝘗𝘢𝘺𝘮𝘦𝘯𝘵 𝘙𝘦𝘫𝘦𝘤𝘵𝘦𝘥.</b>\n\n<i>𝘗𝘰𝘴𝘴𝘪𝘣𝘭𝘦 𝘳𝘦𝘢𝘴𝘰𝘯𝘴:</i>\n- 𝘐𝘯𝘷𝘢𝘭𝘪𝘥 𝘚𝘤𝘳𝘦𝘦𝘯𝘴𝘩𝘰𝘵\n- 𝘗𝘢𝘺𝘮𝘦𝘯𝘵 𝘯𝘰𝘵 𝘳𝘦𝘤𝘦𝘪𝘷𝘦𝘥\n- 𝘞𝘳𝘰𝘯𝘨 𝘈𝘮𝘰𝘶𝘯𝘵 \n\n<i>𝘊𝘰𝘯𝘵𝘢𝘤𝘵 𝘈𝘥𝘮𝘪𝘯 𝘧𝘰𝘳 𝘴𝘶𝘱𝘱𝘰𝘳𝘵. @{OWNER_USERNAME}</i>"
+        )
+    except:
+        pass
+    await callback_query.message.edit_caption(
+        caption=f"❌ <b>Rejected by {callback_query.from_user.mention}</b>\n\n🆔 User: <code>{user_id}</code>"
+    )
 
 # -------------------------------------------------------------------------
 # 👤 MY PLAN COMMAND
@@ -167,7 +205,7 @@ async def myplan_handler(_, m: Message):
 
         text += f"""
 
-⏳ <blockquote>**𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖣𝖾𝗍𝖺𝗂𝗅𝗌</blockquote>
+⏳ <blockquote>**𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖣𝖾𝗍𝖺𝗂𝗅𝗌**</blockquote>
 <i> 📅 𝖤𝗑𝗉𝗂𝗋𝗒 𝖣𝖺𝗍𝖾 - {expiry_ist.strftime('%d-%m-%Y')}
 ⏰ 𝖤𝗑𝗉𝗂𝗋𝗒 𝖳𝗂𝗆𝖾 - {expiry_ist.strftime('%I:%M %p')}</i>"""
 
@@ -188,6 +226,7 @@ async def give_premium_cmd_handler(client, message):
             await message.reply_text("Invalid user ID")
             return
         
+        # Renamed variable from 'time' to 'duration' to avoid conflict with import time
         duration = message.command[2] + " " + message.command[3]
         seconds = await get_seconds(duration)
         
@@ -198,8 +237,9 @@ async def give_premium_cmd_handler(client, message):
             data = await db.get_user(user_id)
             expiry = data.get("expiry_time")   
             
+            # Ensure expiry is timezone aware if necessary, or assume naive from DB
             if expiry.tzinfo is None:
-                 expiry = pytz.utc.localize(expiry)
+                 expiry = pytz.utc.localize(expiry) # Assuming stored as UTC or Naive
 
             expiry_str_in_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
             expiry_str_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y 𝘈𝘵 : %I:%M:%S %p")         
@@ -246,3 +286,4 @@ async def remove_premium(client, message):
             await message.reply_text("ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?")
     else:
         await message.reply_text("ᴜꜱᴀɢᴇ : /remove_premium user_id")
+        

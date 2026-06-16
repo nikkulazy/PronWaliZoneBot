@@ -46,8 +46,8 @@ async def index_files(bot, query):
         buttons = [
             [
                 # Ab hume data pass karne ki jarurat nahi, data already cache me hai
-                InlineKeyboardButton('🎬 Video Index', callback_data='index#start_main'),
-                InlineKeyboardButton('🔞 Brazzers Index', callback_data='index#start_brazzers')
+                InlineKeyboardButton('🎬 Video Index', callback_data=f'index#start_main'),
+                InlineKeyboardButton('🔞 Brazzers Index', callback_data=f'index#start_brazzers')
             ],
             [
                 InlineKeyboardButton('❌ No Index', callback_data='index#cancel')
@@ -279,3 +279,4 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
 
         except Exception as e:
             await msg.edit(f"❌ Critical Error: {e}")
+    
