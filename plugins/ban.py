@@ -105,5 +105,3 @@ async def list_blocked_users(client, message: Message):
         for user in blocked_list:
             text += f"• `{user['user_id']}` | _{user.get('reason','N/A')}_\n"
         await status_msg.edit(text)
-
-
