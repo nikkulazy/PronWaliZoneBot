@@ -1,14 +1,17 @@
-from os import environ
+import asyncio
+import random
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
-import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
 
 
+# ================================================================
+# 🎬 MAIN GET VIDEO HANDLER
+# ================================================================
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
 
@@ -29,8 +32,6 @@ async def handle_video_request(client, m: Message):
 
     # Premium + limit info
     is_premium = await db.has_premium_access(user_id)
-    # Define limits based on status
-    current_limit = PREMIUM_DAILY_LIMIT if is_premium else DAILY_LIMIT
     
     used = await db.get_video_count(user_id) or 0
 
@@ -38,7 +39,6 @@ async def handle_video_request(client, m: Message):
     # LIMIT & VERIFICATION & PREMIUM SYSTEM
     # ------------------------------------------------
     
-    # Message for when any absolute max limit is reached
     limit_reached_msg = (
         f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {used} 𝖥𝗂𝗅𝖾𝗌.\n\n"
         "𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐!\n"
@@ -49,7 +49,6 @@ async def handle_video_request(client, m: Message):
     ])
 
     if is_premium:
-        # Premium User Logic
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(
                 f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌.\n"
@@ -69,23 +68,29 @@ async def handle_video_request(client, m: Message):
     # ------------------------------------------------
     # GET VIDEO
     # ------------------------------------------------
+    
+    # Pehle total videos check karo
+    total_videos = await db.total_videos()
+    if total_videos == 0:
+        return await m.reply("❌ No videos found in database!\n\nPlease ask admin to add videos first.")
+    
     video_id = await db.get_unseen_video(user_id)
 
     if not video_id:
         try:
             video_id = await db.get_random_video()
+            if video_id:
+                await db.reset_seen_videos(user_id)
         except Exception as e:
             print(f"[Random Video Error] {e}")
-            return
 
     if not video_id:
-        return await m.reply("❌ No videos found in the database.")
+        return await m.reply("❌ No videos found in the database.\n\nPlease contact admin to add videos.")
 
     # ------------------------------------------------
     # SEND VIDEO
     # ------------------------------------------------
     try:
-        # Fixed: Using client.send_video instead of m.reply_video
         sent = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
@@ -101,11 +106,26 @@ async def handle_video_request(client, m: Message):
             reply_to_message_id=m.id
         )
 
-        # Increase daily count ONLY after successful send
         await db.increase_video_count(user_id, username)
-
-        # Auto delete in background
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
         await m.reply(f"❌ Failed to send video: {str(e)}")
+
+
+# ================================================================
+# 🎬 INLINE BUTTON CALLBACK HANDLER - get_video
+# ================================================================
+@Client.on_callback_query(filters.regex(r"^get_video$"))
+async def get_video_callback(client, query: CallbackQuery):
+    """Handle inline 'Get Video' button click"""
+    await query.answer()
+    
+    # Send command to user
+    await client.send_message(query.from_user.id, "/getvideo")
+    
+    # Optionally delete the callback message
+    try:
+        await query.message.delete()
+    except:
+        pass
