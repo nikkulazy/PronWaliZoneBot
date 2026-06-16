@@ -10,6 +10,7 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
+from index import INDEX_CACHE
 
 # =================================================
 # 🚀 START COMMAND
