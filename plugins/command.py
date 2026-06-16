@@ -11,9 +11,6 @@ from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 
-# Import INDEX_CACHE from index.py
-from plugins.index import INDEX_CACHE
-
 # =================================================
 # 🚀 START COMMAND
 # =================================================
@@ -124,29 +121,17 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER
+# 🔙 CALLBACK QUERY HANDLER - SIRF close_data AUR get KE LIYE
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
-    # 🔥 YES BUTTON HANDLER
-    if data == "index#yes":
-        user_data = INDEX_CACHE.get(user_id)
-        if user_data:
-            await query.answer("✅ Indexing started!")
-            await query.message.edit_text("✅ Indexing started!")
-            INDEX_CACHE.pop(user_id, None)
-        else:
-            await query.answer("❌ Session expired! Send /index again.", show_alert=True)
-        return
-
-    # CLOSE BUTTON
-    elif data == "close_data":
+    # SIRF YE DO CONDITION RAKHO
+    if data == "close_data":
         await query.message.delete()
 
-    # GET BUTTON
     elif data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
@@ -157,3 +142,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
         )
+    
+    # 🔥 BAAKI SAB (index#yes, index#start_main, index#cancel, etc.)
+    # index.py handle karega - yahan kuch nahi karna
