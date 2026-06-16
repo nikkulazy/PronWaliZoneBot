@@ -254,22 +254,22 @@ class Database:
     async def total_videos(self):
         return await self.videos.count_documents({})
 
-    # ✅ DELETE ALL MAIN VIDEOS - FIXED
-    async def delete_main_data(self):
+    # ✅ DELETE ALL MAIN VIDEOS - FIXED NAME
+    async def delete_all_main_videos(self):
         try:
-            main_videos = await self.videos.delete_many({})
-            main_history = await self.historys.delete_many({})
-            return main_videos.deleted_count + main_history.deleted_count
+            result = await self.videos.delete_many({})
+            await self.historys.delete_many({})
+            return result.deleted_count
         except Exception as e:
             print(f"Delete main videos error: {e}")
             return 0
 
-    # ✅ DELETE ALL BRAZZERS VIDEOS - FIXED
-    async def delete_brazzers_data(self):
+    # ✅ DELETE ALL BRAZZERS VIDEOS - FIXED NAME
+    async def delete_all_brazzers_videos(self):
         try:
-            brazzers_videos = await self.brazzers.delete_many({})
-            brazzers_history = await self.braz_history.delete_many({})
-            return brazzers_videos.deleted_count + brazzers_history.deleted_count
+            result = await self.brazzers.delete_many({})
+            await self.braz_history.delete_many({})
+            return result.deleted_count
         except Exception as e:
             print(f"Delete brazzers videos error: {e}")
             return 0
@@ -476,39 +476,5 @@ class Database:
             upsert=True
         )
 
-# ---------- VIDEOS SYSTEM ----------
-    async def add_video(self, file_unique_id, file_id):
-        exists = await self.videos.find_one({"file_unique_id": file_unique_id})
-        if not exists:
-            await self.videos.insert_one({
-                "file_unique_id": file_unique_id,
-                "file_id": file_id,
-                "added_at": datetime.now(timezone.utc)
-            })
-            return True
-        return False
-
-    async def total_videos(self):
-        return await self.videos.count_documents({})
-
-    # ✅ DELETE ALL MAIN VIDEOS - FIXED
-    async def delete_all_main_videos(self):
-        try:
-            result = await self.videos.delete_many({})
-            await self.historys.delete_many({})
-            return result.deleted_count
-        except Exception as e:
-            print(f"Delete main videos error: {e}")
-            return 0
-
-    # ✅ DELETE ALL BRAZZERS VIDEOS - FIXED
-    async def delete_all_brazzers_videos(self):
-        try:
-            result = await self.brazzers.delete_many({})
-            await self.braz_history.delete_many({})
-            return result.deleted_count
-        except Exception as e:
-            print(f"Delete brazzers videos error: {e}")
-            return 0
 # Initialize
 db = Database()
