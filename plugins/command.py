@@ -81,7 +81,7 @@ async def start_command(client, message: Message):
 
 
 # =========================================================
-# 📥 INLINE BUTTONS TO COMMAND CONVERTER (SIRF YEH ADD KARO)
+# 📥 INLINE BUTTONS TO COMMAND CONVERTER
 # =========================================================
 @Client.on_callback_query(filters.regex(r"^(get_video|brazzers|my_plan|subscription)$"))
 async def inline_to_command(client: Client, query: CallbackQuery):
@@ -144,10 +144,6 @@ async def send_about_text(client, message):
 # =================================================
 # 🔙 CALLBACK QUERY HANDLER (SIRF command.py KE BUTTONS KE LIYE)
 # =================================================
-# YAHAN SIRF "close_data" AUR "get" HANDLE HOGA
-# BAAKI SAB ("index#yes", "index#start_main", etc.) INDEX.PY HANDLE KAREGA
-# =================================================
-
 @Client.on_callback_query(filters.regex(r"^(close_data|get)$"))
 async def cb_handler(client: Client, query: CallbackQuery):
     """SIRF close_data aur get button handle karta hai"""
