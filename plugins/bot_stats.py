@@ -100,19 +100,19 @@ async def delete_callback_handler(client, callback: CallbackQuery):
     elif data == "del_confirm_main":
         await callback.message.edit("⏳ **Deleting Main Videos... Please wait.**")
         try:
-            await db.delete_main_data() # Database function call
-            await callback.message.edit("✅ **Successfully deleted ALL Main Videos and History!**")
+            deleted = await db.delete_all_main_videos()  # ✅ FIXED: Sahi function name
+            await callback.message.edit(f"✅ **Successfully deleted {deleted} Main Videos and History!**")
         except Exception as e:
             await callback.message.edit(f"❌ Error: {e}")
 
     elif data == "del_confirm_brazzers":
         await callback.message.edit("⏳ **Deleting Brazzers Data... Please wait.**")
         try:
-            await db.delete_brazzers_data() # Database function call
-            await callback.message.edit("✅ **Successfully deleted ALL Brazzers Videos and History!**")
+            deleted = await db.delete_all_brazzers_videos()  # ✅ FIXED: Sahi function name
+            await callback.message.edit(f"✅ **Successfully deleted {deleted} Brazzers Videos and History!**")
         except Exception as e:
             await callback.message.edit(f"❌ Error: {e}")
-            
+
 
 # ---------------------------------------------------------------------------------
 # 📈 ACTIVE USERS REPORT COMMAND
