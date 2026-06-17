@@ -63,36 +63,23 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-            
-    # ✅ Reply Keyboard (pehle jaisa)
-    reply_keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
-            [KeyboardButton("My plan"), KeyboardButton("Subscription")]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
 
-    # ✅ Inline Keyboard (Photo ke saath)
+    # ✅ ALL INLINE BUTTONS (Reply Keyboard HATAYA)
     inline_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎥 Get Video", callback_data="inline_get_video")]
+        [InlineKeyboardButton("🎥 Get Video", callback_data="inline_get_video")],
+        [InlineKeyboardButton("🔞 Brazzers", callback_data="brazzers")],
+        [InlineKeyboardButton("📱 My Plan", callback_data="my_plan")],
+        [InlineKeyboardButton("💳 Subscription", callback_data="subscription")]
     ])
 
-    # ✅ Photo + Caption + Reply Keyboard + Inline Keyboard (EK SAATH)
-    await message.reply_photo(
+    # ✅ Photo + Caption + All Inline Buttons (Ek Saath)
+    await client.send_photo(
+        chat_id=message.chat.id,
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,  # Reply keyboard
-        has_spoiler=True
+        reply_markup=inline_keyboard
     )
 
-    # ✅ Inline button photo ke neeche hi aayega (alag message nahi)
-    await message.reply_text(
-        "👇 *Click button to get video:*",
-        reply_markup=inline_keyboard,
-        parse_mode=enums.ParseMode.MARKDOWN
-    )
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
@@ -134,17 +121,21 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER
+# 🔙 CALLBACK QUERY HANDLER (ALL BUTTONS)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
+    # ✅ Close button
     if data == "close_data":
         await query.message.delete()
+        await query.answer()
 
+    # ✅ Get/Subscription button (existing)
     elif data == "get":
+        await query.answer()
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -155,9 +146,51 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
 
-    # ========== 🔥 SIRF YEH ADD KIYA HAI (CALLBACK HANDLER) ==========
+    # ✅ Get Video button
     elif data == "inline_get_video":
         await query.answer()
         from plugins.get_video import handle_video_request_from_callback
         await handle_video_request_from_callback(client, query)
-    # ========== 🔥 ADDING END ==========
+
+    # ✅ Brazzers button
+    elif data == "brazzers":
+        await query.answer()
+        await query.message.reply_text(
+            "🔞 *Brazzers Content*\n\n"
+            "This section is for premium users only.\n"
+            "Please subscribe to access.",
+            parse_mode=enums.ParseMode.MARKDOWN
+        )
+
+    # ✅ My Plan button
+    elif data == "my_plan":
+        await query.answer()
+        is_premium = await db.has_premium_access(user_id)
+        if is_premium:
+            plan_text = "🌟 *Premium User*\n\nYou have unlimited access!"
+        else:
+            plan_text = "📱 *Free User*\n\n"
+            plan_text += f"Daily Limit: {DAILY_LIMIT} videos\n"
+            plan_text += "Upgrade to Premium for unlimited access!"
+        
+        await query.message.reply_text(
+            plan_text,
+            parse_mode=enums.ParseMode.MARKDOWN
+        )
+
+    # ✅ Subscription button
+    elif data == "subscription":
+        await query.answer()
+        buttons = [
+            [InlineKeyboardButton('• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 •', callback_data='get')],
+            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
+        ]
+        await query.message.reply_text(
+            f"💳 *Subscription Plans*\n\n"
+            f"UPI ID: `{UPI_ID}`\n\n"
+            f"Daily Limit: {DAILY_LIMIT} videos (Free)\n"
+            f"Premium Limit: {PREMIUM_DAILY_LIMIT} videos\n\n"
+            f"Contact @admin for more details.",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.MARKDOWN
+        )
