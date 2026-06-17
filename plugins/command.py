@@ -73,15 +73,17 @@ async def start_command(client, message: Message):
         one_time_keyboard=False
     )
 
-    await message.reply_photo(
-    photo=START_PIC,
-    caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-    reply_markup=reply_keyboard,
-    has_spoiler=True
-)
+    # ✅ msg variable define karo
+    msg = await message.reply_photo(
+        photo=START_PIC,
+        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+        reply_markup=reply_keyboard,
+        has_spoiler=True
+    )
 
-await asyncio.sleep(30)
-await msg.delete()  # 👈 SIRF 4 SPACES (1 TAB)
+    # ✅ YE LINES FUNCTION KE ANDAR HONI CHAHIYE (4 spaces indent)
+    await asyncio.sleep(30)
+    await msg.delete()
 
 # =================================================
 # 📜 HELPER HANDLERS
