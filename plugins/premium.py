@@ -72,25 +72,21 @@ async def buy_handler(client, message: Message):
     if is_premium:
         await message.reply_text("✅ 𝖸𝗈𝗎 �𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾𝖽 �𝖮𝗎𝗋 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇! 𝖤𝗇𝗃𝗈𝗒 𝖸𝗈𝗎𝗋 𝖡𝖾𝗇𝖾𝖿𝗂𝗍.", quote=True)
         return
-        text = script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID)
+    text = script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID)
     btn = [
         [InlineKeyboardButton('✖️ ᴄʟᴏsᴇ ✖️', callback_data='close_data')]
     ]
-    
     if QR_CODE_IMAGE:
-        sent_msg = await message.reply_photo(
+        await message.reply_photo(
             photo=QR_CODE_IMAGE,
             caption=text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
-    else:  # ← line 85
-        sent_msg = await message.reply_text(  # ← INDENTATION and '=' sign
+    else:
+        await message.reply_text(
             text=text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
-    
-    await asyncio.sleep(30)
-    await sent_msg.delete()
 
 # -------------------------------------------------------------------------
 # 📸 SCREENSHOT HANDLER (Direct Auto-Forward to Admin)
