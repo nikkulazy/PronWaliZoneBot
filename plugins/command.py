@@ -64,6 +64,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
             
+    # ✅ Reply Keyboard (pehle jaisa)
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
@@ -73,25 +74,25 @@ async def start_command(client, message: Message):
         one_time_keyboard=False
     )
 
-    await message.reply_photo(
-        photo=START_PIC,
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
-        has_spoiler=True
-    )
-
-    # ========== 🔥 SIRF YEH ADD KIYA HAI (INLINE BUTTON) ==========
+    # ✅ Inline Keyboard (Photo ke saath)
     inline_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎥 Get Video", callback_data="inline_get_video")]
     ])
 
+    # ✅ Photo + Caption + Reply Keyboard + Inline Keyboard (EK SAATH)
+    await message.reply_photo(
+        photo=START_PIC,
+        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+        reply_markup=reply_keyboard,  # Reply keyboard
+        has_spoiler=True
+    )
+
+    # ✅ Inline button photo ke neeche hi aayega (alag message nahi)
     await message.reply_text(
-        "👇 *Click the button below to get a video:*",
+        "👇 *Click button to get video:*",
         reply_markup=inline_keyboard,
         parse_mode=enums.ParseMode.MARKDOWN
     )
-    # ========== 🔥 ADDING END ==========
-
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
