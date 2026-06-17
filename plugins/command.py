@@ -74,7 +74,7 @@ async def start_command(client, message: Message):
         one_time_keyboard=False
     )
 
-    await message.reply_photo(
+sent_msg = await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=reply_keyboard,
@@ -82,7 +82,11 @@ async def start_command(client, message: Message):
     )
 
     await asyncio.sleep(30)
-    await sent_msg.delete()
+    
+    try:
+        await sent_msg.delete()
+    except Exception as e:
+        print(f"Error deleting start message: {e}")
 
 # =================================================
 # 📜 HELPER HANDLERS
