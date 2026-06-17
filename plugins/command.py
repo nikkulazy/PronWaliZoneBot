@@ -128,7 +128,7 @@ async def send_about_text(client, message):
 # =========================================================
 # 🔙 CALLBACK QUERY HANDLER
 # =========================================================
-@Client.on_callback_query()
+"""@Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
@@ -147,7 +147,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
-        )
+        )"""
 
     # ✅ GET VIDEO BUTTON
     elif data == "get_video":
@@ -168,7 +168,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
 # =========================================================
 # 🔙 CALLBACK QUERY HANDLER
 # =========================================================
-"""@Client.on_callback_query()
+@Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
@@ -190,4 +190,4 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
-        )"""
+        )
