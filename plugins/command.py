@@ -127,30 +127,6 @@ async def send_about_text(client, message):
 # =========================================================
 # 🔙 CALLBACK QUERY HANDLER - ONLY ONE
 # =========================================================
-"""@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    data = query.data
-    user_id = query.from_user.id
-
-    # index.py ke callbacks ko ignore karein
-    if data.startswith("index"):
-        return
-
-    if data == "close_data":
-        await query.message.delete()
-        await query.answer()
-
-    elif data == "get":
-        buttons = [
-            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
-        ]
-        await query.message.reply_photo(
-            photo=QR_CODE_IMAGE,
-            caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode=enums.ParseMode.HTML
-        )
-        await query.answer()"""
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
