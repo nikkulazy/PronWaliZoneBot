@@ -81,6 +81,9 @@ async def start_command(client, message: Message):
         has_spoiler=True
     )
 
+    await asyncio.sleep(30)
+    await sent_msg.delete()
+
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
