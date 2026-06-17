@@ -83,10 +83,12 @@ async def buy_handler(client, message: Message):
             reply_markup=InlineKeyboardMarkup(btn)
         )
     else:
-        await message.reply_text(
+sent_msg await message.reply_text(
             text=text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
+         await asyncio.sleep(30)                                                                           
+         await sent_msg.delete()
 
 # -------------------------------------------------------------------------
 # 📸 SCREENSHOT HANDLER (Direct Auto-Forward to Admin)
