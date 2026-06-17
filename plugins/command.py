@@ -57,6 +57,7 @@ async def start_command(client, message: Message):
         await send_requested_file(client, message, user_id, search_id)
         return
 
+    # ✅ USER CHECK
     if not await db.is_user_exist(user_id):
         await db.add_user(user_id, message.from_user.first_name)
         try:
@@ -66,26 +67,37 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-            is_premium = await db.has_premium_access(user_id)
     
-    # Premium status text
+    # ✅ PREMIUM CHECK
+    user = await db.get_user(user_id)
+    is_premium = False
+    if user:
+        plan = user.get("plan", "Free")
+        is_premium = (plan == "Premium")
+    
+    # ✅ PREMIUM STATUS TEXT
     if is_premium:
         premium_status = "👑 **Premium User**"
+        daily_limit = PREMIUM_DAILY_LIMIT  # Unlimited ya zyada
     else:
         premium_status = f"🆓 **Free User**\n📊 Limit: {DAILY_LIMIT}/day"
+        daily_limit = DAILY_LIMIT
+    
+    # ✅ CAPTION MEIN PREMIUM STATUS DIKHAYEIN
+    caption = script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME) + f"\n\n{premium_status}"
 
     # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
-    [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
-    [
-        InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers"),
-        InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")
-    ]
-])
+        [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
+        [
+            InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers"),
+            InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")
+        ]
+    ])
 
     await message.reply_photo(
         photo=START_PIC,
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+        caption=caption,  # ✅ Premium status ke saath
         reply_markup=inline_keyboard,
         has_spoiler=True
     )
