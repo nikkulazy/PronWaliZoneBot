@@ -147,7 +147,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
-        )"""
+        )
 
     # ✅ GET VIDEO BUTTON
     elif data == "get_video":
@@ -190,4 +190,47 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
+        )"""
+# =========================================================
+# 🔙 CALLBACK QUERY HANDLER - ONLY ONE
+# =========================================================
+@Client.on_callback_query()
+async def cb_handler(client: Client, query: CallbackQuery):
+    data = query.data
+    user_id = query.from_user.id
+
+    # index.py ke callbacks ko ignore karein
+    if data.startswith("index"):
+        return
+
+    if data == "close_data":
+        await query.message.delete()
+        await query.answer()
+
+    elif data == "get":
+        buttons = [
+            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
+        ]
+        await query.message.reply_photo(
+            photo=QR_CODE_IMAGE,
+            caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
         )
+        await query.answer()
+
+    # ✅ GET VIDEO BUTTON - FIXED
+    elif data == "get_video":
+        await query.answer("📹 Getting your video...", show_alert=False)
+        await handle_video_request(client, query.message)  # ✅ query.message use karein
+
+    # ✅ BRAZZERS BUTTON - FIXED
+    elif data == "brazzers":
+        await query.answer("🔞 Getting Brazzers video...", show_alert=False)
+        await handle_brazzers_request(client, query.message)  # ✅ query.message use karein
+
+    # ✅ SUBSCRIPTION BUTTON
+    elif data == "subscription":
+        await query.answer("✨ Opening subscription...", show_alert=False)
+        from plugins.premium import buy_handler
+        await buy_handler(client, query.message)  # ✅ query.message use karein
