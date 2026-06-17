@@ -18,34 +18,25 @@ async def handle_brazzers_request(client, m: Message):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
     if await ban_manager.check_ban(client, m):
-    return
-
-try:
-    is_premium = await db.has_premium_access(user_id)
-    if not is_premium:
-        msg = await m.reply(
-            "💎 𝖡𝗎𝗒 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖠𝗇𝖽 𝖦𝖾𝗍 900+ 𝖡𝖺𝗋𝗓𝗓𝖾𝗋𝗌 𝖵𝗂𝖽𝖾𝗈 𝖯𝖾𝗋 𝖬𝗈𝗇𝗍𝗁.", 
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton('• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •', callback_data='get')
-            ]])
-        )
-        await asyncio.sleep(30)
-        await msg.delete()
         return
 
-    used_today = await db.get_video_count(user_id)
-    if used_today >= PREMIUM_DAILY_LIMIT:
-        msg = await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
-        await asyncio.sleep(30)
-        await msg.delete()
-        return
-    
-    video_id = await db.get_unseen_brazzers(user_id)
-    if not video_id:
-        msg = await m.reply("❌ No unseen videos found!")
-        await asyncio.sleep(30)
-        await msg.delete()
-        return
+    try:
+        is_premium = await db.has_premium_access(user_id)
+        if not is_premium:
+            return await m.reply(
+                "💎 𝖡𝗎𝗒 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖠𝗇𝖽 𝖦𝖾𝗍 900+ 𝖡𝖺𝗋𝗓𝗓𝖾𝗋𝗌 𝖵𝗂𝖽𝖾𝗈 𝖯𝖾𝗋 𝖬𝗈𝗇𝗍𝗁.", 
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton('• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •', callback_data='get')
+                ]])
+            )
+
+        used_today = await db.get_video_count(user_id)
+        if used_today >= PREMIUM_DAILY_LIMIT:
+            return await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
+        
+        video_id = await db.get_unseen_brazzers(user_id)
+        if not video_id:
+            return await m.reply("❌ No unseen videos found!")
 
         # Fix: Using client.send_video to support protect_content
         dlt = await client.send_video(
