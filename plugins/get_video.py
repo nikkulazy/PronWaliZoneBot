@@ -112,7 +112,7 @@ async def handle_video_request(client, m: Message):
 
 
 # =========================================================
-# 🔥 SIRF YEH NAYA FUNCTION ADD KIYA HAI (CALLBACK HANDLER)
+# 🎬 VIDEO REQUEST FROM CALLBACK (INLINE BUTTON)
 # =========================================================
 async def handle_video_request_from_callback(client, query: CallbackQuery):
     """Handle video request from inline button callback"""
@@ -203,6 +203,3 @@ async def handle_video_request_from_callback(client, query: CallbackQuery):
 
     except Exception as e:
         await query.message.reply(f"❌ Failed to send video: {str(e)}")
-# =========================================================
-# 🔥 ADDING END
-# =========================================================
