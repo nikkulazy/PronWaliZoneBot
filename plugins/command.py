@@ -69,10 +69,12 @@ async def start_command(client, message: Message):
 
     # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
-        [InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers"),
-        [InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")]
-    ])
+    [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
+    [
+        InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers"),
+        InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")
+    ]
+])
 
     await message.reply_photo(
         photo=START_PIC,
