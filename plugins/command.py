@@ -10,10 +10,12 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
-from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from plugins.get_video import handle_video_request  # ✅ Import
+from plugins.brazzers import handle_brazzers_request  # ✅ Import
+
+
 # =================================================
-# 🚀 START COMMAND
+# 🚀 START COMMAND - WITH INLINE BUTTONS
 # =================================================
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
@@ -64,44 +66,22 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-            
-    # ✅ INLINE BUTTONS - Same buttons as before
+
+    # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
-        [InlineKeyboardButton("🔞Brazzers🔞", callback_data="brazzers"), 
-         InlineKeyboardButton("✨Subscription✨", callback_data="subscription")]
+        [InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers")],
+        [InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")]
     ])
 
-    sent_msg = await message.reply_photo(
+    await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=inline_keyboard,
         has_spoiler=True
     )
 
-    await asyncio.sleep(30)
-    try:
-        await sent_msg.delete()
-    except Exception:
-        pass
 
-
-# ✅ CALLBACK HANDLER - Add this after the start command
-@Client.on_callback_query()
-async def handle_callback(client, callback_query):
-    data = callback_query.data
-    
-    if data == "get_video":
-        await callback_query.message.reply("💢 Send me the video name or ID to search!")
-        await callback_query.answer()
-        
-    elif data == "brazzers":
-        await callback_query.message.reply("🔞 Brazzers content section! Send me a Brazzers video name.")
-        await callback_query.answer()
-        
-    elif data == "subscription":
-        await callback_query.message.reply("✨ For subscription details, contact support!")
-        await callback_query.answer()
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
@@ -142,17 +122,19 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
+
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER - SIRF close_data AUR get KE LIYE
+# 🔙 CALLBACK QUERY HANDLER
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
+    message = query.message
 
-    # SIRF YE DO CONDITION RAKHO
     if data == "close_data":
         await query.message.delete()
+        await query.answer()
 
     elif data == "get":
         buttons = [
@@ -164,6 +146,20 @@ async def cb_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
         )
-    
-    # 🔥 BAAKI SAB (index#yes, index#start_main, index#cancel, etc.)
-    # index.py handle karega - yahan kuch nahi karna
+        await query.answer()
+
+    # ✅ GET VIDEO BUTTON
+    elif data == "get_video":
+        await query.answer("📹 Getting your video...", show_alert=False)
+        await handle_video_request(client, message)
+
+    # ✅ BRAZZERS BUTTON
+    elif data == "brazzers":
+        await query.answer("🔞 Getting Brazzers video...", show_alert=False)
+        await handle_brazzers_request(client, message)
+
+    # ✅ SUBSCRIPTION BUTTON
+    elif data == "subscription":
+        await query.answer("✨ Opening subscription...", show_alert=False)
+        from plugins.premium import buy_handler
+        await buy_handler(client, message)
