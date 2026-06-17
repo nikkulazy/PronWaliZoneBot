@@ -67,7 +67,7 @@ async def start_command(client, message: Message):
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("💢 Get Video 💢")],
-            [KeyboardButton("🔞Brazzers🔞"), KeyboardButton("✨Subscription✨")]
+            [KeyboardButton("🔞𝙿𝚛𝚎𝚖𝚒𝚞𝚖 𝙱𝚛𝚊𝚣𝚣𝚎𝚛𝚜💸"), KeyboardButton("✨Subscription✨")]
         ],
         resize_keyboard=True,
         one_time_keyboard=False
@@ -82,7 +82,7 @@ async def start_command(client, message: Message):
     )
 
     # ✅ YE LINES FUNCTION KE ANDAR HONI CHAHIYE (4 spaces indent)
-    await asyncio.sleep(30)
+    await asyncio.sleep(60)
     await msg.delete()
 
 # =================================================
