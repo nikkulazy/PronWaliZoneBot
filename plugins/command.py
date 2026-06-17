@@ -74,14 +74,14 @@ async def start_command(client, message: Message):
     )
 
     await message.reply_photo(
-        photo=START_PIC,
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
-        has_spoiler=True
-    )
-    
-    await asyncio.sleep(30)
-            await msg.delete()
+    photo=START_PIC,
+    caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+    reply_markup=reply_keyboard,
+    has_spoiler=True
+)
+
+await asyncio.sleep(30)
+await msg.delete()  # 👈 SIRF 4 SPACES (1 TAB)
 
 # =================================================
 # 📜 HELPER HANDLERS
