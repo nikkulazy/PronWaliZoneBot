@@ -165,3 +165,30 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.answer("✨ Opening subscription...", show_alert=False)
         from plugins.premium import buy_handler
         await buy_handler(client, message)
+
+# =========================================================
+# 🔙 CALLBACK QUERY HANDLER
+# =========================================================
+@Client.on_callback_query()
+async def cb_handler(client: Client, query: CallbackQuery):
+    data = query.data
+    user_id = query.from_user.id
+
+    # 🔥🔥🔥 YEH ADD KAREIN - index wale callbacks ko ignore karein
+    if data.startswith("index"):
+        # index.py handle karega
+        return
+
+    if data == "close_data":
+        await query.message.delete()
+
+    elif data == "get":
+        buttons = [
+            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
+        ]
+        await query.message.reply_photo(
+            photo=QR_CODE_IMAGE,
+            caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
+        )
