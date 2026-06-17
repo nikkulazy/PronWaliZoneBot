@@ -68,23 +68,15 @@ async def start_command(client, message: Message):
         except Exception:
             pass
     
-    # ✅ PREMIUM CHECK
+    # ✅ PREMIUM CHECK (Sirf internal use ke liye)
     user = await db.get_user(user_id)
     is_premium = False
     if user:
         plan = user.get("plan", "Free")
         is_premium = (plan == "Premium")
     
-    # ✅ PREMIUM STATUS TEXT
-    if is_premium:
-        premium_status = "👑 **Premium User**"
-        daily_limit = PREMIUM_DAILY_LIMIT  # Unlimited ya zyada
-    else:
-        premium_status = f"🆓 **Free User**\n📊 Limit: {DAILY_LIMIT}/day"
-        daily_limit = DAILY_LIMIT
-    
-    # ✅ CAPTION MEIN PREMIUM STATUS DIKHAYEIN
-    caption = script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME) + f"\n\n{premium_status}"
+    # ✅ SIRF START TEXT (Bina status ke)
+    caption = script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME)
 
     # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
@@ -97,11 +89,10 @@ async def start_command(client, message: Message):
 
     await message.reply_photo(
         photo=START_PIC,
-        caption=caption,  # ✅ Premium status ke saath
+        caption=caption,  # ✅ Sirf start text, status nahi
         reply_markup=inline_keyboard,
         has_spoiler=True
     )
-
 
 # =================================================
 # 📜 HELPER HANDLERS
