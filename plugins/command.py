@@ -11,7 +11,7 @@ from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
-
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 # =================================================
 # 🚀 START COMMAND
 # =================================================
@@ -65,19 +65,17 @@ async def start_command(client, message: Message):
         except Exception:
             pass
             
-    reply_keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton("💢 Get Video 💢")],
-            [KeyboardButton("🔞Brazzers🔞"), KeyboardButton("✨Subscription✨")]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
+    # ✅ INLINE BUTTONS - Same buttons as before
+    inline_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
+        [InlineKeyboardButton("🔞Brazzers🔞", callback_data="brazzers"), 
+         InlineKeyboardButton("✨Subscription✨", callback_data="subscription")]
+    ])
 
     sent_msg = await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
+        reply_markup=inline_keyboard,
         has_spoiler=True
     )
 
@@ -86,6 +84,24 @@ async def start_command(client, message: Message):
         await sent_msg.delete()
     except Exception:
         pass
+
+
+# ✅ CALLBACK HANDLER - Add this after the start command
+@Client.on_callback_query()
+async def handle_callback(client, callback_query):
+    data = callback_query.data
+    
+    if data == "get_video":
+        await callback_query.message.reply("💢 Send me the video name or ID to search!")
+        await callback_query.answer()
+        
+    elif data == "brazzers":
+        await callback_query.message.reply("🔞 Brazzers content section! Send me a Brazzers video name.")
+        await callback_query.answer()
+        
+    elif data == "subscription":
+        await callback_query.message.reply("✨ For subscription details, contact support!")
+        await callback_query.answer()
 # =================================================
 # 📜 HELPER HANDLERS
 # =================================================
