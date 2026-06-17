@@ -67,23 +67,18 @@ async def start_command(client, message: Message):
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("💢 Get Video 💢")],
-            [KeyboardButton("𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝘽𝙧𝙖𝙯𝙯𝙚𝙧𝙨🔞"), KeyboardButton("𝙎𝙪𝙗𝙨𝙘𝙧𝙞𝙥𝙩𝙞𝙤𝙣💸")]
+            [KeyboardButton("🔞Brazzers🔞"), KeyboardButton("✨Subscription✨")]
         ],
         resize_keyboard=True,
         one_time_keyboard=False
     )
 
-    # ✅ msg variable define karo
-    msg = await message.reply_photo(
+    await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=reply_keyboard,
         has_spoiler=True
     )
-
-    # ✅ YE LINES FUNCTION KE ANDAR HONI CHAHIYE (4 spaces indent)
-    await asyncio.sleep(60)
-    await msg.delete()
 
 # =================================================
 # 📜 HELPER HANDLERS

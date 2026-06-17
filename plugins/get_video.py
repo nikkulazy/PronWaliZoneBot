@@ -51,29 +51,21 @@ async def handle_video_request(client, m: Message):
     if is_premium:
         # Premium User Logic
         if used >= PREMIUM_DAILY_LIMIT:
-            msg = await m.reply(
+            return await m.reply(
                 f"𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌.\n"
                 f"𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐!"
             )
-            await asyncio.sleep(30)
-            await msg.delete()
-            return
     else:
         if used >= VERIFICATION_DAILY_LIMIT:
-            msg = await m.reply(limit_reached_msg, reply_markup=buy_button)
-            await asyncio.sleep(30)
-            await msg.delete()
-            return
+            return await m.reply(limit_reached_msg, reply_markup=buy_button)
         if used >= DAILY_LIMIT:
             if IS_VERIFY:
                 verified = await av_x_verification(client, m)
                 if not verified:
                     return 
             else:
-                msg = await m.reply(limit_reached_msg, reply_markup=buy_button)
-                await asyncio.sleep(30)
-                await msg.delete()
-                return
+                return await m.reply(limit_reached_msg, reply_markup=buy_button)
+
     # ------------------------------------------------
     # GET VIDEO
     # ------------------------------------------------
