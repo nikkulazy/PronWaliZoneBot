@@ -79,6 +79,7 @@ async def start_command(client, message: Message):
         reply_markup=reply_keyboard,
         has_spoiler=True
     )
+    
     await asyncio.sleep(30)
             await msg.delete()
 
