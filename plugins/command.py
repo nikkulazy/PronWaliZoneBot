@@ -66,6 +66,13 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
+            is_premium = await db.has_premium_access(user_id)
+    
+    # Premium status text
+    if is_premium:
+        premium_status = "👑 **Premium User**"
+    else:
+        premium_status = f"🆓 **Free User**\n📊 Limit: {DAILY_LIMIT}/day"
 
     # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
