@@ -12,7 +12,7 @@ from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.get_video import handle_video_request  # ✅ Import
 from plugins.brazzers import handle_brazzers_request  # ✅ Import
-
+from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 
 # =================================================
 # 🚀 START COMMAND - WITH INLINE BUTTONS
@@ -70,7 +70,7 @@ async def start_command(client, message: Message):
     # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
-        [InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers")],
+        [InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers"),
         [InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")]
     ])
 
