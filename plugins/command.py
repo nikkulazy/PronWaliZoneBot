@@ -128,6 +128,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
 
+    # ✅ IMPORTANT: Pehle index callbacks ko handle karein
+    if data.startswith("index"):
+        from plugins.index import index_files  # index.py se import karein
+        await index_files(client, query)
+        return
+
+    # ✅ फिर बाकी callbacks handle karein
     if data == "close_data":
         await query.message.delete()
 
