@@ -1,4 +1,4 @@
-import datetime
+"""import datetime
 import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
@@ -186,7 +186,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         from plugins.premium import buy_handler
         await buy_handler(client, query.message)  # ✅ query.message use karein"""
 
-"""import datetime
+import datetime
 import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
@@ -254,8 +254,8 @@ async def start_command(client, message: Message):
             
     reply_keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("Get Video"), KeyboardButton("Brazzers")],
-            [KeyboardButton("My plan"), KeyboardButton("Subscription")]
+            [KeyboardButton("💢 Get Video 💢")],
+            [KeyboardButton("Brazzers 🔞"), KeyboardButton("Subscription 💸")]
         ],
         resize_keyboard=True,
         one_time_keyboard=False
@@ -265,7 +265,7 @@ async def start_command(client, message: Message):
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=reply_keyboard,
-        has_spoiler=True
+        #has_spoiler=True
     )
 
 # =================================================
