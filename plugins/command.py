@@ -1,4 +1,4 @@
-"""import datetime
+import datetime
 import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
@@ -157,22 +157,36 @@ async def cb_handler(client: Client, query: CallbackQuery):
         )
 
     # ✅ GET VIDEO BUTTON - FIXED
+    # ========================================================
+    # ✅ GET VIDEO BUTTON - PREMIUM CHECK
     elif data == "get_video":
+        is_premium = await db.has_premium_access(user_id)
+        if not is_premium:
+            await query.answer("⚠️ ये फीचर सिर्फ प्रीमियम यूजर्स के लिए है!", show_alert=True)
+            return
         await query.answer("📹 Getting your video...", show_alert=False)
-        await handle_video_request(client, query.message)  # ✅ query.message use karein
+        await handle_video_request(client, query.message)
 
-    # ✅ BRAZZERS BUTTON - FIXED
+    # ✅ BRAZZERS BUTTON - PREMIUM CHECK
     elif data == "brazzers":
+        is_premium = await db.has_premium_access(user_id)
+        if not is_premium:
+            await query.answer("⚠️ ये फीचर सिर्फ प्रीमियम यूजर्स के लिए है!", show_alert=True)
+            return
         await query.answer("🔞 Getting Brazzers video...", show_alert=False)
-        await handle_brazzers_request(client, query.message)  # ✅ query.message use karein
+        await handle_brazzers_request(client, query.message)
 
-    # ✅ SUBSCRIPTION BUTTON
+    # ✅ SUBSCRIPTION BUTTON - PREMIUM CHECK
     elif data == "subscription":
+        is_premium = await db.has_premium_access(user_id)
+        if is_premium:
+            await query.answer("✅ आप पहले से ही प्रीमियम यूजर हैं! 🎉", show_alert=True)
+            return
         await query.answer("✨ Opening subscription...", show_alert=False)
         from plugins.premium import buy_handler
         await buy_handler(client, query.message)  # ✅ query.message use karein"""
 
-import datetime
+"""import datetime
 import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
@@ -314,4 +328,4 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
-        )
+        )"""
