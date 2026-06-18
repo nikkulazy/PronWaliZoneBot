@@ -11,7 +11,7 @@ from utils import temp, get_seconds
 # -------------------------------------------------------------------------
 # 📋 ADMIN: LIST PREMIUM USERS
 # -------------------------------------------------------------------------
-@Client.on_message(filters.command("buy_handler") & filters.user(ADMINS))
+@Client.on_message(filters.command("premium_user") & filters.user(ADMINS))
 async def premium_user(client, message):
     aa = await message.reply_text("Fetching ...")  
     users = await db.get_all_users()
