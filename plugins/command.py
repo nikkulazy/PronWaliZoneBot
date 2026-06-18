@@ -79,13 +79,6 @@ async def start_command(client, message: Message):
         reply_markup=reply_keyboard,
         #has_spoiler=True
     ) 
-    # ✅ Safe Delete - Error aane par bhi kaam karega
-try:
-    await asyncio.sleep(30)
-    await msg.delete()
-    await message.delete()
-except Exception as e:
-    print(f"Delete Error: {e}")
 
 # =================================================
 # 📜 HELPER HANDLERS
