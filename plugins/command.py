@@ -13,6 +13,7 @@ from plugins.refer import refer_on_start
 from plugins.get_video import handle_video_request  # ✅ Import
 from plugins.brazzers import handle_brazzers_request  # ✅ Import
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
+from info import DAILY_LIMIT, PREMIUM_DAILY_LIMIT
 
 # =================================================
 # 🚀 START COMMAND - WITH INLINE BUTTONS
