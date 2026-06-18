@@ -78,7 +78,9 @@ async def start_command(client, message: Message):
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=reply_keyboard,
         #has_spoiler=True
-    )
+    ) 
+    await asyncio.sleep(30)
+await msg.delete()
 
 # =================================================
 # 📜 HELPER HANDLERS
@@ -140,4 +142,4 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
-        )"""
+        )
