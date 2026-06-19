@@ -37,15 +37,7 @@ async def handle_brazzers_request(client, m: Message):
         ])
     )
         
-        """is_premium = await db.has_premium_access(user_id)
-        if not is_premium:
-            return await m.reply(
-                "🔞 <b>Brazzers is only for Premium Users!</b>\n\n"
-                "💎 Buy subscription and get access to 900+ Brazzers videos per month.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton('💎 Purchase Subscription', callback_data='get_subscription')
-                ]])
-            )""""
+        
 
         # ✅ Check premium daily limit
         used_today = await db.get_video_count(user_id)
