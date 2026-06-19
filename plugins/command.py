@@ -335,4 +335,4 @@ async def cb_handler(client: Client, query: CallbackQuery):
             caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
-        )
+        )"""
