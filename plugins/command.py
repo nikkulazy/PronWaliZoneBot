@@ -10,12 +10,10 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
-from plugins.get_video import handle_video_request
-from plugins.brazzers import handle_brazzers_request
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 
 # =================================================
-# 🚀 START COMMAND - WITH INLINE BUTTONS
+# 🚀 START COMMAND
 # =================================================
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
@@ -57,7 +55,6 @@ async def start_command(client, message: Message):
         await send_requested_file(client, message, user_id, search_id)
         return
 
-    # ✅ USER CHECK
     if not await db.is_user_exist(user_id):
         await db.add_user(user_id, message.from_user.first_name)
         try:
@@ -67,43 +64,19 @@ async def start_command(client, message: Message):
             )
         except Exception:
             pass
-    
-    # ✅ GET USER PLAN
-    user = await db.get_user(user_id)
-    is_premium = False
-    daily_limit = DAILY_LIMIT  # Default free limit
-    
-    if user:
-        plan = user.get("plan", "Free")
-        is_premium = (plan == "Premium")
-        if is_premium:
-            daily_limit = PREMIUM_DAILY_LIMIT
-    
-    # ✅ SEND START MESSAGE WITH USER STATUS
-    caption = script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME)
-    
-    # Add daily limit info for free users
-    if not is_premium:
-        used_today = await db.get_daily_usage(user_id)
-        remaining = daily_limit - used_today
-        caption += f"\n\n📊 **Daily Limit:** {remaining}/{daily_limit} files remaining"
-    else:
-        caption += f"\n\n👑 **Premium User** - Unlimited Access!"
 
-    # ✅ INLINE BUTTONS
-    inline_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
-        [
-            InlineKeyboardButton("🔞 Brazzers 🔞", callback_data="brazzers"),
-            InlineKeyboardButton("✨ Subscription ✨", callback_data="subscription")
-        ]
+    # ✅ INLINE BUTTONS - Converted from Reply Keyboard
+    buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
+        [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
+        [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), InlineKeyboardButton("👥 Refer", callback_data="refer")],
+        [InlineKeyboardButton("📝 Help", callback_data="help"), InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
 
     await message.reply_photo(
         photo=START_PIC,
-        caption=caption,
-        reply_markup=inline_keyboard,
-        has_spoiler=True
+        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+        reply_markup=buttons,
     )
 
 # =================================================
@@ -147,17 +120,100 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER - ONLY ONE
+# 🔙 CALLBACK QUERY HANDLER - Main Handler
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
+    message = query.message
 
+    # ✅ INDEX CALLBACKS
+    if data.startswith("index"):
+        from plugins.index import index_files
+        await index_files(client, query)
+        return
+
+    # ✅ CLOSE
     if data == "close_data":
         await query.message.delete()
+        return
 
-    elif data == "get":
+    # ✅ GET VIDEO
+    if data == "get_video":
+        await query.answer("📥 Getting video...")
+        # Create a fake message object for the handler
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        from plugins.get_video import handle_video_request
+        await handle_video_request(client, fake_message)
+        return
+
+    # ✅ BRAZZERS - Premium Only
+    if data == "get_brazzers":
+        is_premium = await db.has_premium_access(user_id)
+        if not is_premium:
+            await query.answer("❌ Premium Only! Buy subscription.", show_alert=True)
+            return
+        await query.answer("🔞 Getting Brazzers video...")
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        from plugins.brazzers import handle_brazzers_request
+        await handle_brazzers_request(client, fake_message)
+        return
+
+    # ✅ SUBSCRIPTION
+    if data == "get_subscription":
+        await query.answer("💎 Showing subscription plans...")
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        from plugins.premium import buy_handler
+        await buy_handler(client, fake_message)
+        return
+
+    # ✅ MY PLAN
+    if data == "my_plan":
+        await query.answer("📊 Showing your plan...")
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        from plugins.premium import myplan_handler
+        await myplan_handler(client, fake_message)
+        return
+
+    # ✅ REFER
+    if data == "refer":
+        await query.answer("👥 Generating referral link...")
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        from plugins.refer import invite_command_handler
+        await invite_command_handler(client, fake_message)
+        return
+
+    # ✅ HELP
+    if data == "help":
+        await query.answer("📝 Showing help...")
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        await send_legal_text(client, fake_message, script.HELP_TXT)
+        return
+
+    # ✅ ABOUT
+    if data == "about":
+        await query.answer("ℹ️ About bot...")
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        await send_about_text(client, fake_message)
+        return
+
+    # ✅ GET (Payment QR)
+    if data == "get":
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -167,50 +223,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=enums.ParseMode.HTML
         )
-
-    # ✅ GET VIDEO BUTTON - FREE USERS WITH LIMIT, PREMIUM UNLIMITED
-    elif data == "get_video":
-        # Check if user is premium
-        is_premium = await db.has_premium_access(user_id)
-        
-        if not is_premium:
-            # Check daily limit for free users
-            used_today = await db.get_daily_usage(user_id)
-            remaining = DAILY_LIMIT - used_today
-            
-            if remaining <= 0:
-                await query.answer(
-                    f"⚠️ Daily limit exhausted! You've used {DAILY_LIMIT} files today.\n"
-                    "Buy Premium for unlimited access!",
-                    show_alert=True
-                )
-                return
-            
-            await query.answer(f"📹 Getting your video... {remaining-1} files left today", show_alert=False)
-        else:
-            await query.answer("📹 Getting your video... (Premium - Unlimited)", show_alert=False)
-        
-        # ✅ CALL THE HANDLER - It will handle the file limit internally
-        await handle_video_request(client, query.message)
-
-    # ✅ BRAZZERS BUTTON - PREMIUM ONLY
-    elif data == "brazzers":
-        is_premium = await db.has_premium_access(user_id)
-        if not is_premium:
-            await query.answer("⚠️ 🔞 Brazzers content is only for PREMIUM users!", show_alert=True)
-            return
-        await query.answer("🔞 Getting Brazzers video...", show_alert=False)
-        await handle_brazzers_request(client, query.message)
-
-    # ✅ SUBSCRIPTION BUTTON
-    elif data == "subscription":
-        is_premium = await db.has_premium_access(user_id)
-        if is_premium:
-            await query.answer("✅ आप पहले से ही प्रीमियम यूजर हैं! 🎉", show_alert=True)
-            return
-        await query.answer("✨ Opening subscription...", show_alert=False)
-        from plugins.premium import buy_handler
-        await buy_handler(client, query.message)
+        return
 
 
 """import datetime
