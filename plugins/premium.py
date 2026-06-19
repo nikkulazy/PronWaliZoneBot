@@ -286,4 +286,56 @@ async def remove_premium(client, message):
             await message.reply_text("ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?")
     else:
         await message.reply_text("ᴜꜱᴀɢᴇ : /remove_premium user_id")
+
+# In premium.py - ensure myplan_handler works with inline too
+@Client.on_message((filters.command("myplan") | filters.regex(r"(?i)^my\s?plan$")) & filters.private)
+async def myplan_handler(_, m: Message):
+    user_id = m.from_user.id
+    username = m.from_user.first_name
+
+    used = await db.get_video_count(user_id)
+    is_premium = await db.has_premium_access(user_id)
+    is_verified = await db.is_user_verified(user_id)
+
+    # -------- LIMIT LOGIC --------
+    if is_premium:
+        daily_limit = PREMIUM_DAILY_LIMIT
+        subscription_type = "💎 Premium"
+    elif is_verified:
+        daily_limit = VERIFICATION_DAILY_LIMIT
+        subscription_type = "✅ Verified"
+    else:
+        daily_limit = DAILY_LIMIT
+        subscription_type = "🆓 Free"
+
+    remaining = max(daily_limit - used, 0)
+
+    premium_details = await db.get_user(user_id) if is_premium else None
+
+    # -------- SAME STYLE TEXT --------
+    text = f"""📊 <b>Your Plan Details</b>
+
+👤 <b>User:</b> {username}
+🆔 <b>User ID:</b> <code>{user_id}</code>
+💠 <b>Subscription:</b> {subscription_type}
+📂 <b>Daily Limit:</b> {daily_limit} Files
+📉 <b>Used:</b> {used} | <b>Left:</b> {remaining}"""
+
+    # -------- PREMIUM EXPIRY --------
+    if is_premium and premium_details and premium_details.get('expiry_time'):
+        expiry = premium_details['expiry_time']
+        if expiry.tzinfo is None:
+            expiry = pytz.utc.localize(expiry)
+        expiry_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata"))
+
+        text += f"""
+
+⏳ <b>Subscription Details</b>
+📅 Expiry: {expiry_ist.strftime('%d-%m-%Y')}
+⏰ Time: {expiry_ist.strftime('%I:%M %p')}"""
+
+    await m.reply(text, reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
+        [InlineKeyboardButton("❌ Close", callback_data="close_data")]
+    ]))
         
