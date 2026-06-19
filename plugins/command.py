@@ -10,10 +10,9 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
-from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 
 # =================================================
-# 🚀 START COMMAND
+# START COMMAND
 # =================================================
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
@@ -65,12 +64,15 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
-    # ✅ INLINE BUTTONS - Converted from Reply Keyboard
+    # INLINE BUTTONS for users
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
-        [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
-        [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), InlineKeyboardButton("👥 Refer", callback_data="refer")],
-        [InlineKeyboardButton("📝 Help", callback_data="help"), InlineKeyboardButton("ℹ️ About", callback_data="about")]
+        [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
+         InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
+        [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), 
+         InlineKeyboardButton("👥 Refer", callback_data="refer")],
+        [InlineKeyboardButton("📝 Help", callback_data="help"), 
+         InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
 
     await message.reply_photo(
@@ -80,7 +82,7 @@ async def start_command(client, message: Message):
     )
 
 # =================================================
-# 📜 HELPER HANDLERS
+# HELPER HANDLERS
 # =================================================
 
 @Client.on_message(filters.command("disclaimer") & filters.private)
@@ -120,7 +122,7 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# 🔙 CALLBACK QUERY HANDLER - Main Handler
+# CALLBACK QUERY HANDLER - Main Handler
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -128,88 +130,87 @@ async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
     message = query.message
 
-    # ✅ INDEX CALLBACKS
+    # INDEX CALLBACKS
     if data.startswith("index"):
         from plugins.index import index_files
         await index_files(client, query)
         return
 
-    # ✅ CLOSE
+    # CLOSE
     if data == "close_data":
         await query.message.delete()
         return
 
-    # ✅ GET VIDEO
+    # GET VIDEO
     if data == "get_video":
-        await query.answer("📥 Getting video...")
-        # Create a fake message object for the handler
-        fake_message = message
-        fake_message.from_user = query.from_user
-        fake_message.chat = message.chat
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.get_video import handle_video_request
-        await handle_video_request(client, fake_message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await handle_video_request(client, fake_msg)
         return
 
-    # ✅ BRAZZERS - Premium Only
+    # BRAZZERS - NO POPUP, FAST
     if data == "get_brazzers":
-    # 🔥 No query.answer() - Direct call
-    from plugins.brazzers import handle_brazzers_request
-    fake_msg = message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = message.chat
-    await handle_brazzers_request(client, fake_msg)
-    return
-    
-    # ✅ SUBSCRIPTION
+        from plugins.brazzers import handle_brazzers_request
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await handle_brazzers_request(client, fake_msg)
+        return
+
+    # SUBSCRIPTION
     if data == "get_subscription":
-        await query.answer("💎 Showing subscription plans...")
-        fake_message = message
-        fake_message.from_user = query.from_user
-        fake_message.chat = message.chat
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
-        await buy_handler(client, fake_message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await buy_handler(client, fake_msg)
         return
 
-    # ✅ MY PLAN
+    # MY PLAN
     if data == "my_plan":
-        await query.answer("📊 Showing your plan...")
-        fake_message = message
-        fake_message.from_user = query.from_user
-        fake_message.chat = message.chat
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
-        await myplan_handler(client, fake_message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await myplan_handler(client, fake_msg)
         return
 
-    # ✅ REFER
+    # REFER
     if data == "refer":
-        await query.answer("👥 Generating referral link...")
-        fake_message = message
-        fake_message.from_user = query.from_user
-        fake_message.chat = message.chat
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
-        await invite_command_handler(client, fake_message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await invite_command_handler(client, fake_msg)
         return
 
-    # ✅ HELP
+    # HELP
     if data == "help":
-        await query.answer("📝 Showing help...")
-        fake_message = message
-        fake_message.from_user = query.from_user
-        fake_message.chat = message.chat
-        await send_legal_text(client, fake_message, script.HELP_TXT)
+        await query.answer("⏳ Loading...", show_alert=False)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
-    # ✅ ABOUT
+    # ABOUT
     if data == "about":
-        await query.answer("ℹ️ About bot...")
-        fake_message = message
-        fake_message.from_user = query.from_user
-        fake_message.chat = message.chat
-        await send_about_text(client, fake_message)
+        await query.answer("⏳ Loading...", show_alert=False)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await send_about_text(client, fake_msg)
         return
 
-    # ✅ GET (Payment QR)
+    # GET (Payment QR)
     if data == "get":
+        await query.answer("⏳ Loading...", show_alert=False)
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -220,155 +221,3 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
-
-
-"""import datetime
-import asyncio
-from pyrogram import Client, filters, enums
-from pyrogram.types import *
-from pyrogram.errors import *
-from Script import script
-from database.users_db import db
-from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID
-from utils import temp, is_user_joined
-from plugins.verification import verify_user_on_start
-from plugins.send_file import send_requested_file
-from plugins.refer import refer_on_start
-
-# =================================================
-# 🚀 START COMMAND
-# =================================================
-@Client.on_message(filters.command("start") & filters.private)
-async def start_command(client, message: Message):
-    user_id = message.from_user.id
-    mention = message.from_user.mention
-    me2 = (await client.get_me()).mention
-    
-    if FSUB and not await is_user_joined(client, message):
-        return
-        
-    argument = message.command[1] if len(message.command) > 1 else None
-
-    if argument and argument.startswith('avbotz'):
-        await verify_user_on_start(client, message)
-        return
-
-    if argument == "terms":
-        await send_legal_text(client, message, script.TERMS_TXT)
-        return
-    elif argument == "disclaimer":
-        await send_legal_text(client, message, script.DISCLAIMER_TXT)
-        return
-    elif argument == "help":
-        await send_legal_text(client, message, script.HELP_TXT)
-        return
-    elif argument == "about":
-        await send_about_text(client, message)
-        return
-
-    if argument and argument.startswith("reff_"):
-        try:
-            await refer_on_start(client, message)
-            return 
-        except Exception as e:
-            print(f"Referral Error: {e}")
-
-    if argument and argument.startswith("avx-"):
-        search_id = argument.replace("avx-", "")
-        await send_requested_file(client, message, user_id, search_id)
-        return
-
-    if not await db.is_user_exist(user_id):
-        await db.add_user(user_id, message.from_user.first_name)
-        try:
-            await client.send_message(
-                LOG_CHANNEL,
-                script.LOG_TEXT.format(me2, user_id, mention)
-            )
-        except Exception:
-            pass
-            
-    reply_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton("💢 Get Video 💢")],
-        [KeyboardButton("🔞 Brazzers"), KeyboardButton("✨ Subscription")]
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=False
-)
-
-    await message.reply_photo(
-        photo=START_PIC,
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=reply_keyboard,
-        #has_spoiler=True
-    ) 
-
-# =================================================
-# 📜 HELPER HANDLERS
-# =================================================
-
-@Client.on_message(filters.command("disclaimer") & filters.private)
-async def legal_disclaimer(client, message: Message):
-    await send_legal_text(client, message, script.DISCLAIMER_TXT)
-
-@Client.on_message(filters.command("terms") & filters.private)
-async def legal_terms(client, message: Message):
-    await send_legal_text(client, message, script.TERMS_TXT)
-
-@Client.on_message(filters.command("about") & filters.private)
-async def legal_about(client, message: Message):
-    await send_about_text(client, message)
-
-@Client.on_message(filters.command("help") & filters.private)
-async def legal_hepl(client, message: Message):
-    await send_legal_text(client, message, script.HELP_TXT)
-    
-async def send_legal_text(client, message, text):
-    inline_buttons = [[
-        InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
-    ]]
-    await message.reply_text(
-        text=text,
-        reply_markup=InlineKeyboardMarkup(inline_buttons),
-        disable_web_page_preview=True
-    )
-
-async def send_about_text(client, message):
-    inline_buttons = [[
-        InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
-    ]]
-    await message.reply_text(
-        text=script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK),
-        reply_markup=InlineKeyboardMarkup(inline_buttons),
-        disable_web_page_preview=True
-    )
-
-# =========================================================
-# 🔙 CALLBACK QUERY HANDLER
-# =========================================================
-@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    data = query.data
-    user_id = query.from_user.id
-
-    # ✅ IMPORTANT: Pehle index callbacks ko handle karein
-    if data.startswith("index"):
-        from plugins.index import index_files  # index.py se import karein
-        await index_files(client, query)
-        return
-
-    # ✅ फिर बाकी callbacks handle karein
-    if data == "close_data":
-        await query.message.delete()
-
-    elif data == "get":
-        buttons = [
-            [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
-        ]
-        await query.message.reply_photo(
-            photo=QR_CODE_IMAGE,
-            caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode=enums.ParseMode.HTML
-        )"""
