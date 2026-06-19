@@ -64,7 +64,6 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
-    # INLINE BUTTONS for users
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
@@ -130,18 +129,15 @@ async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
     message = query.message
 
-    # INDEX CALLBACKS
     if data.startswith("index"):
         from plugins.index import index_files
         await index_files(client, query)
         return
 
-    # CLOSE
     if data == "close_data":
         await query.message.delete()
         return
 
-    # GET VIDEO
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.get_video import handle_video_request
@@ -151,53 +147,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await handle_video_request(client, fake_msg)
         return
 
-    # BRAZZERS - NO POPUP, FAST
-    Error: IndentationError in command.py
-Problem: Line 155 par if statement ke baad kuch nahi likha aur line 156 par try: hai, lekin uske beech mein indent missing hai.
-
-Fix:
-Line 155-156 ko aise karo:
-
-python
-# GALAT (Error wala code):
-if data == "get_brazzers":
-try:
-    await query.answer("⏳ Processing...", show_alert=False)
-    
-# SAHI (Fix):
-if data == "get_brazzers":
-    try:
-        await query.answer("⏳ Processing...", show_alert=False)
-Pura Sahi Code (command.py ka callback section):
-python
-@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    data = query.data
-    user_id = query.from_user.id
-    message = query.message
-
-    # INDEX CALLBACKS
-    if data.startswith("index"):
-        from plugins.index import index_files
-        await index_files(client, query)
-        return
-
-    # CLOSE
-    if data == "close_data":
-        await query.message.delete()
-        return
-
-    # GET VIDEO
-    if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
-        from plugins.get_video import handle_video_request
-        fake_msg = message
-        fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
-        await handle_video_request(client, fake_msg)
-        return
-
-    # BRAZZERS - FIXED INDENTATION
     if data == "get_brazzers":
         try:
             await query.answer("⏳ Processing...", show_alert=False)
@@ -211,7 +160,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             await query.answer("❌ Error processing request", show_alert=True)
         return
 
-    # SUBSCRIPTION
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
@@ -221,7 +169,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await buy_handler(client, fake_msg)
         return
 
-    # MY PLAN
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
@@ -231,7 +178,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await myplan_handler(client, fake_msg)
         return
 
-    # REFER
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
@@ -241,7 +187,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await invite_command_handler(client, fake_msg)
         return
 
-    # HELP
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
@@ -250,7 +195,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
-    # ABOUT
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
@@ -259,7 +203,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await send_about_text(client, fake_msg)
         return
 
-    # GET (Payment QR)
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
         buttons = [
