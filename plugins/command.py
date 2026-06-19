@@ -153,12 +153,24 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     # BRAZZERS - NO POPUP, FAST
     if data == "get_brazzers":
-        from plugins.brazzers import handle_brazzers_request
+    try:
+        # Pehle hi callback answer kar do - timeout nahi hoga
+        await query.answer("⏳ Processing...", show_alert=False)
+        
+        # Core function import karo
+        from plugins.brazzers import process_brazzers_request
+        
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
-        await handle_brazzers_request(client, fake_msg)
-        return
+        
+        # Direct core function call
+        await process_brazzers_request(client, fake_msg)
+        
+    except Exception as e:
+        print(f"Brazzers callback error: {e}")
+        await query.answer("❌ Error processing request", show_alert=True)
+    return
 
     # SUBSCRIPTION
     if data == "get_subscription":
