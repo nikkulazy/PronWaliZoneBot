@@ -22,7 +22,22 @@ async def handle_brazzers_request(client, m: Message):
 
     try:
         # ✅ BRAZZERS - STRICTLY PREMIUM ONLY
-        is_premium = await db.has_premium_access(user_id)
+         if not is_premium:
+    return await m.reply(
+        "🔞 <b>Brazzers केवल Premium Users के लिए!</b>\n\n"
+        "💎 सब्सक्रिप्शन खरीदें और 900+ Brazzers वीडियो हर महीने देखें।\n\n"
+        "✨ <b>Premium Benefits:</b>\n"
+        f"• {PREMIUM_DAILY_LIMIT} Videos per day\n"
+        "• Brazzers content access\n"
+        "• Priority support\n\n"
+        "💰 <b>नीचे क्लिक करें खरीदने के लिए:</b>",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton('💎 Subscription खरीदें', callback_data='get_subscription')],
+            [InlineKeyboardButton('❌ बंद करें', callback_data='close_data')]
+        ])
+    )
+        
+        """is_premium = await db.has_premium_access(user_id)
         if not is_premium:
             return await m.reply(
                 "🔞 <b>Brazzers is only for Premium Users!</b>\n\n"
@@ -30,7 +45,7 @@ async def handle_brazzers_request(client, m: Message):
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton('💎 Purchase Subscription', callback_data='get_subscription')
                 ]])
-            )
+            )""""
 
         # ✅ Check premium daily limit
         used_today = await db.get_video_count(user_id)
