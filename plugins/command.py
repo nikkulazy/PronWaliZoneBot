@@ -10,8 +10,8 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
-from plugins.get_video import handle_video_request  # ✅ Import
-from plugins.brazzers import handle_brazzers_request  # ✅ Import
+from plugins.get_video import handle_video_request
+from plugins.brazzers import handle_brazzers_request
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 
 # =================================================
@@ -68,15 +68,27 @@ async def start_command(client, message: Message):
         except Exception:
             pass
     
-    # ✅ PREMIUM CHECK (Sirf internal use ke liye)
+    # ✅ GET USER PLAN
     user = await db.get_user(user_id)
     is_premium = False
+    daily_limit = DAILY_LIMIT  # Default free limit
+    
     if user:
         plan = user.get("plan", "Free")
         is_premium = (plan == "Premium")
+        if is_premium:
+            daily_limit = PREMIUM_DAILY_LIMIT
     
-    # ✅ SIRF START TEXT (Bina status ke)
+    # ✅ SEND START MESSAGE WITH USER STATUS
     caption = script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME)
+    
+    # Add daily limit info for free users
+    if not is_premium:
+        used_today = await db.get_daily_usage(user_id)
+        remaining = daily_limit - used_today
+        caption += f"\n\n📊 **Daily Limit:** {remaining}/{daily_limit} files remaining"
+    else:
+        caption += f"\n\n👑 **Premium User** - Unlimited Access!"
 
     # ✅ INLINE BUTTONS
     inline_keyboard = InlineKeyboardMarkup([
@@ -89,7 +101,7 @@ async def start_command(client, message: Message):
 
     await message.reply_photo(
         photo=START_PIC,
-        caption=caption,  # ✅ Sirf start text, status nahi
+        caption=caption,
         reply_markup=inline_keyboard,
         has_spoiler=True
     )
@@ -156,27 +168,41 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
 
-    # ✅ GET VIDEO BUTTON - FIXED
-    # ========================================================
-    # ✅ GET VIDEO BUTTON - PREMIUM CHECK
+    # ✅ GET VIDEO BUTTON - FREE USERS WITH LIMIT, PREMIUM UNLIMITED
     elif data == "get_video":
+        # Check if user is premium
         is_premium = await db.has_premium_access(user_id)
+        
         if not is_premium:
-            await query.answer("⚠️ ये फीचर सिर्फ प्रीमियम यूजर्स के लिए है!", show_alert=True)
-            return
-        await query.answer("📹 Getting your video...", show_alert=False)
+            # Check daily limit for free users
+            used_today = await db.get_daily_usage(user_id)
+            remaining = DAILY_LIMIT - used_today
+            
+            if remaining <= 0:
+                await query.answer(
+                    f"⚠️ Daily limit exhausted! You've used {DAILY_LIMIT} files today.\n"
+                    "Buy Premium for unlimited access!",
+                    show_alert=True
+                )
+                return
+            
+            await query.answer(f"📹 Getting your video... {remaining-1} files left today", show_alert=False)
+        else:
+            await query.answer("📹 Getting your video... (Premium - Unlimited)", show_alert=False)
+        
+        # ✅ CALL THE HANDLER - It will handle the file limit internally
         await handle_video_request(client, query.message)
 
-    # ✅ BRAZZERS BUTTON - PREMIUM CHECK
+    # ✅ BRAZZERS BUTTON - PREMIUM ONLY
     elif data == "brazzers":
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
-            await query.answer("⚠️ ये फीचर सिर्फ प्रीमियम यूजर्स के लिए है!", show_alert=True)
+            await query.answer("⚠️ 🔞 Brazzers content is only for PREMIUM users!", show_alert=True)
             return
         await query.answer("🔞 Getting Brazzers video...", show_alert=False)
         await handle_brazzers_request(client, query.message)
 
-    # ✅ SUBSCRIPTION BUTTON - PREMIUM CHECK
+    # ✅ SUBSCRIPTION BUTTON
     elif data == "subscription":
         is_premium = await db.has_premium_access(user_id)
         if is_premium:
@@ -184,7 +210,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
             return
         await query.answer("✨ Opening subscription...", show_alert=False)
         from plugins.premium import buy_handler
-        await buy_handler(client, query.message)  # ✅ query.message use karein"""
+        await buy_handler(client, query.message)
+
 
 """import datetime
 import asyncio
