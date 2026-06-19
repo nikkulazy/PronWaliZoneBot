@@ -1,9 +1,8 @@
 import asyncio
-import string
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from database.users_db import db
-from info import LOG_CHANNEL, PREMIUM_DAILY_LIMIT, FSUB, PROTECT_CONTENT
+from info import PREMIUM_DAILY_LIMIT, FSUB, PROTECT_CONTENT
 from utils import temp, auto_delete_message, is_user_joined
 from plugins.ban_manager import ban_manager 
 
@@ -21,46 +20,57 @@ async def handle_brazzers_request(client, m: Message):
         return
 
     try:
-        # ✅ BRAZZERS - STRICTLY PREMIUM ONLY
-         if not is_premium:
-    return await m.reply(
-        "🔞 <b>Brazzers केवल Premium Users के लिए!</b>\n\n"
-        "💎 सब्सक्रिप्शन खरीदें और 900+ Brazzers वीडियो हर महीने देखें।\n\n"
-        "✨ <b>Premium Benefits:</b>\n"
-        f"• {PREMIUM_DAILY_LIMIT} Videos per day\n"
-        "• Brazzers content access\n"
-        "• Priority support\n\n"
-        "💰 <b>नीचे क्लिक करें खरीदने के लिए:</b>",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton('💎 Subscription खरीदें', callback_data='get_subscription')],
-            [InlineKeyboardButton('❌ बंद करें', callback_data='close_data')]
-        ])
-    )
+        is_premium = await db.has_premium_access(user_id)
         
-        
+        # ✅ FREE USER - Show message (not popup)
+        if not is_premium:
+            return await m.reply(
+                "🔞 <b>Brazzers is only for Premium Users!</b>\n\n"
+                "💎 Buy subscription and get access to 900+ Brazzers videos per month.\n\n"
+                "✨ <b>Premium Benefits:</b>\n"
+                f"• {PREMIUM_DAILY_LIMIT} Videos per day\n"
+                "• Access to Brazzers content\n"
+                "• Priority support\n\n"
+                "💰 <b>Click below to buy:</b>",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton('💎 Purchase Subscription', callback_data='get_subscription')],
+                    [InlineKeyboardButton('❌ Close', callback_data='close_data')]
+                ])
+            )
 
-        # ✅ Check premium daily limit
-        used_today = await db.get_video_count(user_id)
+        # ✅ PREMIUM USER - Check daily limit
+        used_today = await db.get_video_count(user_id) or 0
         if used_today >= PREMIUM_DAILY_LIMIT:
             return await m.reply(
-                f"⚠️ You've reached your daily limit of {PREMIUM_DAILY_LIMIT} files.\n"
-                f"⏳ Try again tomorrow."
+                f"⚠️ <b>Daily Limit Reached!</b>\n\n"
+                f"You've used {used_today}/{PREMIUM_DAILY_LIMIT} files today.\n"
+                f"⏳ Try again tomorrow!"
             )
         
         # Get unseen Brazzers video
         video_id = await db.get_unseen_brazzers(user_id)
         if not video_id:
-            return await m.reply("❌ No unseen Brazzers videos found!\n\n📢 All videos watched. New videos added daily.")
+            return await m.reply(
+                "❌ <b>No Unseen Videos!</b>\n\n"
+                "📢 You've watched all Brazzers videos.\n"
+                "🆕 New videos will be added soon.\n\n"
+                "🔄 Check back later!"
+            )
         
-        # Send video
+        # Send video to premium user
         dlt = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
             protect_content=PROTECT_CONTENT,
-            caption=f"🔞 <b>Brazzers Exclusive</b>\n\n"
-                   f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-                   "<blockquote>ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-                   "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ.</blockquote>",
+            caption=(
+                f"🔞 <b>Brazzers Exclusive</b>\n\n"
+                f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+                "<blockquote>"
+                "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+                "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+                "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+                "</blockquote>"
+            ),
             reply_to_message_id=m.id
         )
         
