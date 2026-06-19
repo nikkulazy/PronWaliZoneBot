@@ -128,7 +128,7 @@ async def handle_video_request(client, m: Message):
     except Exception as e:
         await m.reply(f"❌ Failed to send video: {str(e)}")
 
-""""from os import environ
+"""""from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.users_db import db
@@ -238,5 +238,5 @@ async def handle_video_request(client, m: Message):
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
-        await m.reply(f"❌ Failed to send video: {str(e)}")""""
+        await m.reply(f"❌ Failed to send video: {str(e)}")"""""
         
