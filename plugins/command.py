@@ -152,14 +152,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     # ✅ BRAZZERS - Premium Only
     if data == "get_brazzers":
-    # ❌ POPUP हटा दिया
-    # await query.answer("🔞 Getting Brazzers video...")  # <-- DELETE
-    fake_message = message
-    fake_message.from_user = query.from_user
-    fake_message.chat = message.chat
-    from plugins.brazzers import handle_brazzers_request
-    await handle_brazzers_request(client, fake_message)
-    return
+        # ✅ No popup, directly send message
+        fake_message = message
+        fake_message.from_user = query.from_user
+        fake_message.chat = message.chat
+        from plugins.brazzers import handle_brazzers_request
+        await handle_brazzers_request(client, fake_message)
+        return
     
     # ✅ SUBSCRIPTION
     if data == "get_subscription":
