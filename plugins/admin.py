@@ -72,7 +72,7 @@ async def admin_callback_handler(client, query):
         # You'll need to import and call the respective functions
         await query.message.reply(f"✅ Command /{command_map[data]} executed!\n\n<i>Check logs for details.</i>")
 
-"""from pyrogram import Client, filters
+""""from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 from info import ADMINS
 
@@ -95,4 +95,4 @@ async def admin_cmd(client, message):
     sent_message = await message.reply(
         "<b>Admin All Commands 👇</b>",
         reply_markup=reply_markup,
-    )"""
+    )""""
