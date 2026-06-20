@@ -13,12 +13,14 @@ from utils import temp, auto_delete_message, is_user_joined
 # =================================================
 async def send_video_with_controls(client, message, video_id, category="main"):
     """
-    Send video with Like, Dislike, Previous, Next buttons
+    Send video with Like, Dislike, Next buttons
     """
     user_id = message.from_user.id
     
-    # Get reaction counts
+    # 🔴 FIX: Safely get reactions
     reactions = await db.get_video_reactions(video_id)
+    if reactions is None:
+        reactions = {"likes": 0, "dislikes": 0}
     likes = reactions.get('likes', 0)
     dislikes = reactions.get('dislikes', 0)
     
@@ -34,18 +36,13 @@ async def send_video_with_controls(client, message, video_id, category="main"):
     elif user_reaction == 'dislike':
         dislike_text = f"👎💢 {dislikes}"
     
-    # =============================================
-    # 🔴 PREVIOUS BUTTON - Check if history exists
-    # =============================================
+    # Check history and limit
     history_count = await db.get_user_history_count(user_id, category)
     prev_disabled = history_count < 1
     
     prev_text = "⏮️" if not prev_disabled else "⏮️🚫"
     prev_callback = f"prev_{video_id}_{category}" if not prev_disabled else "no_history"
     
-    # =============================================
-    # 🔴 NEXT BUTTON - Check limit
-    # =============================================
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
@@ -62,25 +59,15 @@ async def send_video_with_controls(client, message, video_id, category="main"):
     next_text = "🔒" if limit_reached else "⏭️"
     next_callback = "limit_reached" if limit_reached else f"next_{video_id}_{category}"
     
-    # =============================================
-    # 🔴 BUTTONS - 3 Rows
-    # Row 1: Like | Dislike
-    # Row 2: Previous | Next
-    # Row 3: Close
-    # =============================================
-    
     buttons = [
-        # Row 1: Like & Dislike
         [
             InlineKeyboardButton(like_text, callback_data=f"like_{video_id}"),
             InlineKeyboardButton(dislike_text, callback_data=f"dislike_{video_id}")
         ],
-        # Row 2: Previous & Next (Ek hi row mein)
         [
             InlineKeyboardButton(prev_text, callback_data=prev_callback),
             InlineKeyboardButton(next_text, callback_data=next_callback)
         ],
-        # Row 3: Close
         [
             InlineKeyboardButton("❌ Close", callback_data="close_data")
         ]
@@ -88,7 +75,6 @@ async def send_video_with_controls(client, message, video_id, category="main"):
     
     reply_markup = InlineKeyboardMarkup(buttons)
     
-    # Extra info for caption
     extra_info = ""
     if limit_reached:
         extra_info = f"\n\n⚠️ Daily limit reached ({used}/{current_limit})"
@@ -344,6 +330,8 @@ async def update_reaction_buttons(client, query, video_id):
     """Update only like/dislike buttons"""
     
     reactions = await db.get_video_reactions(video_id)
+    if reactions is None:
+        reactions = {"likes": 0, "dislikes": 0}
     likes = reactions.get('likes', 0)
     dislikes = reactions.get('dislikes', 0)
     
