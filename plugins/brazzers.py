@@ -30,31 +30,30 @@ async def process_brazzers_request(client, m: Message):
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
             # Quick reply for non-premium users
-          m = await m.reply(
+            msg = await m.reply(
                 "💎 𝖡𝗎𝗒 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖠𝗇𝖽 𝖦𝖾𝗍 900+ 𝖡𝖺𝗋𝗓𝗓𝖾𝗋𝗌 𝖵𝗂𝖽𝖾𝗈 𝖯𝖾𝗋 𝖬𝗈𝗇𝗍𝗁.", 
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton('• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •', callback_data='get')
                 ]])
             )
-    
-    # Auto-delete after 60 seconds
-    await asyncio.sleep(60)
-    await m.delete()
-except Exception as e:
-    print(f"Error: {e}")
             
+            # ✅ AUTO-DELETE: 60 seconds baad delete
+            await asyncio.sleep(60)
+            await msg.delete()
+            return
 
         used_today = await db.get_video_count(user_id)
-if used_today >= PREMIUM_DAILY_LIMIT:
-    # Original message delete karo
-    await m.delete()
-    
-    # Naya warning message bhejo
-    msg = await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
-    
-    await asyncio.sleep(40)
-    await msg.delete()
-    return
+        if used_today >= PREMIUM_DAILY_LIMIT:
+            # Original message delete karo
+            await m.delete()
+            
+            # Naya warning message bhejo
+            warn_msg = await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
+            
+            # ✅ AUTO-DELETE: 40 seconds baad delete
+            await asyncio.sleep(40)
+            await warn_msg.delete()
+            return
         
         video_id = await db.get_unseen_brazzers(user_id)
         if not video_id:
@@ -71,6 +70,8 @@ if used_today >= PREMIUM_DAILY_LIMIT:
         )
         
         await db.increase_video_count(user_id, username)
+        
+        # ✅ AUTO-DELETE: 10 minutes (600 seconds) baad delete
         asyncio.create_task(auto_delete_message(m, dlt))
 
     except Exception as e:
