@@ -494,5 +494,40 @@ class Database:
         })
         return level1_count
 
+        # ... aapke existing functions ...
+
+    # =============================================
+    # VIDEO REACTIONS (Like / Dislike)
+    # =============================================
+
+    async def get_video_reactions(self, video_id):
+        ...
+
+    async def add_reaction(self, user_id, video_id, reaction_type):
+        ...
+
+    async def remove_reaction(self, user_id, video_id, reaction_type):
+        ...
+
+    async def get_user_reaction(self, user_id, video_id):
+        ...
+
+    # =============================================
+    # USER HISTORY (For Previous Button)
+    # =============================================
+
+    async def add_to_user_history(self, user_id, video_id, category="main"):
+        ...
+
+    async def get_previous_video(self, user_id, current_video_id, category="main"):
+        ...
+
+    async def get_user_history_count(self, user_id, category="main"):
+        ...
+
+    async def get_user_history_all(self, user_id, category="main"):
+        ...
+
 # Initialize
 db = Database()
+
