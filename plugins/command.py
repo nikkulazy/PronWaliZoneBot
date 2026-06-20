@@ -121,121 +121,88 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler (FULL FIXED)
+# CALLBACK QUERY HANDLER - Main Handler
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
-    
-    # DEBUG
-    print(f"📥 Callback: {data} from {user_id}")
 
-    # =============================================
-    # INDEX HANDLER
-    # =============================================
     if data.startswith("index"):
         from plugins.index import index_files
         await index_files(client, query)
         return
 
-    # =============================================
-    # CLOSE HANDLER
-    # =============================================
     if data == "close_data":
         await query.message.delete()
-        await query.answer("Closed")
         return
 
-    # =============================================
-    # GET VIDEO HANDLER (FIXED)
-    # =============================================
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
-        try:
-            from plugins.get_video import handle_video_request
-            
-            # 🔴 FIX: Create proper fake message
-            fake_msg = message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
-            
-            await handle_video_request(client, fake_msg)
-        except Exception as e:
-            print(f"❌ Get Video Error: {e}")
-            import traceback
-            traceback.print_exc()
-            await query.answer("❌ Error loading video", show_alert=True)
+        from plugins.get_video import handle_video_request
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await handle_video_request(client, fake_msg)
         return
 
-    # =============================================
-    # GET BRAZZERS HANDLER (FIXED)
-    # =============================================
     if data == "get_brazzers":
-        await query.answer("⏳ Processing...", show_alert=False)
         try:
+            await query.answer("⏳ Processing...", show_alert=False)
             from plugins.brazzers import process_brazzers_request
-            
-            # 🔴 FIX: Create proper fake message
             fake_msg = message
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
-            
             await process_brazzers_request(client, fake_msg)
         except Exception as e:
-            print(f"❌ Brazzers Error: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Brazzers callback error: {e}")
             await query.answer("❌ Error processing request", show_alert=True)
         return
 
-    # =============================================
-    # SUBSCRIPTION HANDLER
-    # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
-        await buy_handler(client, message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await buy_handler(client, fake_msg)
         return
 
-    # =============================================
-    # MY PLAN HANDLER
-    # =============================================
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
-        await myplan_handler(client, message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await myplan_handler(client, fake_msg)
         return
 
-    # =============================================
-    # REFER HANDLER
-    # =============================================
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
-        await invite_command_handler(client, message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await invite_command_handler(client, fake_msg)
         return
 
-    # =============================================
-    # HELP HANDLER
-    # =============================================
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
-        await send_legal_text(client, message, script.HELP_TXT)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
-    # =============================================
-    # ABOUT HANDLER
-    # =============================================
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
-        await send_about_text(client, message)
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await send_about_text(client, fake_msg)
         return
 
-    # =============================================
-    # GET (Subscription QR) HANDLER
-    # =============================================
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
         buttons = [
@@ -248,9 +215,3 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
-    
-    # =============================================
-    # DEFAULT - Unknown callback
-    # =============================================
-    print(f"⚠️ Unknown callback: {data}")
-    await query.answer("❌ Unknown command", show_alert=True)
