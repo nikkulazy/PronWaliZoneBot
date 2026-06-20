@@ -45,9 +45,16 @@ except Exception as e:
             
 
         used_today = await db.get_video_count(user_id)
-        if used_today >= PREMIUM_DAILY_LIMIT:
-            await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
-            return
+if used_today >= PREMIUM_DAILY_LIMIT:
+    # Original message delete karo
+    await m.delete()
+    
+    # Naya warning message bhejo
+    msg = await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
+    
+    await asyncio.sleep(40)
+    await msg.delete()
+    return
         
         video_id = await db.get_unseen_brazzers(user_id)
         if not video_id:
