@@ -74,14 +74,15 @@ async def start_command(client, message: Message):
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
 
-   sent_msg = await message.reply_photo(
+    send_msg = await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
     )
 
     await asyncio.sleep(60)
-    await sent_msg.delete()
+    await send_msg.delete()
+
 
 # =================================================
 # HELPER HANDLERS
