@@ -30,13 +30,19 @@ async def process_brazzers_request(client, m: Message):
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
             # Quick reply for non-premium users
-            await m.reply(
+          m = await m.reply(
                 "💎 𝖡𝗎𝗒 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖠𝗇𝖽 𝖦𝖾𝗍 900+ 𝖡𝖺𝗋𝗓𝗓𝖾𝗋𝗌 𝖵𝗂𝖽𝖾𝗈 𝖯𝖾𝗋 𝖬𝗈𝗇𝗍𝗁.", 
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton('• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •', callback_data='get')
                 ]])
             )
-            return
+    
+    # Auto-delete after 60 seconds
+    await asyncio.sleep(60)
+    await m.delete()
+except Exception as e:
+    print(f"Error: {e}")
+            
 
         used_today = await db.get_video_count(user_id)
         if used_today >= PREMIUM_DAILY_LIMIT:
