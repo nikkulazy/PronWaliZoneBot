@@ -74,7 +74,7 @@ async def start_command(client, message: Message):
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
 
-   send_msg = await message.reply_photo(
+   sent_msg = await message.reply_photo(
         photo=START_PIC,
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
