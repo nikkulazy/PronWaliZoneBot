@@ -121,13 +121,16 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler (FIXED)
+# CALLBACK QUERY HANDLER - Main Handler (FULL FIXED)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
+    
+    # DEBUG
+    print(f"📥 Callback: {data} from {user_id}")
 
     # =============================================
     # INDEX HANDLER
@@ -142,7 +145,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # =============================================
     if data == "close_data":
         await query.message.delete()
-        await query.answer("Closed", show_alert=False)
+        await query.answer("Closed")
         return
 
     # =============================================
@@ -151,11 +154,18 @@ async def cb_handler(client: Client, query: CallbackQuery):
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
         try:
-            # 🔴 FIX: Message object create karo
             from plugins.get_video import handle_video_request
-            await handle_video_request(client, message)
+            
+            # 🔴 FIX: Create proper fake message
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            
+            await handle_video_request(client, fake_msg)
         except Exception as e:
-            print(f"Get Video Error: {e}")
+            print(f"❌ Get Video Error: {e}")
+            import traceback
+            traceback.print_exc()
             await query.answer("❌ Error loading video", show_alert=True)
         return
 
@@ -166,9 +176,17 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.answer("⏳ Processing...", show_alert=False)
         try:
             from plugins.brazzers import process_brazzers_request
-            await process_brazzers_request(client, message)
+            
+            # 🔴 FIX: Create proper fake message
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            
+            await process_brazzers_request(client, fake_msg)
         except Exception as e:
-            print(f"Brazzers callback error: {e}")
+            print(f"❌ Brazzers Error: {e}")
+            import traceback
+            traceback.print_exc()
             await query.answer("❌ Error processing request", show_alert=True)
         return
 
@@ -230,3 +248,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
+    
+    # =============================================
+    # DEFAULT - Unknown callback
+    # =============================================
+    print(f"⚠️ Unknown callback: {data}")
+    await query.answer("❌ Unknown command", show_alert=True)
