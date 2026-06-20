@@ -13,7 +13,7 @@ from utils import temp, auto_delete_message, is_user_joined
 # =================================================
 async def send_video_with_controls(client, message, video_id, category="main"):
     """
-    Send video with Like, Dislike, Next buttons
+    Send video with Like, Dislike, Previous, Next buttons
     """
     user_id = message.from_user.id
     
@@ -36,8 +36,10 @@ async def send_video_with_controls(client, message, video_id, category="main"):
     elif user_reaction == 'dislike':
         dislike_text = f"👎💢 {dislikes}"
     
-    # Check history and limit
+    # 🔴 FIX: Safely get history count (Default 0 if None)
     history_count = await db.get_user_history_count(user_id, category)
+    if history_count is None:
+        history_count = 0
     prev_disabled = history_count < 1
     
     prev_text = "⏮️" if not prev_disabled else "⏮️🚫"
@@ -100,6 +102,9 @@ async def send_video_with_controls(client, message, video_id, category="main"):
             reply_to_message_id=message.id,
             reply_markup=reply_markup
         )
+        
+        # 🔴 FIX: Save to history
+        await db.add_to_user_history(user_id, video_id, category)
         
         # Auto delete
         asyncio.create_task(auto_delete_message(message, sent))
@@ -358,9 +363,11 @@ async def update_reaction_buttons(client, query, video_id):
                         category = parts[2]
                     break
     
-    # Check history and limit
+    # 🔴 FIX: Safely get history count
     user_id = query.from_user.id
     history_count = await db.get_user_history_count(user_id, category)
+    if history_count is None:
+        history_count = 0
     prev_disabled = history_count < 1
     
     prev_text = "⏮️" if not prev_disabled else "⏮️🚫"
