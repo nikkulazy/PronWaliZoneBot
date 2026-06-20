@@ -11,6 +11,12 @@ from plugins.get_video import send_video_with_controls
 @Client.on_message(filters.command("brazzers") & filters.private)
 async def handle_brazzers_command(client, m: Message):
     """Handle /brazzers command"""
+    await process_brazzers_request(client, m)
+
+
+# 🔴 FUNCTION KO EXPORT KARO (async def se pehle)
+async def process_brazzers_request(client, m: Message):
+    """Core function to process Brazzers request"""
     
     if not m.from_user:
         return
