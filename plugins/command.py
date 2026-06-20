@@ -79,11 +79,9 @@ async def start_command(client, message: Message):
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
     )
+
     await asyncio.sleep(60)
-try:
     await sent_msg.delete()
-except Exception as e:
-    print(f"Error deleting message: {e}")
 
 # =================================================
 # HELPER HANDLERS
