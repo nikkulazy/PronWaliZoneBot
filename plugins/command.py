@@ -1,5 +1,6 @@
 import datetime
 import asyncio
+import random
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
@@ -73,15 +74,18 @@ async def start_command(client, message: Message):
         [InlineKeyboardButton("📝 Help", callback_data="help"), 
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
+reply_markup = InlineKeyboardMarkup(buttons)
+        m=await message.reply_text("⏳")
+        await asyncio.sleep(0.4)
+        await m.delete()        
+        await message.reply_photo(
+            photo=random.choice(PICS),
+            caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
+            reply_markup=reply_markup,
+            parse_mode=enums.ParseMode.HTML
+        )
+        return
 
-    send_msg = await message.reply_photo(
-        photo=START_PIC,
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=buttons,
-    )
-
-    await asyncio.sleep(60)
-    await send_msg.delete()
 
 
 # =================================================
