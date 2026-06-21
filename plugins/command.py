@@ -65,6 +65,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
+    # FIXED: Removed extra closing brackets
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
@@ -73,20 +74,20 @@ async def start_command(client, message: Message):
          InlineKeyboardButton("👥 Refer", callback_data="refer")],
         [InlineKeyboardButton("📝 Help", callback_data="help"), 
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
-    ]]
-reply_markup = InlineKeyboardMarkup(buttons)
-        m=await message.reply_text("⏳")
-        await asyncio.sleep(0.4)
-        await m.delete()        
-        await message.reply_photo(
-            photo=random.choice(PICS),
-            caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
-            reply_markup=reply_markup,
-            parse_mode=enums.ParseMode.HTML
-        )
-        return
-
-
+    ])
+    
+    m = await message.reply_text("⏳")
+    await asyncio.sleep(0.4)
+    await m.delete()
+    
+    # FIXED: Using START_PIC for random images
+    await message.reply_photo(
+        photo=random.choice(START_PIC),  # Changed from PICS to START_PIC
+        caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
+        reply_markup=buttons,
+        parse_mode=enums.ParseMode.HTML
+    )
+    return
 
 # =================================================
 # HELPER HANDLERS
