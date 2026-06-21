@@ -1,6 +1,7 @@
 import datetime
 import asyncio
 import random
+import re
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
@@ -13,10 +14,15 @@ from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 
 # =================================================
-# SANITIZER – removes invalid surrogate characters
+# STRONG SANITIZER – removes all surrogate characters
 # =================================================
 def sanitize_text(text):
-    """Remove invalid surrogate characters from text to avoid UnicodeEncodeError."""
+    """Remove invalid surrogate characters and other problematic Unicode."""
+    if not text:
+        return ""
+    # Remove surrogate characters explicitly
+    text = re.sub(r'[\ud800-\udfff]', '', text)
+    # Encode/ignore to remove any other non-encodable chars
     return text.encode('utf-8', 'ignore').decode('utf-8')
 
 # =================================================
@@ -72,7 +78,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
-    # ---------- BUTTONS (syntax fixed) ----------
+    # ---------- BUTTONS ----------
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
@@ -87,21 +93,31 @@ async def start_command(client, message: Message):
     await asyncio.sleep(0.4)
     await m.delete()
     
-    # ---------- SANITIZE CAPTION ----------
+    # ---------- SAFE CAPTION ----------
     caption = script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME)
-    caption = sanitize_text(caption)   # <-- FIX: removes bad chars
+    caption = sanitize_text(caption)   # <-- STRONG SANITIZATION
     
-    await message.reply_photo(
-        photo=random.choice(START_PIC),  # <-- FIX: PICS → START_PIC
-        caption=caption,
-        reply_markup=buttons,            # <-- FIX: direct use, no extra variable
-        parse_mode=enums.ParseMode.HTML
-    )
+    # ---------- SEND PHOTO WITH FALLBACK ----------
+    try:
+        await message.reply_photo(
+            photo=random.choice(START_PIC),
+            caption=caption,
+            reply_markup=buttons,
+            parse_mode=enums.ParseMode.HTML
+        )
+    except UnicodeEncodeError:
+        # अगर फिर भी एरर आता है तो बिना HTML के भेजें
+        await message.reply_photo(
+            photo=random.choice(START_PIC),
+            caption=sanitize_text(caption),  # फिर से सैनिटाइज़
+            reply_markup=buttons,
+            parse_mode=enums.ParseMode.DISABLED
+        )
     return
 
 
 # =================================================
-# HELPER HANDLERS
+# HELPER HANDLERS (सभी में sanitize जोड़ा)
 # =================================================
 
 @Client.on_message(filters.command("disclaimer") & filters.private)
@@ -121,30 +137,48 @@ async def legal_help(client, message: Message):
     await send_legal_text(client, message, script.HELP_TXT)
     
 async def send_legal_text(client, message, text):
-    text = sanitize_text(text)   # <-- FIX: sanitize here too
+    text = sanitize_text(text)
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
     ]]
-    await message.reply_text(
-        text=text,
-        reply_markup=InlineKeyboardMarkup(inline_buttons),
-        disable_web_page_preview=True
-    )
+    try:
+        await message.reply_text(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(inline_buttons),
+            disable_web_page_preview=True,
+            parse_mode=enums.ParseMode.HTML
+        )
+    except UnicodeEncodeError:
+        await message.reply_text(
+            text=sanitize_text(text),
+            reply_markup=InlineKeyboardMarkup(inline_buttons),
+            disable_web_page_preview=True,
+            parse_mode=enums.ParseMode.DISABLED
+        )
 
 async def send_about_text(client, message):
     text = script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK)
-    text = sanitize_text(text)   # <-- FIX: sanitize here too
+    text = sanitize_text(text)
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
     ]]
-    await message.reply_text(
-        text=text,
-        reply_markup=InlineKeyboardMarkup(inline_buttons),
-        disable_web_page_preview=True
-    )
+    try:
+        await message.reply_text(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(inline_buttons),
+            disable_web_page_preview=True,
+            parse_mode=enums.ParseMode.HTML
+        )
+    except UnicodeEncodeError:
+        await message.reply_text(
+            text=sanitize_text(text),
+            reply_markup=InlineKeyboardMarkup(inline_buttons),
+            disable_web_page_preview=True,
+            parse_mode=enums.ParseMode.DISABLED
+        )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler
+# CALLBACK QUERY HANDLER
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -231,10 +265,19 @@ async def cb_handler(client: Client, query: CallbackQuery):
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
-        await query.message.reply_photo(
-            photo=QR_CODE_IMAGE,
-            caption=script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode=enums.ParseMode.HTML
-        )
+        caption = sanitize_text(script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID))
+        try:
+            await query.message.reply_photo(
+                photo=QR_CODE_IMAGE,
+                caption=caption,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML
+            )
+        except UnicodeEncodeError:
+            await query.message.reply_photo(
+                photo=QR_CODE_IMAGE,
+                caption=sanitize_text(caption),
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.DISABLED
+            )
         return
