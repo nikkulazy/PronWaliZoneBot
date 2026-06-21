@@ -13,6 +13,13 @@ from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 
 # =================================================
+# SANITIZER – removes invalid surrogate characters
+# =================================================
+def sanitize_text(text):
+    """Remove invalid surrogate characters from text to avoid UnicodeEncodeError."""
+    return text.encode('utf-8', 'ignore').decode('utf-8')
+
+# =================================================
 # START COMMAND
 # =================================================
 @Client.on_message(filters.command("start") & filters.private)
@@ -65,7 +72,7 @@ async def start_command(client, message: Message):
         except Exception:
             pass
 
-    # FIXED: Removed extra closing brackets
+    # ---------- BUTTONS (syntax fixed) ----------
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
@@ -80,14 +87,18 @@ async def start_command(client, message: Message):
     await asyncio.sleep(0.4)
     await m.delete()
     
-    # FIXED: Using START_PIC for random images
+    # ---------- SANITIZE CAPTION ----------
+    caption = script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME)
+    caption = sanitize_text(caption)   # <-- FIX: removes bad chars
+    
     await message.reply_photo(
-        photo=random.choice(START_PIC),  # Changed from PICS to START_PIC
-        caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
-        reply_markup=buttons,
+        photo=random.choice(START_PIC),  # <-- FIX: PICS → START_PIC
+        caption=caption,
+        reply_markup=buttons,            # <-- FIX: direct use, no extra variable
         parse_mode=enums.ParseMode.HTML
     )
     return
+
 
 # =================================================
 # HELPER HANDLERS
@@ -110,6 +121,7 @@ async def legal_help(client, message: Message):
     await send_legal_text(client, message, script.HELP_TXT)
     
 async def send_legal_text(client, message, text):
+    text = sanitize_text(text)   # <-- FIX: sanitize here too
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
     ]]
@@ -120,11 +132,13 @@ async def send_legal_text(client, message, text):
     )
 
 async def send_about_text(client, message):
+    text = script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK)
+    text = sanitize_text(text)   # <-- FIX: sanitize here too
     inline_buttons = [[
         InlineKeyboardButton('• ᴄʟᴏsᴇ •', callback_data='close_data')
     ]]
     await message.reply_text(
-        text=script.ABOUT_TXT.format(temp.B_NAME, temp.B_LINK),
+        text=text,
         reply_markup=InlineKeyboardMarkup(inline_buttons),
         disable_web_page_preview=True
     )
