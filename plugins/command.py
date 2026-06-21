@@ -73,7 +73,7 @@ async def start_command(client, message: Message):
          InlineKeyboardButton("👥 Refer", callback_data="refer")],
         [InlineKeyboardButton("📝 Help", callback_data="help"), 
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
-    ])
+    ]]
 reply_markup = InlineKeyboardMarkup(buttons)
         m=await message.reply_text("⏳")
         await asyncio.sleep(0.4)
