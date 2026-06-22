@@ -4,7 +4,6 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
 import asyncio
-import hashlib
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
@@ -90,32 +89,29 @@ async def process_video_request(client, m: Message, direction="next", video_shor
     # ------------------------------------------------
     # GET VIDEO WITH NAVIGATION
     # ------------------------------------------------
-    # Get video based on direction
+    video_id = None
+    
     if direction == "next":
+        # Get unseen video - this will automatically mark as seen
         video_id = await db.get_unseen_video(user_id)
-        if not video_id:
-            try:
-                video_id = await db.get_random_video()
-            except Exception as e:
-                print(f"[Random Video Error] {e}")
-                return
+        print(f"📹 Next video: {video_id[:20] if video_id else 'None'}")
+        
     elif direction == "previous" and video_short_id:
         # Get full video ID from short ID
         full_video_id = await db.get_video_by_short_id(video_short_id)
+        print(f"🔍 Full video from short ID: {full_video_id[:20] if full_video_id else 'None'}")
+        
         if full_video_id:
             video_id = await db.get_previous_video(user_id, full_video_id)
+            print(f"⬅️ Previous video: {video_id[:20] if video_id else 'None'}")
         else:
             video_id = None
+            
         if not video_id:
-            return await m.reply("❌ No previous video found!")
+            return await m.reply("❌ No previous video found! You haven't watched any videos yet.")
     else:
+        # Default - get unseen
         video_id = await db.get_unseen_video(user_id)
-        if not video_id:
-            try:
-                video_id = await db.get_random_video()
-            except Exception as e:
-                print(f"[Random Video Error] {e}")
-                return
 
     if not video_id:
         return await m.reply("❌ No videos found in the database.")
@@ -124,20 +120,19 @@ async def process_video_request(client, m: Message, direction="next", video_shor
     # SEND VIDEO WITH NAVIGATION BUTTONS
     # ------------------------------------------------
     try:
-        # Generate short ID for navigation
-        short_id = await db.get_short_video_id(video_id)
-        
         # Check if previous video exists
         has_previous = await db.has_previous_video(user_id, video_id)
+        print(f"🔙 Has previous: {has_previous}")
         
-        # Create navigation buttons with short IDs
+        # Create navigation buttons
         nav_buttons = []
         if has_previous:
             # Get previous video's short ID
             prev_video = await db.get_previous_video(user_id, video_id)
             if prev_video:
-                prev_short_id = await db.get_short_video_id(prev_video)
+                prev_short_id = prev_video[:8]  # Use first 8 chars as short ID
                 nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_vid_{prev_short_id}"))
+        
         nav_buttons.append(InlineKeyboardButton("⏩ Next", callback_data="get_video"))
         
         reply_markup = InlineKeyboardMarkup([
@@ -151,6 +146,7 @@ async def process_video_request(client, m: Message, direction="next", video_shor
             protect_content=PROTECT_CONTENT,
             caption=(
                 f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+                f"📌 Video: {video_id[:8]}...\n\n"
                 "<blockquote>"
                 "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
                 "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
@@ -161,11 +157,12 @@ async def process_video_request(client, m: Message, direction="next", video_shor
             reply_markup=reply_markup
         )
 
-        # Increase daily count ONLY after successful send
+        # Increase daily count
         await db.increase_video_count(user_id, username)
 
         # Auto delete in background
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
+        print(f"❌ Error sending video: {e}")
         await m.reply(f"❌ Failed to send video: {str(e)}")
