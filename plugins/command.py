@@ -138,6 +138,77 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.message.delete()
         return
 
+    # ============= PREVIOUS VIDEO HANDLER =============
+    if data.startswith("prev_video_"):
+        try:
+            current_video_id = data.replace("prev_video_", "")
+            await query.answer("⏳ Loading previous video...", show_alert=False)
+            from plugins.get_video import process_video_request
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            # Delete current message before sending new one
+            await message.delete()
+            await process_video_request(client, fake_msg, direction="previous", current_video_id=current_video_id)
+        except Exception as e:
+            print(f"Previous video error: {e}")
+            await query.answer("❌ Error loading previous video", show_alert=True)
+        return
+
+    # ============= PREVIOUS BRAZZERS HANDLER =============
+    if data.startswith("prev_brazzers_"):
+        try:
+            current_video_id = data.replace("prev_brazzers_", "")
+            await query.answer("⏳ Loading previous Brazzers...", show_alert=False)
+            from plugins.brazzers import process_brazzers_request
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            # Delete current message before sending new one
+            await message.delete()
+            await process_brazzers_request(client, fake_msg, direction="previous", current_video_id=current_video_id)
+        except Exception as e:
+            print(f"Previous Brazzers error: {e}")
+            await query.answer("❌ Error loading previous Brazzers", show_alert=True)
+        return
+
+    # ============= HOME HANDLER =============
+    if data == "home":
+        await query.answer("🏠 Going to Home...", show_alert=False)
+        await message.delete()
+        # Send start menu again
+        user_id = query.from_user.id
+        mention = query.from_user.mention
+        me2 = (await client.get_me()).mention
+        
+        if not await db.is_user_exist(user_id):
+            await db.add_user(user_id, query.from_user.first_name)
+            try:
+                await client.send_message(
+                    LOG_CHANNEL,
+                    script.LOG_TEXT.format(me2, user_id, mention)
+                )
+            except Exception:
+                pass
+
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
+            [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
+             InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
+            [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), 
+             InlineKeyboardButton("👥 Refer", callback_data="refer")],
+            [InlineKeyboardButton("📝 Help", callback_data="help"), 
+             InlineKeyboardButton("ℹ️ About", callback_data="about")]
+        ])
+
+        await client.send_photo(
+            chat_id=query.message.chat.id,
+            photo=START_PIC,
+            caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+            reply_markup=buttons,
+        )
+        return
+
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.get_video import handle_video_request
