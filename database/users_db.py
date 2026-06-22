@@ -1,5 +1,6 @@
 import pytz
 import random
+import string
 import logging
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -33,7 +34,10 @@ class Database:
         self.braz_history = mydb.braz_history        
         self.blocked_users = mydb.blocked_users
 
-    # ---------- USERS ----------
+    # ============================================================
+    # USERS
+    # ============================================================
+    
     async def add_user(self, id, name):
         if not await self.users.find_one({"id": id}):
             await self.users.insert_one({
@@ -61,8 +65,11 @@ class Database:
 
     async def get_all_users(self):
         return self.users.find({})
+    
+    # ============================================================
+    # COUNTS
+    # ============================================================
         
-    # ---------- COUNTS ----------
     async def total_files_count(self):
         return await self.videos.count_documents({})
 
@@ -74,8 +81,10 @@ class Database:
 
     async def total_redeem_count(self):
         return await self.codes.count_documents({})
-        
-    # ---------- REFERRAL SYSTEM ----------
+    
+    # ============================================================
+    # REFERRAL SYSTEM
+    # ============================================================
     
     async def is_user_in_list(self, user_id):
         user = await self.refer_collection.find_one({"user_id": int(user_id)})
@@ -105,7 +114,10 @@ class Database:
         )
         return new_points
 
-    # ---------- MANUAL PAYMENT (ADD PREMIUM) ----------
+    # ============================================================
+    # MANUAL PAYMENT (ADD PREMIUM)
+    # ============================================================
+    
     async def add_premium_access(self, user_id, days):
         user = await self.get_user(user_id)
         now = datetime.now(timezone.utc)
@@ -128,8 +140,10 @@ class Database:
             {"$set": {"expiry_time": new_expiry}}
         )
         return new_expiry
-        
-    # ---------- BLOCK SYSTEM ----------
+    
+    # ============================================================
+    # BLOCK SYSTEM
+    # ============================================================
 
     async def unblock_user(self, user_id: int):
         await self.blocked_users.delete_one({"user_id": user_id})
@@ -137,7 +151,6 @@ class Database:
     async def get_all_blocked_users(self):
         return self.blocked_users.find({})
 
-    # ---------- ADVANCED BAN SYSTEM DB ----------
     async def is_user_blocked(self, user_id):
         user = await self.blocked_users.find_one({"user_id": user_id})
         return bool(user)
@@ -172,8 +185,11 @@ class Database:
         else:
             await self.users.update_one({"id": user_id}, {"$unset": {"temp_ban_expiry": ""}})
             return False, 0
+    
+    # ============================================================
+    # PREMIUM / EXPIRY
+    # ============================================================
             
-    # ---------- PREMIUM / EXPIRY ----------
     async def has_premium_access(self, user_id):
         user_data = await self.get_user(user_id)
         if not user_data:
@@ -248,9 +264,14 @@ class Database:
     async def add_video(self, file_unique_id, file_id):
         exists = await self.videos.find_one({"file_unique_id": file_unique_id})
         if not exists:
+            short_id = await self.generate_short_id()
+            while await self.videos.find_one({"short_id": short_id}):
+                short_id = await self.generate_short_id()
+            
             await self.videos.insert_one({
                 "file_unique_id": file_unique_id,
                 "file_id": file_id,
+                "short_id": short_id,
                 "added_at": datetime.now(timezone.utc)
             })
             return True
@@ -268,7 +289,7 @@ class Database:
         await self.brazzers.delete_many({})
         await self.braz_history.delete_many({})
         return True
-        
+    
     # ============================================================
     # VIDEO COUNT & LIMITS
     # ============================================================
@@ -334,62 +355,59 @@ class Database:
     # ============================================================
         
     async def get_unseen_video(self, user_id):
-        """Get unseen video and mark as seen"""
         try:
-            # Get user's seen history
-            seen = await self.historys.find_one({"user_id": user_id})
-            seen_ids = seen.get("seen", []) if seen else []
+            history = await self.historys.find_one({"user_id": user_id})
+            seen_ids = history.get("seen", []) if history else []
             
-            print(f"🔍 User {user_id} - Seen videos: {len(seen_ids)}")
+            all_videos = []
+            cursor = self.videos.find({})
+            async for video in cursor:
+                if video["file_id"] not in seen_ids:
+                    all_videos.append(video["file_id"])
             
-            # Get unseen videos
-            cursor = self.videos.find({"file_id": {"$nin": seen_ids}}, {"file_id": 1}).limit(500)
-            unseen_videos = await cursor.to_list(length=500)
+            if not all_videos:
+                cursor = self.videos.aggregate([{"$sample": {"size": 1}}])
+                result = await cursor.to_list(length=1)
+                if result:
+                    video_id = result[0]["file_id"]
+                    await self.mark_seen(user_id, video_id)
+                    return video_id
+                return None
             
-            print(f"📹 Unseen videos found: {len(unseen_videos)}")
-            
-            if not unseen_videos:
-                # If no unseen videos, get random video
-                return await self.get_random_video()
-            
-            # Select random unseen video
-            video = random.choice(unseen_videos)
-            video_id = video["file_id"]
-            
-            # Mark as seen
+            video_id = random.choice(all_videos)
             await self.mark_seen(user_id, video_id)
-            print(f"✅ Marked video as seen: {video_id[:20]}...")
-            
             return video_id
         except Exception as e:
             print(f"❌ Error in get_unseen_video: {e}")
             return None
 
     async def get_random_video(self):
-        """Get a random video when user has seen everything"""
         try:
             pipeline = [{"$sample": {"size": 1}}]
             cursor = self.videos.aggregate(pipeline)
             result = await cursor.to_list(length=1)
-            
             if result:
-                video_id = result[0]["file_id"]
-                print(f"🎲 Random video selected: {video_id[:20]}...")
-                return video_id
+                return result[0]["file_id"]
         except Exception as e:
             print(f"Random video error: {e}")
         return None
 
     async def mark_seen(self, user_id, file_id):
-        """Mark video as seen in history"""
         try:
-            result = await self.historys.update_one(
-                {"user_id": user_id},
-                {"$addToSet": {"seen": file_id}},
-                upsert=True
-            )
-            print(f"📝 Marked seen for user {user_id}: {file_id[:20]}...")
-            return result
+            history = await self.historys.find_one({"user_id": user_id})
+            if history:
+                seen_list = history.get("seen", [])
+                if file_id not in seen_list:
+                    seen_list.append(file_id)
+                    await self.historys.update_one(
+                        {"user_id": user_id},
+                        {"$set": {"seen": seen_list}}
+                    )
+            else:
+                await self.historys.insert_one({
+                    "user_id": user_id,
+                    "seen": [file_id]
+                })
         except Exception as e:
             print(f"❌ Error marking seen: {e}")
 
@@ -407,50 +425,55 @@ class Database:
     async def add_brazzers_video(self, file_unique_id, file_id):
         exists = await self.brazzers.find_one({"file_unique_id": file_unique_id})
         if not exists:
+            short_id = await self.generate_short_id()
+            while await self.brazzers.find_one({"short_id": short_id}):
+                short_id = await self.generate_short_id()
+            
             await self.brazzers.insert_one({
                 "file_unique_id": file_unique_id,
-                "file_id": file_id
+                "file_id": file_id,
+                "short_id": short_id
             })
             return True
         return False
 
     async def get_unseen_brazzers(self, user_id):
-        """Get unseen Brazzers video and mark as seen"""
         try:
-            seen = await self.braz_history.find_one({"user_id": user_id})
-            seen_ids = seen.get("seen", []) if seen else []
+            history = await self.braz_history.find_one({"user_id": user_id})
+            seen_ids = history.get("seen", []) if history else []
             
-            print(f"🔍 User {user_id} - Seen Brazzers: {len(seen_ids)}")
+            all_videos = []
+            cursor = self.brazzers.find({})
+            async for video in cursor:
+                if video["file_id"] not in seen_ids:
+                    all_videos.append(video["file_id"])
             
-            cursor = self.brazzers.find({"file_id": {"$nin": seen_ids}})
-            unseen_videos = await cursor.to_list(length=1000)
-            
-            print(f"📹 Unseen Brazzers found: {len(unseen_videos)}")
-
-            if not unseen_videos:
+            if not all_videos:
                 return None
-
-            video = random.choice(unseen_videos)
-            video_id = video["file_id"]
             
+            video_id = random.choice(all_videos)
             await self.mark_brazzers_seen(user_id, video_id)
-            print(f"✅ Marked Brazzers as seen: {video_id[:20]}...")
-            
             return video_id
         except Exception as e:
             print(f"❌ Error in get_unseen_brazzers: {e}")
             return None
 
     async def mark_brazzers_seen(self, user_id, file_id):
-        """Mark Brazzers video as seen in history"""
         try:
-            result = await self.braz_history.update_one(
-                {"user_id": user_id},
-                {"$addToSet": {"seen": file_id}},
-                upsert=True
-            )
-            print(f"📝 Marked Brazzers seen for user {user_id}: {file_id[:20]}...")
-            return result
+            history = await self.braz_history.find_one({"user_id": user_id})
+            if history:
+                seen_list = history.get("seen", [])
+                if file_id not in seen_list:
+                    seen_list.append(file_id)
+                    await self.braz_history.update_one(
+                        {"user_id": user_id},
+                        {"$set": {"seen": seen_list}}
+                    )
+            else:
+                await self.braz_history.insert_one({
+                    "user_id": user_id,
+                    "seen": [file_id]
+                })
         except Exception as e:
             print(f"❌ Error marking Brazzers seen: {e}")
         
@@ -462,247 +485,13 @@ class Database:
         )
     
     # ============================================================
-    # PREVIOUS NAVIGATION - MAIN VIDEOS
-    # ============================================================
-    
-    async def get_previous_video(self, user_id, current_video_id):
-        """Get previous video from user's history"""
-        try:
-            print(f"🔍 Getting previous video for user: {user_id}")
-            print(f"🔍 Current video ID: {current_video_id[:20]}...")
-            
-            # Get user history
-            history = await self.historys.find_one({"user_id": user_id})
-            if not history:
-                print("❌ No history found for user")
-                return None
-            
-            if "seen" not in history:
-                print("❌ No 'seen' field in history")
-                return None
-            
-            seen_list = history.get("seen", [])
-            print(f"📋 Seen list length: {len(seen_list)}")
-            
-            if len(seen_list) < 2:
-                print("ℹ️ Not enough videos in history (need at least 2)")
-                return None
-            
-            # Try exact match first
-            try:
-                current_index = seen_list.index(current_video_id)
-                print(f"✅ Exact match found at index: {current_index}")
-            except ValueError:
-                print("⚠️ Exact match not found, trying partial match...")
-                # Try partial match
-                current_index = -1
-                for i, vid in enumerate(seen_list):
-                    if vid == current_video_id or vid.startswith(current_video_id[:20]):
-                        current_index = i
-                        print(f"✅ Partial match found at index: {i}")
-                        break
-                
-                if current_index == -1:
-                    print("❌ Current video not found in history")
-                    return None
-            
-            # Get previous video
-            if current_index > 0:
-                prev_video_id = seen_list[current_index - 1]
-                print(f"⬅️ Previous video ID: {prev_video_id[:20]}...")
-                
-                # Verify video still exists in database
-                video = await self.videos.find_one({"file_id": prev_video_id})
-                if video:
-                    print("✅ Previous video exists in database")
-                    return prev_video_id
-                else:
-                    print("❌ Previous video not found in database")
-                    return None
-            else:
-                print("ℹ️ No previous video (first video in history)")
-                return None
-                
-        except Exception as e:
-            print(f"❌ Error getting previous video: {e}")
-            return None
-
-    async def has_previous_video(self, user_id, current_video_id):
-        """Check if previous video exists in history"""
-        try:
-            history = await self.historys.find_one({"user_id": user_id})
-            if not history or "seen" not in history:
-                return False
-            
-            seen_list = history.get("seen", [])
-            if len(seen_list) < 2:
-                return False
-            
-            # Try exact match
-            try:
-                current_index = seen_list.index(current_video_id)
-                return current_index > 0
-            except ValueError:
-                # Try partial match
-                for i, vid in enumerate(seen_list):
-                    if vid == current_video_id or vid.startswith(current_video_id[:20]):
-                        return i > 0
-                return False
-        except Exception as e:
-            print(f"Error checking previous video: {e}")
-            return False
-    
-    # ============================================================
-    # PREVIOUS NAVIGATION - BRAZZERS
-    # ============================================================
-
-    async def get_previous_brazzers(self, user_id, current_video_id):
-        """Get previous Brazzers video from user's history"""
-        try:
-            print(f"🔍 Getting previous Brazzers for user: {user_id}")
-            print(f"🔍 Current Brazzers ID: {current_video_id[:20]}...")
-            
-            history = await self.braz_history.find_one({"user_id": user_id})
-            if not history or "seen" not in history:
-                print("❌ No history found")
-                return None
-            
-            seen_list = history.get("seen", [])
-            print(f"📋 Seen list length: {len(seen_list)}")
-            
-            if len(seen_list) < 2:
-                print("ℹ️ Not enough videos in history")
-                return None
-            
-            try:
-                current_index = seen_list.index(current_video_id)
-                print(f"✅ Exact match found at index: {current_index}")
-            except ValueError:
-                print("⚠️ Exact match not found, trying partial match...")
-                current_index = -1
-                for i, vid in enumerate(seen_list):
-                    if vid == current_video_id or vid.startswith(current_video_id[:20]):
-                        current_index = i
-                        print(f"✅ Partial match found at index: {i}")
-                        break
-                
-                if current_index == -1:
-                    print("❌ Current video not found in history")
-                    return None
-            
-            if current_index > 0:
-                prev_video_id = seen_list[current_index - 1]
-                print(f"⬅️ Previous video ID: {prev_video_id[:20]}...")
-                
-                video = await self.brazzers.find_one({"file_id": prev_video_id})
-                if video:
-                    print("✅ Previous Brazzers exists in database")
-                    return prev_video_id
-                else:
-                    print("❌ Previous Brazzers not found in database")
-                    return None
-            else:
-                print("ℹ️ No previous video (first video in history)")
-                return None
-                
-        except Exception as e:
-            print(f"❌ Error getting previous Brazzers: {e}")
-            return None
-
-    async def has_previous_brazzers(self, user_id, current_video_id):
-        """Check if previous Brazzers video exists in history"""
-        try:
-            history = await self.braz_history.find_one({"user_id": user_id})
-            if not history or "seen" not in history:
-                return False
-            
-            seen_list = history.get("seen", [])
-            if len(seen_list) < 2:
-                return False
-            
-            try:
-                current_index = seen_list.index(current_video_id)
-                return current_index > 0
-            except ValueError:
-                for i, vid in enumerate(seen_list):
-                    if vid == current_video_id or vid.startswith(current_video_id[:20]):
-                        return i > 0
-                return False
-        except Exception as e:
-            print(f"Error checking previous Brazzers: {e}")
-            return False
-    
-    # ============================================================
-    # SHORT ID SYSTEM
-    # ============================================================
-    
-    async def get_short_video_id(self, video_id):
-        """Generate short ID for video (8 characters)"""
-        return video_id[:8] if video_id else None
-    
-    async def get_video_by_short_id(self, short_id):
-        """Get full video ID from short ID"""
-        try:
-            # Find video whose file_id starts with short_id
-            cursor = self.videos.find({"file_id": {"$regex": f"^{short_id}"}})
-            video = await cursor.to_list(length=1)
-            if video:
-                print(f"✅ Found video by short ID: {short_id}")
-                return video[0]["file_id"]
-            print(f"❌ No video found for short ID: {short_id}")
-            return None
-        except Exception as e:
-            print(f"Error getting video by short ID: {e}")
-            return None
-    
-    async def get_short_brazzers_id(self, video_id):
-        """Generate short ID for Brazzers video (8 characters)"""
-        return video_id[:8] if video_id else None
-    
-    async def get_brazzers_by_short_id(self, short_id):
-        """Get full Brazzers video ID from short ID"""
-        try:
-            cursor = self.brazzers.find({"file_id": {"$regex": f"^{short_id}"}})
-            video = await cursor.to_list(length=1)
-            if video:
-                print(f"✅ Found Brazzers by short ID: {short_id}")
-                return video[0]["file_id"]
-            print(f"❌ No Brazzers found for short ID: {short_id}")
-            return None
-        except Exception as e:
-            print(f"Error getting Brazzers by short ID: {e}")
-            return None
-
-    # Add these functions to your users_db.py Database class
-
-    # ============================================================
     # SHORT ID SYSTEM - PROPER IMPLEMENTATION
     # ============================================================
     
     async def generate_short_id(self, length=6):
         """Generate unique short ID"""
-        import random
-        import string
         characters = string.ascii_letters + string.digits
         return ''.join(random.choices(characters, k=length))
-    
-    async def add_video_with_short_id(self, file_unique_id, file_id):
-        """Add video with short ID"""
-        exists = await self.videos.find_one({"file_unique_id": file_unique_id})
-        if not exists:
-            # Generate unique short ID
-            short_id = await self.generate_short_id()
-            while await self.videos.find_one({"short_id": short_id}):
-                short_id = await self.generate_short_id()
-            
-            await self.videos.insert_one({
-                "file_unique_id": file_unique_id,
-                "file_id": file_id,
-                "short_id": short_id,
-                "added_at": datetime.now(timezone.utc)
-            })
-            return True
-        return False
     
     async def get_short_id(self, file_id):
         """Get short ID for a video"""
@@ -724,22 +513,6 @@ class Database:
         video = await self.videos.find_one({"short_id": short_id})
         return video["file_id"] if video else None
     
-    async def add_brazzers_with_short_id(self, file_unique_id, file_id):
-        """Add Brazzers video with short ID"""
-        exists = await self.brazzers.find_one({"file_unique_id": file_unique_id})
-        if not exists:
-            short_id = await self.generate_short_id()
-            while await self.brazzers.find_one({"short_id": short_id}):
-                short_id = await self.generate_short_id()
-            
-            await self.brazzers.insert_one({
-                "file_unique_id": file_unique_id,
-                "file_id": file_id,
-                "short_id": short_id
-            })
-            return True
-        return False
-    
     async def get_brazzers_short_id(self, file_id):
         """Get short ID for a Brazzers video"""
         video = await self.brazzers.find_one({"file_id": file_id})
@@ -758,6 +531,96 @@ class Database:
         """Get full Brazzers video ID from short ID"""
         video = await self.brazzers.find_one({"short_id": short_id})
         return video["file_id"] if video else None
+
+    # ============================================================
+    # PREVIOUS NAVIGATION - MAIN VIDEOS
+    # ============================================================
+    
+    async def get_previous_video(self, user_id, current_video_id):
+        try:
+            history = await self.historys.find_one({"user_id": user_id})
+            if not history:
+                return None
+            
+            seen_list = history.get("seen", [])
+            if len(seen_list) < 2:
+                return None
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+            except ValueError:
+                return None
+            
+            if current_index > 0:
+                return seen_list[current_index - 1]
+            return None
+        except Exception as e:
+            print(f"❌ Error getting previous video: {e}")
+            return None
+
+    async def has_previous_video(self, user_id, current_video_id):
+        try:
+            history = await self.historys.find_one({"user_id": user_id})
+            if not history:
+                return False
+            
+            seen_list = history.get("seen", [])
+            if len(seen_list) < 2:
+                return False
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+                return current_index > 0
+            except ValueError:
+                return False
+        except Exception as e:
+            print(f"Error checking previous video: {e}")
+            return False
+    
+    # ============================================================
+    # PREVIOUS NAVIGATION - BRAZZERS
+    # ============================================================
+
+    async def get_previous_brazzers(self, user_id, current_video_id):
+        try:
+            history = await self.braz_history.find_one({"user_id": user_id})
+            if not history:
+                return None
+            
+            seen_list = history.get("seen", [])
+            if len(seen_list) < 2:
+                return None
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+            except ValueError:
+                return None
+            
+            if current_index > 0:
+                return seen_list[current_index - 1]
+            return None
+        except Exception as e:
+            print(f"❌ Error getting previous Brazzers: {e}")
+            return None
+
+    async def has_previous_brazzers(self, user_id, current_video_id):
+        try:
+            history = await self.braz_history.find_one({"user_id": user_id})
+            if not history:
+                return False
+            
+            seen_list = history.get("seen", [])
+            if len(seen_list) < 2:
+                return False
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+                return current_index > 0
+            except ValueError:
+                return False
+        except Exception as e:
+            print(f"Error checking previous Brazzers: {e}")
+            return False
             
     # ============================================================
     # VERIFICATION SYSTEM
