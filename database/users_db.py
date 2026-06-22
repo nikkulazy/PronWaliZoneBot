@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 client = AsyncIOMotorClient(DB_URL)
 mydb = client[DB_NAME]
 
-# ⏰ IST Timezone Helper (Using pytz for accuracy)
+# ⏰ IST Timezone Helper
 def get_ist_now():
     return datetime.now(pytz.timezone(TIMEZONE))
 
@@ -76,7 +76,6 @@ class Database:
         return await self.codes.count_documents({})
         
     # ---------- REFERRAL SYSTEM ----------
-    
     async def is_user_in_list(self, user_id):
         user = await self.refer_collection.find_one({"user_id": int(user_id)})
         return True if user else False
@@ -97,7 +96,6 @@ class Database:
         new_points = current_points + amount
         if new_points < 0:
             new_points = 0
-            
         await self.refer_collection.update_one(
             {"user_id": int(user_id)}, 
             {"$set": {"points": new_points}}, 
@@ -109,20 +107,16 @@ class Database:
     async def add_premium_access(self, user_id, days):
         user = await self.get_user(user_id)
         now = datetime.now(timezone.utc)
-        
         current_expiry = user.get("expiry_time")
-        
         if current_expiry and isinstance(current_expiry, datetime):
             if current_expiry.tzinfo is None:
                 current_expiry = current_expiry.replace(tzinfo=timezone.utc)
-            
             if current_expiry > now:
                 new_expiry = current_expiry + timedelta(days=days)
             else:
                 new_expiry = now + timedelta(days=days)
         else:
             new_expiry = now + timedelta(days=days)
-
         await self.users.update_one(
             {"id": user_id},
             {"$set": {"expiry_time": new_expiry}}
@@ -130,14 +124,12 @@ class Database:
         return new_expiry
         
     # ---------- BLOCK SYSTEM ----------
-
     async def unblock_user(self, user_id: int):
         await self.blocked_users.delete_one({"user_id": user_id})
 
     async def get_all_blocked_users(self):
         return self.blocked_users.find({})
 
-    # ---------- ADVANCED BAN SYSTEM DB ----------
     async def is_user_blocked(self, user_id):
         user = await self.blocked_users.find_one({"user_id": user_id})
         return bool(user)
@@ -160,11 +152,9 @@ class Database:
         user = await self.users.find_one({"id": user_id})
         if not user or "temp_ban_expiry" not in user:
             return False, 0
-            
         expiry = user["temp_ban_expiry"]
         if expiry.tzinfo is None:
             expiry = expiry.replace(tzinfo=timezone.utc)
-            
         now = datetime.now(timezone.utc)
         if now < expiry:
             remaining = int((expiry - now).total_seconds())
@@ -178,13 +168,10 @@ class Database:
         user_data = await self.get_user(user_id)
         if not user_data:
             return False
-
         expiry_time = user_data.get("expiry_time")
         if not expiry_time:
             return False
-
         now = datetime.now(timezone.utc)
-        
         if isinstance(expiry_time, datetime):
             if expiry_time.tzinfo is None:
                 expiry_time = expiry_time.replace(tzinfo=timezone.utc)
@@ -249,7 +236,7 @@ class Database:
             await self.videos.insert_one({
                 "file_unique_id": file_unique_id,
                 "file_id": file_id,
-                "duration": duration,  # Store duration
+                "duration": duration,
                 "added_at": datetime.now(timezone.utc)
             })
             return True
@@ -258,13 +245,11 @@ class Database:
     async def total_videos(self):
         return await self.videos.count_documents({})
 
-    # 1. Main Videos aur History delete karne ke liye
     async def delete_main_data(self):
         await self.videos.delete_many({})
         await self.historys.delete_many({})
         return True
 
-    # 2. Brazzers aur Braz History delete karne ke liye
     async def delete_brazzers_data(self):
         await self.brazzers.delete_many({})
         await self.braz_history.delete_many({})
@@ -273,12 +258,9 @@ class Database:
     async def increase_video_count(self, user_id, username):
         today = get_ist_today()
         today_dt = datetime.combine(today, datetime.min.time())
-
         user = await self.users.find_one({"id": user_id})
-
         if user:
             last_date = user.get("last_date")
-            
             if isinstance(last_date, datetime):
                 if last_date.tzinfo is not None:
                     check_date = last_date.astimezone(pytz.timezone(TIMEZONE)).date()
@@ -286,7 +268,6 @@ class Database:
                     check_date = last_date.date()
             else:
                 check_date = None
-
             if check_date != today:
                 await self.users.update_one(
                     {"id": user_id},
@@ -321,52 +302,72 @@ class Database:
                     check_date = last_date.astimezone(pytz.timezone(TIMEZONE)).date()
                 else:
                     check_date = last_date.date()
-                    
                 if check_date == today:
                     return user.get("video_count", 0)
         return 0
         
-    # ---------- 🆓 FREE USER VIDEOS (Duration based) ----------
+    # =========================================================
+    # 🆓 FREE USER VIDEOS - DURATION BASED (FIXED)
+    # =========================================================
     async def get_unseen_free_video(self, user_id):
         """Free users ke liye - sirf FREE_VIDEO_DURATION se kam duration wali videos"""
-        seen = await self.historys.find_one({"user_id": user_id})
-        seen_ids = seen.get("seen", []) if seen else []
+        try:
+            seen = await self.historys.find_one({"user_id": user_id})
+            seen_ids = seen.get("seen", []) if seen else []
 
-        # Sirf woh videos jo FREE_VIDEO_DURATION se kam ya barabar hain
-        cursor = self.videos.find({
-            "file_id": {"$nin": seen_ids},
-            "$or": [
-                {"duration": {"$exists": False}},  # Agar duration field nahi hai toh allow
-                {"duration": {"$lte": FREE_VIDEO_DURATION}}  # Duration <= FREE_VIDEO_DURATION
-            ]
-        }, {"file_id": 1}).limit(500)
-        
-        unseen_videos = await cursor.to_list(length=500)
-        if not unseen_videos:
+            # 🔥 FIX: Pehle check karein ki duration field exist karti hai ya nahi
+            # Agar duration field nahi hai toh usko bhi include karein (backward compatibility)
+            cursor = self.videos.find({
+                "file_id": {"$nin": seen_ids},
+                "$or": [
+                    {"duration": {"$exists": False}},  # Old videos without duration
+                    {"duration": {"$lte": FREE_VIDEO_DURATION}}  # Duration <= FREE_VIDEO_DURATION
+                ]
+            }).limit(500)
+            
+            unseen_videos = await cursor.to_list(length=500)
+            
+            if not unseen_videos:
+                return None
+                
+            video = random.choice(unseen_videos)
+            await self.mark_seen(user_id, video["file_id"])
+            
+            # Debug log
+            duration = video.get("duration", "Unknown")
+            print(f"✅ Free video sent: {video['file_id']} | Duration: {duration}s")
+            
+            return video["file_id"]
+            
+        except Exception as e:
+            print(f"❌ Error in get_unseen_free_video: {e}")
             return None
-        video = random.choice(unseen_videos)
-        await self.mark_seen(user_id, video["file_id"])
-        return video["file_id"]
 
     async def get_unseen_premium_video(self, user_id):
-        """Premium users ke liye - sabhi videos (jaise pehle tha)"""
-        seen = await self.historys.find_one({"user_id": user_id})
-        seen_ids = seen.get("seen", []) if seen else []
-        
-        # Sabhi videos (koi duration filter nahi)
-        cursor = self.videos.find({
-            "file_id": {"$nin": seen_ids}
-        }, {"file_id": 1}).limit(500)
-        
-        unseen_videos = await cursor.to_list(length=500)
-        if not unseen_videos:
+        """Premium users ke liye - sabhi videos"""
+        try:
+            seen = await self.historys.find_one({"user_id": user_id})
+            seen_ids = seen.get("seen", []) if seen else []
+            
+            cursor = self.videos.find({
+                "file_id": {"$nin": seen_ids}
+            }).limit(500)
+            
+            unseen_videos = await cursor.to_list(length=500)
+            
+            if not unseen_videos:
+                return None
+                
+            video = random.choice(unseen_videos)
+            await self.mark_seen(user_id, video["file_id"])
+            return video["file_id"]
+            
+        except Exception as e:
+            print(f"❌ Error in get_unseen_premium_video: {e}")
             return None
-        video = random.choice(unseen_videos)
-        await self.mark_seen(user_id, video["file_id"])
-        return video["file_id"]
 
     async def get_random_free_video(self):
-        """Random free video (duration <= FREE_VIDEO_DURATION) - fallback ke liye"""
+        """Random free video - fallback ke liye"""
         try:
             pipeline = [
                 {"$match": {
@@ -386,17 +387,15 @@ class Database:
             print(f"Random free video error: {e}")
         return None
 
+    # ---------- OLD FUNCTIONS (Backward Compatibility) ----------
     async def get_unseen_video(self, user_id):
         """Old function - for backward compatibility"""
         seen = await self.historys.find_one({"user_id": user_id})
         seen_ids = seen.get("seen", []) if seen else []
-
         cursor = self.videos.find({"file_id": {"$nin": seen_ids}}, {"file_id": 1}).limit(500)
         unseen_videos = await cursor.to_list(length=500)
-
         if not unseen_videos:
             return None
-
         video = random.choice(unseen_videos)
         await self.mark_seen(user_id, video["file_id"])
         return video["file_id"]
@@ -407,7 +406,6 @@ class Database:
             pipeline = [{"$sample": {"size": 1}}]
             cursor = self.videos.aggregate(pipeline)
             result = await cursor.to_list(length=1)
-            
             if result:
                 return result[0]["file_id"]
         except Exception as e:
@@ -443,10 +441,8 @@ class Database:
         seen_ids = seen.get("seen", []) if seen else []
         cursor = self.brazzers.find({"file_id": {"$nin": seen_ids}})
         unseen_videos = await cursor.to_list(length=1000)
-
         if not unseen_videos:
             return None
-
         video = random.choice(unseen_videos)
         await self.mark_brazzers_seen(user_id, video["file_id"])
         return video["file_id"]
@@ -469,14 +465,9 @@ class Database:
     async def get_notcopy_user(self, user_id):
         user_id = int(user_id)
         user = await self.misc.find_one({"user_id": user_id})
-        
         default_date = datetime(2020, 5, 17, 0, 0, 0, tzinfo=timezone.utc)
-
         if not user:
-            res = {
-                "user_id": user_id,
-                "last_verified": default_date,
-            }
+            res = {"user_id": user_id, "last_verified": default_date}
             await self.misc.insert_one(res)
             return res
         return user
@@ -489,22 +480,15 @@ class Database:
 
     async def is_user_verified(self, user_id):
         user = await self.get_notcopy_user(user_id)
-        
         pastDate = user.get("last_verified")
-        
         if not pastDate:
              pastDate = datetime(2020, 5, 17, 0, 0, 0, tzinfo=timezone.utc)
-
         if pastDate.tzinfo is None:
              pastDate = pastDate.replace(tzinfo=timezone.utc)
-        
         current_time = datetime.now(timezone.utc)
-        
         time_diff = current_time - pastDate
-        
         if time_diff < timedelta(seconds=VERIFY_EXPIRE):
             return True
-            
         return False
 
     async def create_verify_id(self, user_id: int, hash, file_id=None):
@@ -521,7 +505,6 @@ class Database:
 
     async def get_verification_stats(self):
         midnight_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-
         level1_count = await self.misc.count_documents({
             "last_verified": {"$gte": midnight_utc}
         })
