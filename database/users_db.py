@@ -473,7 +473,29 @@ class Database:
             
         return False
 
-    # ---------- PREVIOUS VIDEO NAVIGATION ----------
+    async def create_verify_id(self, user_id: int, hash, file_id=None):
+        res = {"user_id": user_id, "hash": hash, "verified": False, "file_id": file_id}
+        return await self.verify_id.insert_one(res)
+
+    async def get_verify_id_info(self, user_id: int, hash):
+        return await self.verify_id.find_one({"user_id": user_id, "hash": hash})
+
+    async def update_verify_id_info(self, user_id, hash, value: dict):
+        myquery = {"user_id": user_id, "hash": hash}
+        newvalues = {"$set": value}
+        return await self.verify_id.update_one(myquery, newvalues)
+
+    async def get_verification_stats(self):
+        # Count verified users since midnight UTC
+        midnight_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        level1_count = await self.misc.count_documents({
+            "last_verified": {"$gte": midnight_utc}
+        })
+        return level1_count
+
+    # ============= NEW FUNCTIONS FOR PREVIOUS NAVIGATION =============
+    
     async def get_previous_video(self, user_id, current_video_id):
         """Get previous video from user's history"""
         try:
@@ -524,7 +546,6 @@ class Database:
             print(f"Error checking previous video: {e}")
             return False
 
-    # ---------- PREVIOUS BRAZZERS NAVIGATION ----------
     async def get_previous_brazzers(self, user_id, current_video_id):
         """Get previous Brazzers video from user's history"""
         try:
@@ -572,27 +593,40 @@ class Database:
         except Exception as e:
             print(f"Error checking previous Brazzers: {e}")
             return False
-    # end button 
-    async def create_verify_id(self, user_id: int, hash, file_id=None):
-        res = {"user_id": user_id, "hash": hash, "verified": False, "file_id": file_id}
-        return await self.verify_id.insert_one(res)
 
-    async def get_verify_id_info(self, user_id: int, hash):
-        return await self.verify_id.find_one({"user_id": user_id, "hash": hash})
-
-    async def update_verify_id_info(self, user_id, hash, value: dict):
-        myquery = {"user_id": user_id, "hash": hash}
-        newvalues = {"$set": value}
-        return await self.verify_id.update_one(myquery, newvalues)
-
-    async def get_verification_stats(self):
-        # Count verified users since midnight UTC
-        midnight_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-
-        level1_count = await self.misc.count_documents({
-            "last_verified": {"$gte": midnight_utc}
-        })
-        return level1_count
+    # ---------- SHORT ID SYSTEM ----------
+    async def get_short_video_id(self, video_id):
+        """Generate short ID for video (8 characters)"""
+        return video_id[:8] if video_id else None
+    
+    async def get_video_by_short_id(self, short_id):
+        """Get full video ID from short ID"""
+        try:
+            # Find video whose file_id starts with short_id
+            cursor = self.videos.find({"file_id": {"$regex": f"^{short_id}"}})
+            video = await cursor.to_list(length=1)
+            if video:
+                return video[0]["file_id"]
+            return None
+        except Exception as e:
+            print(f"Error getting video by short ID: {e}")
+            return None
+    
+    async def get_short_brazzers_id(self, video_id):
+        """Generate short ID for Brazzers video (8 characters)"""
+        return video_id[:8] if video_id else None
+    
+    async def get_brazzers_by_short_id(self, short_id):
+        """Get full Brazzers video ID from short ID"""
+        try:
+            cursor = self.brazzers.find({"file_id": {"$regex": f"^{short_id}"}})
+            video = await cursor.to_list(length=1)
+            if video:
+                return video[0]["file_id"]
+            return None
+        except Exception as e:
+            print(f"Error getting Brazzers by short ID: {e}")
+            return None
 
 # Initialize
 db = Database()
