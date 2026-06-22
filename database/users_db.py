@@ -473,6 +473,106 @@ class Database:
             
         return False
 
+    # ---------- PREVIOUS VIDEO NAVIGATION ----------
+    async def get_previous_video(self, user_id, current_video_id):
+        """Get previous video from user's history"""
+        try:
+            history = await self.historys.find_one({"user_id": user_id})
+            if not history or "seen" not in history:
+                return None
+            
+            seen_list = history.get("seen", [])
+            if not seen_list:
+                return None
+            
+            # Find current video in history
+            try:
+                current_index = seen_list.index(current_video_id)
+            except ValueError:
+                return None
+            
+            # Get previous video (if exists)
+            if current_index > 0:
+                prev_video_id = seen_list[current_index - 1]
+                # Verify video still exists in database
+                video = await self.videos.find_one({"file_id": prev_video_id})
+                if video:
+                    return prev_video_id
+            
+            return None
+        except Exception as e:
+            print(f"Error getting previous video: {e}")
+            return None
+
+    async def has_previous_video(self, user_id, current_video_id):
+        """Check if previous video exists in history"""
+        try:
+            history = await self.historys.find_one({"user_id": user_id})
+            if not history or "seen" not in history:
+                return False
+            
+            seen_list = history.get("seen", [])
+            if not seen_list:
+                return False
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+                return current_index > 0
+            except ValueError:
+                return False
+        except Exception as e:
+            print(f"Error checking previous video: {e}")
+            return False
+
+    # ---------- PREVIOUS BRAZZERS NAVIGATION ----------
+    async def get_previous_brazzers(self, user_id, current_video_id):
+        """Get previous Brazzers video from user's history"""
+        try:
+            history = await self.braz_history.find_one({"user_id": user_id})
+            if not history or "seen" not in history:
+                return None
+            
+            seen_list = history.get("seen", [])
+            if not seen_list:
+                return None
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+            except ValueError:
+                return None
+            
+            if current_index > 0:
+                prev_video_id = seen_list[current_index - 1]
+                # Verify video still exists
+                video = await self.brazzers.find_one({"file_id": prev_video_id})
+                if video:
+                    return prev_video_id
+            
+            return None
+        except Exception as e:
+            print(f"Error getting previous Brazzers: {e}")
+            return None
+
+    async def has_previous_brazzers(self, user_id, current_video_id):
+        """Check if previous Brazzers video exists in history"""
+        try:
+            history = await self.braz_history.find_one({"user_id": user_id})
+            if not history or "seen" not in history:
+                return False
+            
+            seen_list = history.get("seen", [])
+            if not seen_list:
+                return False
+            
+            try:
+                current_index = seen_list.index(current_video_id)
+                return current_index > 0
+            except ValueError:
+                return False
+        except Exception as e:
+            print(f"Error checking previous Brazzers: {e}")
+            return False
+    # end button 
     async def create_verify_id(self, user_id: int, hash, file_id=None):
         res = {"user_id": user_id, "hash": hash, "verified": False, "file_id": file_id}
         return await self.verify_id.insert_one(res)
