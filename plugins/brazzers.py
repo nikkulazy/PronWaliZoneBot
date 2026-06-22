@@ -10,10 +10,10 @@ from plugins.ban_manager import ban_manager
 @Client.on_message(filters.command("brazzers") & filters.private)
 async def handle_brazzers_command(client, m: Message):
     """Handle /brazzers command"""
-    await process_brazzers_request(client, m)
+    await process_brazzers_request(client, m, direction="next")
 
-async def process_brazzers_request(client, m: Message):
-    """Core function to process Brazzers request - can be called from command or callback"""
+async def process_brazzers_request(client, m: Message, direction="next", current_video_id=None):
+    """Core function to process Brazzers request with navigation"""
     if not m.from_user:
         return
     
@@ -43,24 +43,46 @@ async def process_brazzers_request(client, m: Message):
             await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
             return
         
-        video_id = await db.get_unseen_brazzers(user_id)
+        # Get video based on direction
+        if direction == "next":
+            video_id = await db.get_unseen_brazzers(user_id)
+        elif direction == "previous" and current_video_id:
+            video_id = await db.get_previous_brazzers(user_id, current_video_id)
+        else:
+            video_id = await db.get_unseen_brazzers(user_id)
+            
         if not video_id:
-            await m.reply("❌ No unseen videos found!")
+            if direction == "next":
+                await m.reply("❌ No unseen Brazzers videos found!")
+            else:
+                await m.reply("❌ No previous Brazzers video found!")
             return
 
-        # Create Next button for Brazzers
+        # Get current video ID for navigation
+        current_video_id = video_id
+        
+        # Check if previous video exists
+        has_previous = await db.has_previous_brazzers(user_id, current_video_id)
+        
+        # Create navigation buttons for Brazzers
+        nav_buttons = []
+        if has_previous:
+            nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_brazzers_{current_video_id}"))
+        nav_buttons.append(InlineKeyboardButton("⏩ Next", callback_data="get_brazzers"))
+        
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏩ Next Brazzers", callback_data="get_brazzers")]
+            nav_buttons,
+            [InlineKeyboardButton("🏠 Home", callback_data="home")]
         ])
 
-        # Send video with protection and Next button
+        # Send video with protection and navigation buttons
         dlt = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
             protect_content=PROTECT_CONTENT,
             caption=f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n<blockquote>ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ. ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ.</blockquote>",
             reply_to_message_id=m.id,
-            reply_markup=reply_markup  # Added Next button
+            reply_markup=reply_markup
         )
         
         await db.increase_video_count(user_id, username)
