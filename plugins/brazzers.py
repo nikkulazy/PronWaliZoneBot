@@ -48,13 +48,19 @@ async def process_brazzers_request(client, m: Message):
             await m.reply("❌ No unseen videos found!")
             return
 
-        # Send video with protection
+        # Create Next button for Brazzers
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⏩ Next Brazzers", callback_data="get_brazzers")]
+        ])
+
+        # Send video with protection and Next button
         dlt = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
             protect_content=PROTECT_CONTENT,
             caption=f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n<blockquote>ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ. ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ.</blockquote>",
-            reply_to_message_id=m.id
+            reply_to_message_id=m.id,
+            reply_markup=reply_markup  # Added Next button
         )
         
         await db.increase_video_count(user_id, username)
