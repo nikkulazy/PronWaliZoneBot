@@ -58,7 +58,7 @@ DAILY_LIMIT = int(environ.get("DAILY_LIMIT", "5"))
 VERIFICATION_DAILY_LIMIT = int(environ.get("VERIFICATION_DAILY_LIMIT", "20"))
 PREMIUM_DAILY_LIMIT = int(environ.get("PREMIUM_DAILY_LIMIT", "50"))
 FREE_VIDEO_DURATION = int(environ.get("FREE_VIDEO_DURATION", "60"))  # Seconds mein (default 60 seconds = 1 minute)
-
+FREE_VIDEO_DURATION=60  # 60 seconds = 1 minute
 # =========================================================
 # 🔗 SHORTLINK & VERIFICATION
 # =========================================================
