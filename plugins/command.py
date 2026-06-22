@@ -286,3 +286,44 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
+
+# kisi bhi plugin mein add karein (e.g., command.py)
+@Client.on_message(filters.command("debug") & filters.private)
+async def debug_command(client, message):
+    user_id = message.from_user.id
+    
+    # Check users collection
+    user = await db.users.find_one({"id": user_id})
+    
+    # Check history
+    history = await db.historys.find_one({"user_id": user_id})
+    
+    # Check videos count
+    total_videos = await db.videos.count_documents({})
+    
+    text = f"📊 **DEBUG INFO**\n━━━━━━━━━━━━━━━━━━\n"
+    text += f"👤 User ID: `{user_id}`\n"
+    text += f"📹 Total Videos in DB: **{total_videos}**\n\n"
+    
+    if user:
+        text += f"✅ User exists in users collection\n"
+        text += f"📅 Last date: {user.get('last_date')}\n"
+        text += f"🔢 Video count: {user.get('video_count', 0)}\n"
+    else:
+        text += f"❌ User NOT in users collection\n"
+    
+    text += f"\n📜 **History:**\n"
+    if history:
+        seen = history.get("seen", [])
+        text += f"✅ History exists\n"
+        text += f"📋 Videos seen: **{len(seen)}**\n"
+        if seen:
+            text += f"Last 3 videos:\n"
+            for i, vid in enumerate(seen[-3:], 1):
+                text += f"  {i}. `{vid[:30]}...`\n"
+        else:
+            text += f"⚠️ History is EMPTY!\n"
+    else:
+        text += f"❌ No history collection found!\n"
+    
+    await message.reply(text)
