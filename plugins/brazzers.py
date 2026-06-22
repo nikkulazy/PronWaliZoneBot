@@ -12,7 +12,7 @@ async def handle_brazzers_command(client, m: Message):
     """Handle /brazzers command"""
     await process_brazzers_request(client, m, direction="next")
 
-async def process_brazzers_request(client, m: Message, direction="next", current_video_id=None):
+async def process_brazzers_request(client, m: Message, direction="next", video_short_id=None):
     """Core function to process Brazzers request with navigation"""
     if not m.from_user:
         return
@@ -46,8 +46,13 @@ async def process_brazzers_request(client, m: Message, direction="next", current
         # Get video based on direction
         if direction == "next":
             video_id = await db.get_unseen_brazzers(user_id)
-        elif direction == "previous" and current_video_id:
-            video_id = await db.get_previous_brazzers(user_id, current_video_id)
+        elif direction == "previous" and video_short_id:
+            # Get full video ID from short ID
+            full_video_id = await db.get_brazzers_by_short_id(video_short_id)
+            if full_video_id:
+                video_id = await db.get_previous_brazzers(user_id, full_video_id)
+            else:
+                video_id = None
         else:
             video_id = await db.get_unseen_brazzers(user_id)
             
@@ -61,13 +66,20 @@ async def process_brazzers_request(client, m: Message, direction="next", current
         # Get current video ID for navigation
         current_video_id = video_id
         
+        # Generate short ID for navigation
+        short_id = await db.get_short_brazzers_id(video_id)
+        
         # Check if previous video exists
-        has_previous = await db.has_previous_brazzers(user_id, current_video_id)
+        has_previous = await db.has_previous_brazzers(user_id, video_id)
         
         # Create navigation buttons for Brazzers
         nav_buttons = []
         if has_previous:
-            nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_brazzers_{current_video_id}"))
+            # Get previous video's short ID
+            prev_video = await db.get_previous_brazzers(user_id, video_id)
+            if prev_video:
+                prev_short_id = await db.get_short_brazzers_id(prev_video)
+                nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_brz_{prev_short_id}"))
         nav_buttons.append(InlineKeyboardButton("⏩ Next", callback_data="get_brazzers"))
         
         reply_markup = InlineKeyboardMarkup([
