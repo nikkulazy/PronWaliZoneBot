@@ -101,9 +101,14 @@ async def handle_video_request(client, m: Message):
         return await m.reply("❌ No videos found in the database.")
 
     # ------------------------------------------------
-    # SEND VIDEO
+    # SEND VIDEO WITH NEXT BUTTON
     # ------------------------------------------------
     try:
+        # Create Next button
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⏩ Next Video", callback_data="get_video")]
+        ])
+        
         sent = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
@@ -116,7 +121,8 @@ async def handle_video_request(client, m: Message):
                 "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
                 "</blockquote>"
             ),
-            reply_to_message_id=m.id
+            reply_to_message_id=m.id,
+            reply_markup=reply_markup  # Added Next button
         )
 
         # Increase daily count ONLY after successful send
