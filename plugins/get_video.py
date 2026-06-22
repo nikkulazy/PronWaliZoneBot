@@ -4,6 +4,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
 import asyncio
+import hashlib
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
@@ -13,7 +14,7 @@ from utils import temp, auto_delete_message, is_user_joined
 async def handle_video_request(client, m: Message):
     await process_video_request(client, m, direction="next")
 
-async def process_video_request(client, m: Message, direction="next", current_video_id=None):
+async def process_video_request(client, m: Message, direction="next", video_short_id=None):
     """Core function to handle video requests with navigation"""
     
     # Safety check
@@ -98,9 +99,13 @@ async def process_video_request(client, m: Message, direction="next", current_vi
             except Exception as e:
                 print(f"[Random Video Error] {e}")
                 return
-    elif direction == "previous" and current_video_id:
-        # For previous, get the previous video from history
-        video_id = await db.get_previous_video(user_id, current_video_id)
+    elif direction == "previous" and video_short_id:
+        # Get full video ID from short ID
+        full_video_id = await db.get_video_by_short_id(video_short_id)
+        if full_video_id:
+            video_id = await db.get_previous_video(user_id, full_video_id)
+        else:
+            video_id = None
         if not video_id:
             return await m.reply("❌ No previous video found!")
     else:
@@ -119,16 +124,20 @@ async def process_video_request(client, m: Message, direction="next", current_vi
     # SEND VIDEO WITH NAVIGATION BUTTONS
     # ------------------------------------------------
     try:
-        # Get current video ID for navigation
-        current_video_id = video_id
+        # Generate short ID for navigation
+        short_id = await db.get_short_video_id(video_id)
         
         # Check if previous video exists
-        has_previous = await db.has_previous_video(user_id, current_video_id)
+        has_previous = await db.has_previous_video(user_id, video_id)
         
-        # Create navigation buttons
+        # Create navigation buttons with short IDs
         nav_buttons = []
         if has_previous:
-            nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_video_{current_video_id}"))
+            # Get previous video's short ID
+            prev_video = await db.get_previous_video(user_id, video_id)
+            if prev_video:
+                prev_short_id = await db.get_short_video_id(prev_video)
+                nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_vid_{prev_short_id}"))
         nav_buttons.append(InlineKeyboardButton("⏩ Next", callback_data="get_video"))
         
         reply_markup = InlineKeyboardMarkup([
