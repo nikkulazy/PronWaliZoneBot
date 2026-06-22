@@ -2,7 +2,7 @@ from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.users_db import db
-from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
+from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, FREE_VIDEO_DURATION
 import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
@@ -27,7 +27,7 @@ async def handle_video_request(client, m: Message):
     if await ban_manager.check_ban(client, m):
         return
 
-    # ✅ Premium + limit info - FIXED
+    # ✅ Premium + limit info
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
@@ -42,7 +42,7 @@ async def handle_video_request(client, m: Message):
     used = await db.get_video_count(user_id) or 0
 
     # ------------------------------------------------
-    # ✅ LIMIT CHECK - FIXED
+    # ✅ LIMIT CHECK
     # ------------------------------------------------
     
     # Premium User Logic
@@ -86,19 +86,23 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ------------------------------------------------
-    # GET VIDEO
+    # 🎯 GET VIDEO - Premium/Free ke hisaab se
     # ------------------------------------------------
-    video_id = await db.get_unseen_video(user_id)
-
-    if not video_id:
-        try:
+    if is_premium:
+        # Premium user - Sabhi videos (jaise pehle)
+        video_id = await db.get_unseen_premium_video(user_id)
+        if not video_id:
+            # Agar koi unseen nahi hai toh random video
             video_id = await db.get_random_video()
-        except Exception as e:
-            print(f"[Random Video Error] {e}")
-            return
-
+    else:
+        # Free user - Sirf FREE_VIDEO_DURATION se kam duration wali videos
+        video_id = await db.get_unseen_free_video(user_id)
+        if not video_id:
+            # Agar koi unseen free video nahi hai toh koi bhi free video
+            video_id = await db.get_random_free_video()
+    
     if not video_id:
-        return await m.reply("❌ No videos found in the database.")
+        return await m.reply("❌ No videos available for your plan.")
 
     # ------------------------------------------------
     # SEND VIDEO
