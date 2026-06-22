@@ -123,9 +123,6 @@ async def send_about_text(client, message):
 # =========================================================
 # CALLBACK QUERY HANDLER - Main Handler
 # =========================================================
-# =========================================================
-# CALLBACK QUERY HANDLER - Main Handler
-# =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
@@ -144,14 +141,14 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # ============= PREVIOUS VIDEO HANDLER =============
     if data.startswith("prev_vid_"):
         try:
-            current_video_id = data.replace("prev_vid_", "")
+            short_id = data.replace("prev_vid_", "")
             await query.answer("⏳ Loading previous video...", show_alert=False)
             from plugins.get_video import process_video_request
             fake_msg = message
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
             await message.delete()
-            await process_video_request(client, fake_msg, direction="previous", current_video_id=current_video_id)
+            await process_video_request(client, fake_msg, direction="previous", short_id=short_id)
         except Exception as e:
             print(f"Previous video error: {e}")
             await query.answer("❌ Error loading previous video", show_alert=True)
@@ -160,14 +157,14 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # ============= PREVIOUS BRAZZERS HANDLER =============
     if data.startswith("prev_brz_"):
         try:
-            current_video_id = data.replace("prev_brz_", "")
+            short_id = data.replace("prev_brz_", "")
             await query.answer("⏳ Loading previous Brazzers...", show_alert=False)
             from plugins.brazzers import process_brazzers_request
             fake_msg = message
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
             await message.delete()
-            await process_brazzers_request(client, fake_msg, direction="previous", current_video_id=current_video_id)
+            await process_brazzers_request(client, fake_msg, direction="previous", short_id=short_id)
         except Exception as e:
             print(f"Previous Brazzers error: {e}")
             await query.answer("❌ Error loading previous Brazzers", show_alert=True)
