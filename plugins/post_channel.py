@@ -76,22 +76,15 @@ async def index_normal_videos(client, m: Message):
         thumb_to_send = NO_IMG
 
         try:
-            # 1️⃣ Telegram thumbnail → download → send as photo
             if m.video.thumbs:
-                thumb_file = await client.download_media(
-                    m.video.thumbs[0].file_id
-                )
+                thumb_file = await client.download_media(m.video.thumbs[0].file_id)
                 if thumb_file:
                     thumb_to_send = thumb_file
-
             else:
-                # 2️⃣ Generate from video
                 video_path = await m.download()
                 gen_thumb = await generate_thumbnail(video_path)
-
                 if gen_thumb:
                     thumb_to_send = gen_thumb
-
         except Exception as e:
             print("Thumbnail handling error:", e)
 
@@ -106,7 +99,6 @@ async def index_normal_videos(client, m: Message):
                 reply_markup=btn
             )
             print("📸 Post sent with thumbnail")
-
         except Exception as e:
             print("⚠️ Thumb failed, sending NO_IMG:", e)
             await client.send_photo(
