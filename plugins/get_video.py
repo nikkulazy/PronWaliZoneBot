@@ -56,7 +56,6 @@ async def handle_video_request(client, m: Message):
         # ✅ Free/Verified users - Check their respective limits
         if used >= current_limit:
             if is_verified:
-                # Verified user reached limit
                 return await m.reply(
                     f"❌ You've reached your daily limit of {current_limit} files.\n"
                     f"💎 Buy premium for more access!\n\n"
@@ -86,13 +85,12 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ------------------------------------------------
-    # 🎯 GET VIDEO - Premium/Free ke hisaab se
+    # 🎯 GET VIDEO - Premium/Free ke hisaab se (FIXED)
     # ------------------------------------------------
     if is_premium:
-        # Premium user - Sabhi videos (jaise pehle)
+        # Premium user - Sabhi videos
         video_id = await db.get_unseen_premium_video(user_id)
         if not video_id:
-            # Agar koi unseen nahi hai toh random video
             video_id = await db.get_random_video()
     else:
         # Free user - Sirf FREE_VIDEO_DURATION se kam duration wali videos
@@ -100,6 +98,9 @@ async def handle_video_request(client, m: Message):
         if not video_id:
             # Agar koi unseen free video nahi hai toh koi bhi free video
             video_id = await db.get_random_free_video()
+            if not video_id:
+                # Agar koi bhi free video nahi hai toh koi bhi video (fallback)
+                video_id = await db.get_random_video()
     
     if not video_id:
         return await m.reply("❌ No videos available for your plan.")
