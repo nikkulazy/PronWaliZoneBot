@@ -11,7 +11,11 @@ from utils import temp, auto_delete_message, is_user_joined
 
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
+    await process_video_request(client, m, direction="next")
 
+async def process_video_request(client, m: Message, direction="next", current_video_id=None):
+    """Core function to handle video requests with navigation"""
+    
     # Safety check
     if not m.from_user:
         return
@@ -27,7 +31,7 @@ async def handle_video_request(client, m: Message):
     if await ban_manager.check_ban(client, m):
         return
 
-    # ✅ Premium + limit info - FIXED
+    # ✅ Premium + limit info
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
@@ -42,7 +46,7 @@ async def handle_video_request(client, m: Message):
     used = await db.get_video_count(user_id) or 0
 
     # ------------------------------------------------
-    # ✅ LIMIT CHECK - FIXED
+    # ✅ LIMIT CHECK
     # ------------------------------------------------
     
     # Premium User Logic
@@ -56,19 +60,16 @@ async def handle_video_request(client, m: Message):
         # ✅ Free/Verified users - Check their respective limits
         if used >= current_limit:
             if is_verified:
-                # Verified user reached limit
                 return await m.reply(
                     f"❌ You've reached your daily limit of {current_limit} files.\n"
                     f"💎 Buy premium for more access!\n\n"
                     f"⏳ Resets tomorrow."
                 )
             else:
-                # Free user - Check if verification can help
                 if IS_VERIFY:
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
-                    # After verification, re-check limits
                     used = await db.get_video_count(user_id) or 0
                     if used >= VERIFICATION_DAILY_LIMIT:
                         return await m.reply(
@@ -86,27 +87,53 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ------------------------------------------------
-    # GET VIDEO
+    # GET VIDEO WITH NAVIGATION
     # ------------------------------------------------
-    video_id = await db.get_unseen_video(user_id)
-
-    if not video_id:
-        try:
-            video_id = await db.get_random_video()
-        except Exception as e:
-            print(f"[Random Video Error] {e}")
-            return
+    # Get video based on direction
+    if direction == "next":
+        video_id = await db.get_unseen_video(user_id)
+        if not video_id:
+            try:
+                video_id = await db.get_random_video()
+            except Exception as e:
+                print(f"[Random Video Error] {e}")
+                return
+    elif direction == "previous" and current_video_id:
+        # For previous, get the previous video from history
+        video_id = await db.get_previous_video(user_id, current_video_id)
+        if not video_id:
+            return await m.reply("❌ No previous video found!")
+    else:
+        video_id = await db.get_unseen_video(user_id)
+        if not video_id:
+            try:
+                video_id = await db.get_random_video()
+            except Exception as e:
+                print(f"[Random Video Error] {e}")
+                return
 
     if not video_id:
         return await m.reply("❌ No videos found in the database.")
 
     # ------------------------------------------------
-    # SEND VIDEO WITH NEXT BUTTON
+    # SEND VIDEO WITH NAVIGATION BUTTONS
     # ------------------------------------------------
     try:
-        # Create Next button
+        # Get current video ID for navigation
+        current_video_id = video_id
+        
+        # Check if previous video exists
+        has_previous = await db.has_previous_video(user_id, current_video_id)
+        
+        # Create navigation buttons
+        nav_buttons = []
+        if has_previous:
+            nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_video_{current_video_id}"))
+        nav_buttons.append(InlineKeyboardButton("⏩ Next", callback_data="get_video"))
+        
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏩ Next Video", callback_data="get_video")]
+            nav_buttons,
+            [InlineKeyboardButton("🏠 Home", callback_data="home")]
         ])
         
         sent = await client.send_video(
@@ -122,7 +149,7 @@ async def handle_video_request(client, m: Message):
                 "</blockquote>"
             ),
             reply_to_message_id=m.id,
-            reply_markup=reply_markup  # Added Next button
+            reply_markup=reply_markup
         )
 
         # Increase daily count ONLY after successful send
