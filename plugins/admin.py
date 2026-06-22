@@ -1,8 +1,6 @@
-from pyrogram.types import Message
-from database.users_db import db
-from info import ADMINS
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
+from info import ADMINS
 
 @Client.on_message(filters.command("owner_cmd") & filters.user(ADMINS))
 async def admin_cmd(client, message):
@@ -24,12 +22,3 @@ async def admin_cmd(client, message):
         "<b>Admin All Commands 👇</b>",
         reply_markup=reply_markup,
     )
-
-@Client.on_message(filters.command("fixduration") & filters.user(ADMINS))
-async def fix_duration_command(client, message: Message):
-    msg = await message.reply("🔄 Fixing video durations...")
-    result = await db.videos.update_many(
-        {"duration": {"$exists": False}},
-        {"$set": {"duration": 0}}
-    )
-    await msg.edit(f"✅ Updated {result.modified_count} videos")
