@@ -672,6 +672,92 @@ class Database:
         except Exception as e:
             print(f"Error getting Brazzers by short ID: {e}")
             return None
+
+    # Add these functions to your users_db.py Database class
+
+    # ============================================================
+    # SHORT ID SYSTEM - PROPER IMPLEMENTATION
+    # ============================================================
+    
+    async def generate_short_id(self, length=6):
+        """Generate unique short ID"""
+        import random
+        import string
+        characters = string.ascii_letters + string.digits
+        return ''.join(random.choices(characters, k=length))
+    
+    async def add_video_with_short_id(self, file_unique_id, file_id):
+        """Add video with short ID"""
+        exists = await self.videos.find_one({"file_unique_id": file_unique_id})
+        if not exists:
+            # Generate unique short ID
+            short_id = await self.generate_short_id()
+            while await self.videos.find_one({"short_id": short_id}):
+                short_id = await self.generate_short_id()
+            
+            await self.videos.insert_one({
+                "file_unique_id": file_unique_id,
+                "file_id": file_id,
+                "short_id": short_id,
+                "added_at": datetime.now(timezone.utc)
+            })
+            return True
+        return False
+    
+    async def get_short_id(self, file_id):
+        """Get short ID for a video"""
+        video = await self.videos.find_one({"file_id": file_id})
+        if video and "short_id" in video:
+            return video["short_id"]
+        # If no short_id exists, generate one
+        short_id = await self.generate_short_id()
+        while await self.videos.find_one({"short_id": short_id}):
+            short_id = await self.generate_short_id()
+        await self.videos.update_one(
+            {"file_id": file_id},
+            {"$set": {"short_id": short_id}}
+        )
+        return short_id
+    
+    async def get_video_by_short_id(self, short_id):
+        """Get full video ID from short ID"""
+        video = await self.videos.find_one({"short_id": short_id})
+        return video["file_id"] if video else None
+    
+    async def add_brazzers_with_short_id(self, file_unique_id, file_id):
+        """Add Brazzers video with short ID"""
+        exists = await self.brazzers.find_one({"file_unique_id": file_unique_id})
+        if not exists:
+            short_id = await self.generate_short_id()
+            while await self.brazzers.find_one({"short_id": short_id}):
+                short_id = await self.generate_short_id()
+            
+            await self.brazzers.insert_one({
+                "file_unique_id": file_unique_id,
+                "file_id": file_id,
+                "short_id": short_id
+            })
+            return True
+        return False
+    
+    async def get_brazzers_short_id(self, file_id):
+        """Get short ID for a Brazzers video"""
+        video = await self.brazzers.find_one({"file_id": file_id})
+        if video and "short_id" in video:
+            return video["short_id"]
+        short_id = await self.generate_short_id()
+        while await self.brazzers.find_one({"short_id": short_id}):
+            short_id = await self.generate_short_id()
+        await self.brazzers.update_one(
+            {"file_id": file_id},
+            {"$set": {"short_id": short_id}}
+        )
+        return short_id
+    
+    async def get_brazzers_by_short_id(self, short_id):
+        """Get full Brazzers video ID from short ID"""
+        video = await self.brazzers.find_one({"short_id": short_id})
+        return video["file_id"] if video else None
             
     # ============================================================
     # VERIFICATION SYSTEM
