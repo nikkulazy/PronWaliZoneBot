@@ -1,9 +1,9 @@
-from os import environ
+import asyncio
+import random
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
-import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
@@ -13,7 +13,7 @@ from utils import temp, auto_delete_message, is_user_joined
 async def handle_video_request(client, m: Message):
     await process_video_request(client, m, direction="next")
 
-async def process_video_request(client, m: Message, direction="next", video_short_id=None):
+async def process_video_request(client, m: Message, direction="next", current_video_id=None):
     """Core function to handle video requests with navigation"""
     
     # Safety check
@@ -31,7 +31,7 @@ async def process_video_request(client, m: Message, direction="next", video_shor
     if await ban_manager.check_ban(client, m):
         return
 
-    # ✅ Premium + limit info
+    # Premium + limit info
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
@@ -45,11 +45,7 @@ async def process_video_request(client, m: Message, direction="next", video_shor
     
     used = await db.get_video_count(user_id) or 0
 
-    # ------------------------------------------------
-    # ✅ LIMIT CHECK
-    # ------------------------------------------------
-    
-    # Premium User Logic
+    # LIMIT CHECK
     if is_premium:
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(
@@ -57,7 +53,6 @@ async def process_video_request(client, m: Message, direction="next", video_shor
                 f"⏳ Try again tomorrow!"
             )
     else:
-        # ✅ Free/Verified users - Check their respective limits
         if used >= current_limit:
             if is_verified:
                 return await m.reply(
@@ -86,52 +81,30 @@ async def process_video_request(client, m: Message, direction="next", video_shor
                         ])
                     )
 
-    # ------------------------------------------------
-    # GET VIDEO WITH NAVIGATION
-    # ------------------------------------------------
+    # GET VIDEO
     video_id = None
     
     if direction == "next":
-        # Get unseen video - this will automatically mark as seen
-        video_id = await db.get_unseen_video(user_id)
-        print(f"📹 Next video: {video_id[:20] if video_id else 'None'}")
-        
-    elif direction == "previous" and video_short_id:
-        # Get full video ID from short ID
-        full_video_id = await db.get_video_by_short_id(video_short_id)
-        print(f"🔍 Full video from short ID: {full_video_id[:20] if full_video_id else 'None'}")
-        
-        if full_video_id:
-            video_id = await db.get_previous_video(user_id, full_video_id)
-            print(f"⬅️ Previous video: {video_id[:20] if video_id else 'None'}")
-        else:
-            video_id = None
-            
+        video_id = await get_unseen_video_direct(user_id)
+    elif direction == "previous" and current_video_id:
+        video_id = await get_previous_video_direct(user_id, current_video_id)
         if not video_id:
-            return await m.reply("❌ No previous video found! You haven't watched any videos yet.")
+            return await m.reply("❌ No previous video found! Watch some videos first.")
     else:
-        # Default - get unseen
-        video_id = await db.get_unseen_video(user_id)
+        video_id = await get_unseen_video_direct(user_id)
 
     if not video_id:
         return await m.reply("❌ No videos found in the database.")
 
-    # ------------------------------------------------
-    # SEND VIDEO WITH NAVIGATION BUTTONS
-    # ------------------------------------------------
+    # SEND VIDEO WITH BUTTONS
     try:
-        # Check if previous video exists
-        has_previous = await db.has_previous_video(user_id, video_id)
-        print(f"🔙 Has previous: {has_previous}")
+        has_previous = await has_previous_video_direct(user_id, video_id)
         
-        # Create navigation buttons
         nav_buttons = []
         if has_previous:
-            # Get previous video's short ID
-            prev_video = await db.get_previous_video(user_id, video_id)
+            prev_video = await get_previous_video_direct(user_id, video_id)
             if prev_video:
-                prev_short_id = prev_video[:8]  # Use first 8 chars as short ID
-                nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_vid_{prev_short_id}"))
+                nav_buttons.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_vid_{prev_video}"))
         
         nav_buttons.append(InlineKeyboardButton("⏩ Next", callback_data="get_video"))
         
@@ -146,7 +119,6 @@ async def process_video_request(client, m: Message, direction="next", video_shor
             protect_content=PROTECT_CONTENT,
             caption=(
                 f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-                f"📌 Video: {video_id[:8]}...\n\n"
                 "<blockquote>"
                 "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
                 "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
@@ -157,12 +129,116 @@ async def process_video_request(client, m: Message, direction="next", video_shor
             reply_markup=reply_markup
         )
 
-        # Increase daily count
         await db.increase_video_count(user_id, username)
-
-        # Auto delete in background
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
         print(f"❌ Error sending video: {e}")
         await m.reply(f"❌ Failed to send video: {str(e)}")
+
+
+# ============================================================
+# DIRECT DATABASE FUNCTIONS
+# ============================================================
+
+async def get_unseen_video_direct(user_id):
+    """Get unseen video and save to history"""
+    try:
+        history = await db.historys.find_one({"user_id": user_id})
+        seen_ids = history.get("seen", []) if history else []
+        
+        all_videos = []
+        cursor = db.videos.find({})
+        async for video in cursor:
+            if video["file_id"] not in seen_ids:
+                all_videos.append(video["file_id"])
+        
+        if not all_videos:
+            cursor = db.videos.aggregate([{"$sample": {"size": 1}}])
+            result = await cursor.to_list(length=1)
+            if result:
+                video_id = result[0]["file_id"]
+                await mark_seen_direct(user_id, video_id)
+                return video_id
+            return None
+        
+        video_id = random.choice(all_videos)
+        await mark_seen_direct(user_id, video_id)
+        return video_id
+    except Exception as e:
+        print(f"❌ Error in get_unseen_video_direct: {e}")
+        return None
+
+async def mark_seen_direct(user_id, file_id):
+    """Directly mark video as seen in history"""
+    try:
+        history = await db.historys.find_one({"user_id": user_id})
+        
+        if history:
+            seen_list = history.get("seen", [])
+            if file_id not in seen_list:
+                seen_list.append(file_id)
+                await db.historys.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"seen": seen_list}}
+                )
+        else:
+            await db.historys.insert_one({
+                "user_id": user_id,
+                "seen": [file_id]
+            })
+    except Exception as e:
+        print(f"❌ Error marking seen: {e}")
+
+async def get_previous_video_direct(user_id, current_video_id):
+    """Get previous video from user's history"""
+    try:
+        history = await db.historys.find_one({"user_id": user_id})
+        if not history:
+            return None
+        
+        seen_list = history.get("seen", [])
+        if len(seen_list) < 2:
+            return None
+        
+        try:
+            current_index = seen_list.index(current_video_id)
+        except ValueError:
+            found = False
+            for i, vid in enumerate(seen_list):
+                if vid.startswith(current_video_id[:20]):
+                    current_index = i
+                    found = True
+                    break
+            if not found:
+                return None
+        
+        if current_index > 0:
+            return seen_list[current_index - 1]
+        return None
+    except Exception as e:
+        print(f"❌ Error getting previous video: {e}")
+        return None
+
+async def has_previous_video_direct(user_id, current_video_id):
+    """Check if previous video exists in history"""
+    try:
+        history = await db.historys.find_one({"user_id": user_id})
+        if not history:
+            return False
+        
+        seen_list = history.get("seen", [])
+        if len(seen_list) < 2:
+            return False
+        
+        try:
+            current_index = seen_list.index(current_video_id)
+            return current_index > 0
+        except ValueError:
+            for i, vid in enumerate(seen_list):
+                if vid.startswith(current_video_id[:20]):
+                    return i > 0
+            return False
+    except Exception as e:
+        print(f"Error checking previous video: {e}")
+        return False
