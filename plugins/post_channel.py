@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from info import VIDEO_CHANNEL, BRAZZER_CHANNEL, NO_IMG, POST_CHANNEL, POST_SHORTLINK, SEND_POST
+from info import VIDEO_CHANNEL, BRAZZER_CHANNEL, NO_IMG, POST_CHANNEL, POST_SHORTLINK, SEND_POST, FREE_VIDEO_DURATION
 from database.users_db import db
 from utils import temp, get_shortlink, generate_weird_name, generate_thumbnail
 
@@ -14,22 +14,23 @@ async def index_brazzers_videos(_, m: Message):
     await db.add_brazzers_video(file_unique_id, file_id)
 
 # -----------------------
-# NORMAL VIDEO INDEX
+# NORMAL VIDEO INDEX (WITH DURATION)
 # -----------------------
 @Client.on_message(filters.video & filters.chat(VIDEO_CHANNEL))
 async def index_normal_videos(client, m: Message):
     try:
         file_id = m.video.file_id
         file_unique_id = m.video.file_unique_id
-
+        video_duration = m.video.duration  # Video ki duration seconds mein
+        
         # 🔥 Weird random name
         file_name = generate_weird_name() + ".mp4"
 
-        # DB
-        status = await db.add_video(file_unique_id, file_id)
+        # DB mein duration ke sath save karein
+        status = await db.add_video(file_unique_id, file_id, duration=video_duration)
 
         if status:
-            print(f"✅ New Video Added: {file_name} (Msg ID: {m.id})")
+            print(f"✅ New Video Added: {file_name} (Msg ID: {m.id}) | Duration: {video_duration}s")
         else:
             print(f"♻️ Duplicate Found: {file_name}")
 
@@ -54,8 +55,14 @@ async def index_normal_videos(client, m: Message):
         else:
             shortlink = link
 
+        # Duration status
+        is_free = video_duration <= FREE_VIDEO_DURATION
+        status_badge = "🆓 FREE" if is_free else "💎 PREMIUM"
+        
         caption = (
             f"<b>{file_name}</b>\n\n"
+            f"<b>Status:</b> {status_badge}\n"
+            f"<b>Duration:</b> {video_duration}s\n"
             f"<i>Click the button below to watch the video.</i>"
         )
 
@@ -64,7 +71,7 @@ async def index_normal_videos(client, m: Message):
         ])
 
         # -----------------------
-        # THUMBNAIL SYSTEM (FIXED)
+        # THUMBNAIL SYSTEM
         # -----------------------
         thumb_to_send = NO_IMG
 
