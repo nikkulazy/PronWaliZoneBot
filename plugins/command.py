@@ -121,47 +121,6 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
-#next and Previous Video Handler
-@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    data = query.data
-    user_id = query.from_user.id
-    message = query.message
-
-    # =============================================
-    # PREVIOUS VIDEO HANDLER - FIXED ✅
-    # =============================================
-    if data == "prev_video":
-        try:
-            await query.answer("⏳ Loading previous...", show_alert=False)
-            from plugins.get_video import handle_prev_video_request
-            fake_msg = message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
-            await handle_prev_video_request(client, fake_msg)
-        except Exception as e:
-            print(f"Previous video error: {e}")
-            await query.answer("❌ Error", show_alert=True)
-        return
-
-    # =============================================
-    # PREVIOUS BRAZZERS HANDLER - FIXED ✅
-    # =============================================
-    if data == "prev_brazzers":
-        try:
-            await query.answer("⏳ Loading previous...", show_alert=False)
-            from plugins.brazzers import process_prev_brazzers_request
-            fake_msg = message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
-            await process_prev_brazzers_request(client, fake_msg)
-        except Exception as e:
-            print(f"Previous Brazzers error: {e}")
-            await query.answer("❌ Error", show_alert=True)
-        return
-
-    # Rest of your code...
-
 # =========================================================
 # CALLBACK QUERY HANDLER - Main Handler (UPDATED)
 # =========================================================
@@ -170,6 +129,52 @@ async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
+
+    # =============================================
+    # 🆕 PREVIOUS VIDEO HANDLER - NEW ADD
+    # =============================================
+    if data.startswith("prev_"):
+        try:
+            # Extract file_id from callback data
+            file_id = data.replace("prev_", "")
+            await query.answer("⏳ Loading previous...", show_alert=False)
+            
+            # Create fake message with prev flag
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            fake_msg.prev_request = True
+            fake_msg.current_file_id = file_id
+            
+            from plugins.get_video import handle_video_request
+            await handle_video_request(client, fake_msg)
+            
+        except Exception as e:
+            print(f"Previous video error: {e}")
+            await query.answer("❌ Error loading previous", show_alert=True)
+        return
+
+    # =============================================
+    # 🆕 PREVIOUS BRAZZERS HANDLER - NEW ADD
+    # =============================================
+    if data.startswith("prev_brazzers_"):
+        try:
+            file_id = data.replace("prev_brazzers_", "")
+            await query.answer("⏳ Loading previous...", show_alert=False)
+            
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            fake_msg.prev_request = True
+            fake_msg.current_file_id = file_id
+            
+            from plugins.brazzers import process_brazzers_request
+            await process_brazzers_request(client, fake_msg)
+            
+        except Exception as e:
+            print(f"Previous Brazzers error: {e}")
+            await query.answer("❌ Error loading previous", show_alert=True)
+        return
 
     # =============================================
     # 🆕 DELETE HANDLER - ADDED
