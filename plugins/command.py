@@ -122,7 +122,8 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler (UPDATED)
+# =========================================================
+# CALLBACK QUERY HANDLER - Main Handler (FIXED)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -131,12 +132,18 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
-    # 🆕 PREVIOUS VIDEO HANDLER - NEW ADD
+    # 🆕 PREVIOUS VIDEO HANDLER
     # =============================================
     if data.startswith("prev_"):
         try:
-            # Extract file_id from callback data
-            file_id = data.replace("prev_", "")
+            # Extract index from callback data
+            index = int(data.replace("prev_", ""))
+            
+            # ✅ Check if index is valid
+            if index <= 0:
+                await query.answer("❌ No previous video found!", show_alert=True)
+                return
+                
             await query.answer("⏳ Loading previous...", show_alert=False)
             
             # Create fake message with prev flag
@@ -144,7 +151,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
             fake_msg.prev_request = True
-            fake_msg.current_file_id = file_id
+            fake_msg.prev_index = index
             
             from plugins.get_video import handle_video_request
             await handle_video_request(client, fake_msg)
@@ -155,18 +162,24 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # 🆕 PREVIOUS BRAZZERS HANDLER - NEW ADD
+    # 🆕 PREVIOUS BRAZZERS HANDLER
     # =============================================
-    if data.startswith("prev_brazzers_"):
+    if data.startswith("prev_brz_"):
         try:
-            file_id = data.replace("prev_brazzers_", "")
+            index = int(data.replace("prev_brz_", ""))
+            
+            # ✅ Check if index is valid
+            if index <= 0:
+                await query.answer("❌ No previous video found!", show_alert=True)
+                return
+                
             await query.answer("⏳ Loading previous...", show_alert=False)
             
             fake_msg = message
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
             fake_msg.prev_request = True
-            fake_msg.current_file_id = file_id
+            fake_msg.prev_index = index
             
             from plugins.brazzers import process_brazzers_request
             await process_brazzers_request(client, fake_msg)
@@ -177,7 +190,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # 🆕 DELETE HANDLER - ADDED
+    # 🆕 DELETE HANDLER
     # =============================================
     if data.startswith("delete_"):
         from plugins.admin import delete_callback_handler
@@ -247,6 +260,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
+        from plugins.command import send_legal_text
         await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
@@ -255,6 +269,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
+        from plugins.command import send_about_text
         await send_about_text(client, fake_msg)
         return
 
