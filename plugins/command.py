@@ -122,7 +122,7 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler (UPDATED)
+# CALLBACK QUERY HANDLER - Main Handler (FIXED)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -131,7 +131,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
-    # 🆕 DELETE HANDLER - ADDED
+    # DELETE HANDLER
     # =============================================
     if data.startswith("delete_"):
         from plugins.admin import delete_callback_handler
@@ -147,13 +147,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.message.delete()
         return
 
-    if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
-        from plugins.get_video import handle_video_request
-        fake_msg = message
-        fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
-        await handle_video_request(client, fake_msg)
+    # ⚠️ IMPORTANT: get_video, next_video, prev_video ko YAHAN HANDLE MAT KARO
+    # Yeh get_video.py mein handle honge
+    if data in ["get_video", "next_video", "prev_video"]:
+        # Let get_video.py handle these
         return
 
     if data == "get_brazzers":
@@ -167,6 +164,12 @@ async def cb_handler(client: Client, query: CallbackQuery):
         except Exception as e:
             print(f"Brazzers callback error: {e}")
             await query.answer("❌ Error processing request", show_alert=True)
+        return
+
+    # ⚠️ IMPORTANT: next_brazzers, prev_brazzers ko YAHAN HANDLE MAT KARO
+    # Yeh brazzers.py mein handle honge
+    if data in ["next_brazzers", "prev_brazzers"]:
+        # Let brazzers.py handle these
         return
 
     if data == "get_subscription":
@@ -201,6 +204,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
+        from plugins.command import send_legal_text
         await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
@@ -209,6 +213,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
+        from plugins.command import send_about_text
         await send_about_text(client, fake_msg)
         return
 
