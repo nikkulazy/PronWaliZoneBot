@@ -147,72 +147,95 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.message.delete()
         return
 
-    # ⚠️ IMPORTANT: get_video, next_video, prev_video ko YAHAN HANDLE MAT KARO
-    # Yeh get_video.py mein handle honge
-    if data in ["get_video", "next_video", "prev_video"]:
-        # Let get_video.py handle these
+    # =============================================
+    # 🆕 GET VIDEO - FIXED
+    # =============================================
+    if data == "get_video":
+        await query.answer("⏳ Loading video...", show_alert=False)
+        
+        # Create fake message
+        fake_msg = query.message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = query.message.chat
+        fake_msg.get_previous = False  # New video, not previous
+        
+        # Call the function from get_video.py
+        from plugins.get_video import handle_video_request
+        await handle_video_request(client, fake_msg)
         return
 
+    # =============================================
+    # 🆕 GET BRAZZERS
+    # =============================================
     if data == "get_brazzers":
         try:
             await query.answer("⏳ Processing...", show_alert=False)
             from plugins.brazzers import process_brazzers_request
-            fake_msg = message
+            fake_msg = query.message
             fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
+            fake_msg.chat = query.message.chat
+            fake_msg.get_previous = False
             await process_brazzers_request(client, fake_msg)
         except Exception as e:
             print(f"Brazzers callback error: {e}")
             await query.answer("❌ Error processing request", show_alert=True)
         return
 
-    # ⚠️ IMPORTANT: next_brazzers, prev_brazzers ko YAHAN HANDLE MAT KARO
-    # Yeh brazzers.py mein handle honge
+    # =============================================
+    # ⚠️ IMPORTANT: next_video, prev_video ko YAHAN HANDLE MAT KARO
+    # =============================================
+    if data in ["next_video", "prev_video"]:
+        # Let get_video.py handle these
+        return
+
     if data in ["next_brazzers", "prev_brazzers"]:
         # Let brazzers.py handle these
         return
 
+    # =============================================
+    # OTHER HANDLERS
+    # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
-        fake_msg = message
+        fake_msg = query.message
         fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
+        fake_msg.chat = query.message.chat
         await buy_handler(client, fake_msg)
         return
 
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
-        fake_msg = message
+        fake_msg = query.message
         fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
+        fake_msg.chat = query.message.chat
         await myplan_handler(client, fake_msg)
         return
 
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
-        fake_msg = message
+        fake_msg = query.message
         fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
+        fake_msg.chat = query.message.chat
         await invite_command_handler(client, fake_msg)
         return
 
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
-        fake_msg = message
+        fake_msg = query.message
         fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
+        fake_msg.chat = query.message.chat
         from plugins.command import send_legal_text
         await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
-        fake_msg = message
+        fake_msg = query.message
         fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
+        fake_msg.chat = query.message.chat
         from plugins.command import send_about_text
         await send_about_text(client, fake_msg)
         return
