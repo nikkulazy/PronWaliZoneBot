@@ -5,7 +5,8 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from database.users_db import db
 from info import LOG_CHANNEL, PREMIUM_DAILY_LIMIT, FSUB, PROTECT_CONTENT
 from utils import temp, auto_delete_message, is_user_joined
-from plugins.ban_manager import ban_manager 
+from plugins.ban_manager import ban_manager
+from plugins.history_manager import history_manager
 
 @Client.on_message(filters.command("brazzers") & filters.private)
 async def handle_brazzers_command(client, m: Message):
@@ -43,16 +44,26 @@ async def process_brazzers_request(client, m: Message):
             await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
             return
         
-        video_id = await db.get_unseen_brazzers(user_id)
+        # ✅ Check if previous request
+        if hasattr(m, 'prev_request') and m.prev_request:
+            video_id = await history_manager.get_previous_video(user_id, m.current_file_id, "brazzers")
+            if not video_id:
+                # If no previous, get unseen
+                video_id = await db.get_unseen_brazzers(user_id)
+        else:
+            video_id = await db.get_unseen_brazzers(user_id)
+
         if not video_id:
-            await m.reply("❌ No unseen videos found!")
+            await m.reply("❌ No unseen Brazzers videos found!")
             return
 
-        # Create Next button for Brazzers
+        # Create buttons with Previous
         reply_markup = InlineKeyboardMarkup([
-    [InlineKeyboardButton("⏪ Previous", callback_data="prev_brazzers"), 
-     InlineKeyboardButton("⏩ Next", callback_data="get_brazzers")]
-])
+            [
+                InlineKeyboardButton("⏪ Previous", callback_data=f"prev_brazzers_{video_id}"), 
+                InlineKeyboardButton("⏩ Next", callback_data="get_brazzers")
+            ]
+        ])
 
         # Send video with protection and Next button
         dlt = await client.send_video(
@@ -61,8 +72,11 @@ async def process_brazzers_request(client, m: Message):
             protect_content=PROTECT_CONTENT,
             caption=f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n<blockquote>ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ. ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ.</blockquote>",
             reply_to_message_id=m.id,
-            reply_markup=reply_markup  # Added Next button
+            reply_markup=reply_markup
         )
+        
+        # ✅ Add to history AFTER sending
+        await history_manager.add_to_history(user_id, video_id, "brazzers")
         
         await db.increase_video_count(user_id, username)
         asyncio.create_task(auto_delete_message(m, dlt))
