@@ -116,7 +116,7 @@ async def handle_video_request(client, m: Message):
 
 # NEXT VIDEO HANDLER
 @Client.on_callback_query(filters.regex("next_video"))
-async def next_video(client, query):
+async def get_video_callback(client, query):
     await query.answer("⏳ Loading...", show_alert=False)
     
     fake_msg = query.message
