@@ -106,8 +106,9 @@ async def handle_video_request(client, m: Message):
     try:
         # Create Next button
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏩ Next Video", callback_data="get_video")]
-        ])
+    [InlineKeyboardButton("⏪ Previous", callback_data="prev_brazzers"), 
+     InlineKeyboardButton("⏩ Next", callback_data="get_brazzers")]
+])
         
         sent = await client.send_video(
             chat_id=m.chat.id,
