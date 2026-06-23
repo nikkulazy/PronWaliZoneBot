@@ -50,8 +50,9 @@ async def process_brazzers_request(client, m: Message):
 
         # Create Next button for Brazzers
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏩ Next Brazzers", callback_data="get_brazzers")]
-        ])
+    [InlineKeyboardButton("⏪ Previous", callback_data="prev_brazzers"), 
+     InlineKeyboardButton("⏩ Next", callback_data="get_brazzers")]
+])
 
         # Send video with protection and Next button
         dlt = await client.send_video(
