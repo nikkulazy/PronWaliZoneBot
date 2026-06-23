@@ -10,6 +10,7 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
+from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 
 # =================================================
 # START COMMAND
@@ -121,13 +122,21 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler
+# CALLBACK QUERY HANDLER - Main Handler (UPDATED)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
+
+    # =============================================
+    # 🆕 DELETE HANDLER - ADDED
+    # =============================================
+    if data.startswith("delete_"):
+        from plugins.admin import delete_callback_handler
+        await delete_callback_handler(client, query)
+        return
 
     if data.startswith("index"):
         from plugins.index import index_files
