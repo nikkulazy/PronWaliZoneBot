@@ -1,5 +1,3 @@
-# plugins/command.py
-
 import datetime
 import asyncio
 from pyrogram import Client, filters, enums
@@ -12,8 +10,7 @@ from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
-from plugins.video_session import video_session
-
+from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 
 # =================================================
 # START COMMAND
@@ -84,9 +81,8 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
 
-
 # =================================================
-# HELPER FUNCTIONS
+# HELPER HANDLERS
 # =================================================
 
 @Client.on_message(filters.command("disclaimer") & filters.private)
@@ -125,9 +121,8 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
-
 # =========================================================
-# CALLBACK QUERY HANDLER - MAIN (SAB HANDLERS YAHAN)
+# CALLBACK QUERY HANDLER - Main Handler (UPDATED)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -136,16 +131,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
-    # ⚠️ NEXT/PREVIOUS HANDLERS - SIRF FORWARD KARO
-    # navigation_handlers.py handle karega
-    # =============================================
-    if data in ["next_video", "prev_video", "next_brazzers", "prev_brazzers"]:
-        # Simply return, navigation_handlers.py handle karega
-        await query.answer()
-        return
-
-    # =============================================
-    # DELETE HANDLER
+    # 🆕 DELETE HANDLER - ADDED
     # =============================================
     if data.startswith("delete_"):
         from plugins.admin import delete_callback_handler
@@ -161,39 +147,28 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.message.delete()
         return
 
-    # =============================================
-    # GET VIDEO
-    # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading video...", show_alert=False)
-        
+        await query.answer("⏳ Loading...", show_alert=False)
+        from plugins.get_video import handle_video_request
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
-        fake_msg.get_previous = False
-        
-        from plugins.get_video import handle_video_request
         await handle_video_request(client, fake_msg)
         return
 
-    # =============================================
-    # GET BRAZZERS
-    # =============================================
     if data == "get_brazzers":
-        await query.answer("⏳ Processing...", show_alert=False)
-        
-        fake_msg = message
-        fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
-        fake_msg.get_previous = False
-        
-        from plugins.brazzers import process_brazzers_request
-        await process_brazzers_request(client, fake_msg)
+        try:
+            await query.answer("⏳ Processing...", show_alert=False)
+            from plugins.brazzers import process_brazzers_request
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            await process_brazzers_request(client, fake_msg)
+        except Exception as e:
+            print(f"Brazzers callback error: {e}")
+            await query.answer("❌ Error processing request", show_alert=True)
         return
 
-    # =============================================
-    # SUBSCRIPTION
-    # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
@@ -212,9 +187,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await myplan_handler(client, fake_msg)
         return
 
-    # =============================================
-    # REFER
-    # =============================================
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
@@ -224,9 +196,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await invite_command_handler(client, fake_msg)
         return
 
-    # =============================================
-    # HELP & ABOUT
-    # =============================================
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
@@ -243,9 +212,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await send_about_text(client, fake_msg)
         return
 
-    # =============================================
-    # GET (Payment)
-    # =============================================
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
         buttons = [

@@ -1,19 +1,19 @@
 import asyncio
+import string
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from database.users_db import db
-from info import PREMIUM_DAILY_LIMIT, FSUB, PROTECT_CONTENT
+from info import LOG_CHANNEL, PREMIUM_DAILY_LIMIT, FSUB, PROTECT_CONTENT
 from utils import temp, auto_delete_message, is_user_joined
-from plugins.ban_manager import ban_manager
-from plugins.video_session import video_session
-
+from plugins.ban_manager import ban_manager 
 
 @Client.on_message(filters.command("brazzers") & filters.private)
 async def handle_brazzers_command(client, m: Message):
+    """Handle /brazzers command"""
     await process_brazzers_request(client, m)
 
-
 async def process_brazzers_request(client, m: Message):
+    """Core function to process Brazzers request - can be called from command or callback"""
     if not m.from_user:
         return
     
@@ -29,91 +29,42 @@ async def process_brazzers_request(client, m: Message):
     try:
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
+            # Quick reply for non-premium users
             await m.reply(
-                "💎 Buy Subscription And Get 900+ Brazzers Videos Per Month.", 
+                "💎 𝖡𝗎𝗒 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 𝖠𝗇𝖽 𝖦𝖾𝗍 900+ 𝖡𝖺𝗋𝗓𝗓𝖾𝗋𝗌 𝖵𝗂𝖽𝖾𝗈 𝖯𝖾𝗋 𝖬𝗈𝗇𝗍𝗁.", 
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton('• Purchase Subscription •', callback_data='get')
+                    InlineKeyboardButton('• 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 •', callback_data='get')
                 ]])
             )
             return
 
         used_today = await db.get_video_count(user_id)
         if used_today >= PREMIUM_DAILY_LIMIT:
-            await m.reply(f"⚠️ Limit reached: {PREMIUM_DAILY_LIMIT} files.")
+            await m.reply(f"⚠️ 𝖸𝗈𝗎'𝗏𝖾 𝖱𝖾𝖺𝖼𝗁𝖾𝖽 𝖸𝗈𝗎𝗋 𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍 𝖮𝖿 {PREMIUM_DAILY_LIMIT} 𝖥𝗂𝗅𝖾𝗌. 𝖳𝗋𝗒 𝖠𝗀𝖺𝗂𝗇 𝖳𝗈𝗆𝗈𝗋𝗋𝗈𝗐")
             return
         
-        # GET VIDEO
-        video_id = None
-        
-        # Check if user clicked "Previous"
-        if hasattr(m, 'get_previous') and m.get_previous:
-            video_id = video_session.get_previous(user_id)
-        
-        # If no previous, get new video
+        video_id = await db.get_unseen_brazzers(user_id)
         if not video_id:
-            video_id = await db.get_unseen_brazzers(user_id)
-
-        if not video_id:
-            await m.reply("❌ No unseen Brazzers videos found!")
+            await m.reply("❌ No unseen videos found!")
             return
 
-        # Save current video in session
-        video_session.set_current(user_id, video_id)
-
-        # Create buttons
+        # Create Next button for Brazzers
         reply_markup = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("⏪ Previous", callback_data="prev_brazzers"),
-                InlineKeyboardButton("⏩ Next", callback_data="next_brazzers")
-            ]
+            [InlineKeyboardButton("⏩ Next Brazzers", callback_data="get_brazzers")]
         ])
 
+        # Send video with protection and Next button
         dlt = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
             protect_content=PROTECT_CONTENT,
-            caption=f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n<blockquote>This file will auto delete after 10 minutes.</blockquote>",
+            caption=f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n<blockquote>ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ. ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ.</blockquote>",
             reply_to_message_id=m.id,
-            reply_markup=reply_markup
+            reply_markup=reply_markup  # Added Next button
         )
         
         await db.increase_video_count(user_id, username)
         asyncio.create_task(auto_delete_message(m, dlt))
 
     except Exception as e:
-        print(f"Brazzers Error: {e}")
-        await m.reply(f"❌ Error: {str(e)}")
-
-
-# NEXT BRAZZERS
-@Client.on_callback_query(filters.regex("next_brazzers"))
-async def next_brazzers(client, query):
-    await query.answer("⏳ Loading...", show_alert=False)
-    
-    fake_msg = query.message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = query.message.chat
-    fake_msg.get_previous = False
-    
-    await process_brazzers_request(client, fake_msg)
-
-
-# PREVIOUS BRAZZERS
-@Client.on_callback_query(filters.regex("prev_brazzers"))
-async def previous_brazzers(client, query):
-    user_id = query.from_user.id
-    
-    prev_video = video_session.get_previous(user_id)
-    
-    if not prev_video:
-        await query.answer("❌ No previous video found!", show_alert=True)
-        return
-    
-    await query.answer("⏳ Loading previous...", show_alert=False)
-    
-    fake_msg = query.message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = query.message.chat
-    fake_msg.get_previous = True
-    
-    await process_brazzers_request(client, fake_msg)
+        print(f"Error in process_brazzers_request: {e}")

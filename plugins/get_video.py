@@ -6,29 +6,32 @@ from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION
 import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
-from plugins.video_session import video_session
 from utils import temp, auto_delete_message, is_user_joined
 
 
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
 
+    # Safety check
     if not m.from_user:
         return
 
+    # Force subscribe check
     if FSUB and not await is_user_joined(client, m):
         return
 
     user_id = m.from_user.id
     username = m.from_user.username or m.from_user.first_name or "Unknown"
 
+    # Ban check
     if await ban_manager.check_ban(client, m):
         return
 
-    # Premium + limit check
+    # ✅ Premium + limit info - FIXED
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
+    # Define limits based on status
     if is_premium:
         current_limit = PREMIUM_DAILY_LIMIT
     elif is_verified:
@@ -38,57 +41,72 @@ async def handle_video_request(client, m: Message):
     
     used = await db.get_video_count(user_id) or 0
 
-    # Limit Check
+    # ------------------------------------------------
+    # ✅ LIMIT CHECK - FIXED
+    # ------------------------------------------------
+    
+    # Premium User Logic
     if is_premium:
         if used >= PREMIUM_DAILY_LIMIT:
-            return await m.reply(f"❌ Premium limit reached: {PREMIUM_DAILY_LIMIT} files.")
+            return await m.reply(
+                f"❌ You've reached your Premium limit of {PREMIUM_DAILY_LIMIT} files.\n"
+                f"⏳ Try again tomorrow!"
+            )
     else:
+        # ✅ Free/Verified users - Check their respective limits
         if used >= current_limit:
             if is_verified:
-                return await m.reply(f"❌ Daily limit reached: {current_limit} files.")
+                # Verified user reached limit
+                return await m.reply(
+                    f"❌ You've reached your daily limit of {current_limit} files.\n"
+                    f"💎 Buy premium for more access!\n\n"
+                    f"⏳ Resets tomorrow."
+                )
             else:
+                # Free user - Check if verification can help
                 if IS_VERIFY:
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
+                    # After verification, re-check limits
                     used = await db.get_video_count(user_id) or 0
                     if used >= VERIFICATION_DAILY_LIMIT:
-                        return await m.reply(f"❌ Verified limit reached: {VERIFICATION_DAILY_LIMIT} files.")
+                        return await m.reply(
+                            f"❌ You've reached your daily limit of {VERIFICATION_DAILY_LIMIT} files.\n"
+                            f"💎 Buy premium for more access!"
+                        )
                 else:
                     return await m.reply(
-                        f"❌ Daily limit reached: {current_limit} files.",
+                        f"❌ You've reached your daily limit of {current_limit} files.\n"
+                        f"💎 Buy premium for unlimited access!\n\n"
+                        f"⏳ Resets tomorrow.",
                         reply_markup=InlineKeyboardMarkup([
                             [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
                         ])
                     )
 
+    # ------------------------------------------------
     # GET VIDEO
-    video_id = None
-    
-    # Check if user clicked "Previous"
-    if hasattr(m, 'get_previous') and m.get_previous:
-        video_id = video_session.get_previous(user_id)
-    
-    # If no previous, get new video
+    # ------------------------------------------------
+    video_id = await db.get_unseen_video(user_id)
+
     if not video_id:
-        video_id = await db.get_unseen_video(user_id)
-        if not video_id:
+        try:
             video_id = await db.get_random_video()
+        except Exception as e:
+            print(f"[Random Video Error] {e}")
+            return
 
     if not video_id:
-        return await m.reply("❌ No videos found.")
+        return await m.reply("❌ No videos found in the database.")
 
-    # SEND VIDEO
+    # ------------------------------------------------
+    # SEND VIDEO WITH NEXT BUTTON
+    # ------------------------------------------------
     try:
-        # Save current video in session
-        video_session.set_current(user_id, video_id)
-        
-        # Create buttons
+        # Create Next button
         reply_markup = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("⏪ Previous", callback_data="prev_video"),
-                InlineKeyboardButton("⏩ Next", callback_data="next_video")
-            ]
+            [InlineKeyboardButton("⏩ Next Video", callback_data="get_video")]
         ])
         
         sent = await client.send_video(
@@ -104,45 +122,14 @@ async def handle_video_request(client, m: Message):
                 "</blockquote>"
             ),
             reply_to_message_id=m.id,
-            reply_markup=reply_markup
+            reply_markup=reply_markup  # Added Next button
         )
 
+        # Increase daily count ONLY after successful send
         await db.increase_video_count(user_id, username)
+
+        # Auto delete in background
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
-        await m.reply(f"❌ Error: {str(e)}")
-
-
-# NEXT VIDEO HANDLER
-@Client.on_callback_query(filters.regex("next_video"))
-async def get_video_callback(client, query):
-    await query.answer("⏳ Loading...", show_alert=False)
-    
-    fake_msg = query.message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = query.message.chat
-    fake_msg.get_previous = False
-    
-    await handle_video_request(client, fake_msg)
-
-
-# PREVIOUS VIDEO HANDLER
-@Client.on_callback_query(filters.regex("prev_video"))
-async def previous_video(client, query):
-    user_id = query.from_user.id
-    
-    prev_video = video_session.get_previous(user_id)
-    
-    if not prev_video:
-        await query.answer("❌ No previous video found!", show_alert=True)
-        return
-    
-    await query.answer("⏳ Loading previous...", show_alert=False)
-    
-    fake_msg = query.message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = query.message.chat
-    fake_msg.get_previous = True
-    
-    await handle_video_request(client, fake_msg)
+        await m.reply(f"❌ Failed to send video: {str(e)}")
