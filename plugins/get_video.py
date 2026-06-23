@@ -6,6 +6,7 @@ from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION
 import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
+from plugins.history_manager import history_manager
 from utils import temp, auto_delete_message, is_user_joined
 
 
@@ -86,29 +87,38 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ------------------------------------------------
-    # GET VIDEO
+    # GET VIDEO - WITH HISTORY SUPPORT
     # ------------------------------------------------
-    video_id = await db.get_unseen_video(user_id)
-
-    if not video_id:
-        try:
+    
+    # Check if user requested previous video
+    if hasattr(m, 'prev_request') and m.prev_request:
+        video_id = await history_manager.get_previous_video(user_id, m.current_file_id, "main")
+        if not video_id:
+            # If no previous, get random
             video_id = await db.get_random_video()
-        except Exception as e:
-            print(f"[Random Video Error] {e}")
-            return
+    else:
+        # Normal flow - get unseen or random
+        video_id = await db.get_unseen_video(user_id)
+        if not video_id:
+            video_id = await db.get_random_video()
 
     if not video_id:
         return await m.reply("❌ No videos found in the database.")
 
     # ------------------------------------------------
-    # SEND VIDEO WITH NEXT BUTTON
+    # SEND VIDEO WITH NEXT & PREVIOUS BUTTONS
     # ------------------------------------------------
     try:
-        # Create Next button
+        # Store current file ID for history
+        current_file_id = video_id
+        
+        # Create buttons with Previous
         reply_markup = InlineKeyboardMarkup([
-    [InlineKeyboardButton("⏪ Previous", callback_data="prev_brazzers"), 
-     InlineKeyboardButton("⏩ Next", callback_data="get_brazzers")]
-])
+            [
+                InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{current_file_id}"), 
+                InlineKeyboardButton("⏩ Next", callback_data="get_video")
+            ]
+        ])
         
         sent = await client.send_video(
             chat_id=m.chat.id,
@@ -123,13 +133,13 @@ async def handle_video_request(client, m: Message):
                 "</blockquote>"
             ),
             reply_to_message_id=m.id,
-            reply_markup=reply_markup  # Added Next button
+            reply_markup=reply_markup
         )
 
-        # Increase daily count ONLY after successful send
+        # ✅ Add to history AFTER sending
+        await history_manager.add_to_history(user_id, video_id, "main")
+        
         await db.increase_video_count(user_id, username)
-
-        # Auto delete in background
         asyncio.create_task(auto_delete_message(m, sent))
 
     except Exception as e:
