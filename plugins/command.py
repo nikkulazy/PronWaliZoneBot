@@ -300,6 +300,9 @@ async def universal_previous_callback(client, query: CallbackQuery):
 # =============================================
 # 🆕 NO HISTORY CALLBACK
 # =============================================
+# =============================================
+# 🆕 NO HISTORY CALLBACK (Add this)
+# =============================================
 @Client.on_callback_query(filters.regex(r"^no_history$"))
 async def no_history_callback(client, query: CallbackQuery):
     """Handle No History button click"""
