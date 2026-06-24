@@ -415,6 +415,9 @@ class Database:
     # =============================================
 # 🆕 HISTORY FUNCTIONS FOR PREVIOUS/NEXT BUTTON
 # =============================================
+# =============================================
+# 🆕 HISTORY FUNCTIONS FOR PREVIOUS BUTTON
+# =============================================
 
     async def add_to_history(self, user_id, file_unique_id, file_id, media_type="video"):
         """Add video to user's watch history"""
@@ -477,41 +480,6 @@ class Database:
         except Exception as e:
             print(f"Error getting previous video: {e}")
             return None
-
-    async def clear_current_video(self, user_id, file_unique_id):
-        """Remove specific video from history (called when video deleted)"""
-        try:
-            history_collection = self.db["user_history"]
-            await history_collection.update_one(
-                {"user_id": user_id},
-                {"$pull": {"history": {"file_unique_id": file_unique_id}}}
-            )
-            return True
-        except Exception as e:
-            print(f"Error clearing video: {e}")
-            return False
-
-    async def get_history_count(self, user_id):
-        """Get total history count for user"""
-        try:
-            history_collection = self.db["user_history"]
-            user_history = await history_collection.find_one({"user_id": user_id})
-            if user_history and "history" in user_history:
-                return len(user_history["history"])
-            return 0
-        except Exception as e:
-            print(f"Error getting history count: {e}")
-            return 0
-
-    async def clear_user_history(self, user_id):
-        """Clear entire history for user"""
-        try:
-            history_collection = self.db["user_history"]
-            await history_collection.delete_one({"user_id": user_id})
-            return True
-        except Exception as e:
-            print(f"Error clearing history: {e}")
-            return False
             
     # ---------- VERIFICATION SYSTEM ----------
     async def get_notcopy_user(self, user_id):
