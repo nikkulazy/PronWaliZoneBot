@@ -1,12 +1,12 @@
+import asyncio
 from os import environ
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
-import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
-from utils import temp, auto_delete_message, is_user_joined
+from utils import temp, auto_delete_message, is_user_joined, get_video_with_buttons
 
 
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
@@ -27,7 +27,7 @@ async def handle_video_request(client, m: Message):
     if await ban_manager.check_ban(client, m):
         return
 
-    # ✅ Premium + limit info - FIXED
+    # ✅ Premium + limit info
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
@@ -42,10 +42,8 @@ async def handle_video_request(client, m: Message):
     used = await db.get_video_count(user_id) or 0
 
     # ------------------------------------------------
-    # ✅ LIMIT CHECK - FIXED
+    # ✅ LIMIT CHECK
     # ------------------------------------------------
-    
-    # Premium User Logic
     if is_premium:
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(
@@ -53,22 +51,18 @@ async def handle_video_request(client, m: Message):
                 f"⏳ Try again tomorrow!"
             )
     else:
-        # ✅ Free/Verified users - Check their respective limits
         if used >= current_limit:
             if is_verified:
-                # Verified user reached limit
                 return await m.reply(
                     f"❌ You've reached your daily limit of {current_limit} files.\n"
                     f"💎 Buy premium for more access!\n\n"
                     f"⏳ Resets tomorrow."
                 )
             else:
-                # Free user - Check if verification can help
                 if IS_VERIFY:
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
-                    # After verification, re-check limits
                     used = await db.get_video_count(user_id) or 0
                     if used >= VERIFICATION_DAILY_LIMIT:
                         return await m.reply(
@@ -101,35 +95,88 @@ async def handle_video_request(client, m: Message):
         return await m.reply("❌ No videos found in the database.")
 
     # ------------------------------------------------
-    # SEND VIDEO WITH NEXT BUTTON
+    # SEND VIDEO WITH PREVIOUS/NEXT BUTTONS
     # ------------------------------------------------
+    video_data = {
+        "file_unique_id": video_id,
+        "file_id": video_id,
+        "media_type": "video"
+    }
+    
+    await get_video_with_buttons(
+        client=client,
+        message=m,
+        user_id=user_id,
+        video_data=video_data,
+        media_type="video",
+        is_next=True
+    )
+
+
+# =============================================
+# 🆕 NEXT VIDEO CALLBACK
+# =============================================
+@Client.on_callback_query(filters.regex(r"^next_video$"))
+async def next_video_callback(client, query: CallbackQuery):
+    """Handle Next button click for video"""
+    user_id = query.from_user.id
+    
+    # Delete current message
     try:
-        # Create Next button
-        reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏩ Next Video", callback_data="get_video")]
-        ])
-        
-        sent = await client.send_video(
-            chat_id=m.chat.id,
-            video=video_id,
-            protect_content=PROTECT_CONTENT,
-            caption=(
-                f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-                "<blockquote>"
-                "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-                "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
-                "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
-                "</blockquote>"
-            ),
-            reply_to_message_id=m.id,
-            reply_markup=reply_markup  # Added Next button
-        )
+        await query.message.delete()
+    except:
+        pass
+    
+    # Call video handler
+    fake_msg = query.message
+    fake_msg.from_user = query.from_user
+    fake_msg.chat = query.message.chat
+    await handle_video_request(client, fake_msg)
+    
+    await query.answer("⏩ Loading next video...")
 
-        # Increase daily count ONLY after successful send
-        await db.increase_video_count(user_id, username)
 
-        # Auto delete in background
-        asyncio.create_task(auto_delete_message(m, sent))
+# =============================================
+# 🆕 PREVIOUS VIDEO CALLBACK
+# =============================================
+@Client.on_callback_query(filters.regex(r"^prev_video_"))
+async def previous_video_callback(client, query: CallbackQuery):
+    """Handle Previous button click for video"""
+    data = query.data.split("_")
+    current_file_unique_id = data[2]  # prev_video_FILEID
+    
+    user_id = query.from_user.id
+    
+    # Get previous video from history
+    prev_video = await db.get_previous_video(user_id, current_file_unique_id, "video")
+    
+    if not prev_video:
+        await query.answer("❌ No previous video found!", show_alert=True)
+        return
+    
+    # Send previous video
+    await get_video_with_buttons(
+        client=client,
+        message=query.message,
+        user_id=user_id,
+        video_data=prev_video,
+        media_type="video",
+        is_next=False
+    )
+    
+    # Delete current message (old video)
+    try:
+        await query.message.delete()
+    except:
+        pass
+    
+    await query.answer("⏪ Loading previous video...")
 
-    except Exception as e:
-        await m.reply(f"❌ Failed to send video: {str(e)}")
+
+# =============================================
+# 🆕 NO HISTORY CALLBACK
+# =============================================
+@Client.on_callback_query(filters.regex(r"^no_history$"))
+async def no_history_callback(client, query: CallbackQuery):
+    """Handle No History button click"""
+    await query.answer("❌ No previous video in history!", show_alert=True)
