@@ -256,3 +256,40 @@ if data == "prev_video":
 
     await query.answer()
     return
+
+if data == "next_video":
+
+    next_video = await db.get_next_navigation_video(user_id)
+
+    if next_video:
+
+        await client.send_video(
+            query.message.chat.id,
+            next_video,
+            protect_content=True,
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "⏪ Previous",
+                        callback_data="prev_video"
+                    ),
+                    InlineKeyboardButton(
+                        "⏩ Next",
+                        callback_data="next_video"
+                    )
+                ]
+            ])
+        )
+
+        await query.answer()
+        return
+
+    # history khatam → nayi video lao
+    from plugins.get_video import handle_video_request
+
+    fake_msg = query.message
+    fake_msg.from_user = query.from_user
+    fake_msg.chat = query.message.chat
+
+    await handle_video_request(client, fake_msg)
+    return
