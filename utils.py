@@ -302,3 +302,103 @@ async def auto_delete_message(message, dlt_msg):
     except Exception:
         pass
         
+# =============================================
+# 🆕 HELPER FOR PREVIOUS/NEXT VIDEO
+# =============================================
+
+async def get_video_with_buttons(client, message, user_id, video_data, media_type="video", is_next=False):
+    """Send video with Next and Previous buttons"""
+    
+    from database.users_db import db
+    from info import PROTECT_CONTENT
+    from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from plugins.ban_manager import ban_manager
+    from utils import temp, auto_delete_message
+    import asyncio
+    
+    if not video_data:
+        if media_type == "video":
+            return await message.reply("❌ No videos found!")
+        else:
+            return await message.reply("❌ No Brazzers videos found!")
+    
+    # Handle both string (file_id) and dict formats
+    if isinstance(video_data, str):
+        file_id = video_data
+        file_unique_id = video_data
+    else:
+        file_id = video_data.get("file_id")
+        file_unique_id = video_data.get("file_unique_id")
+    
+    current_media_type = video_data.get("media_type", media_type) if isinstance(video_data, dict) else media_type
+    
+    # Add to history when sending (for previous button)
+    await db.add_to_history(user_id, file_unique_id, file_id, current_media_type)
+    
+    # Check if previous video exists
+    prev_exists = await db.get_previous_video(user_id, file_unique_id, current_media_type)
+    
+    # Create buttons
+    buttons = []
+    
+    # Row 1: Previous and Next
+    row1 = []
+    if prev_exists:
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{current_media_type}_{file_unique_id}"))
+    else:
+        row1.append(InlineKeyboardButton("⏪ No History", callback_data="no_history"))
+    
+    row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{current_media_type}"))
+    buttons.append(row1)
+    
+    # Row 2: Extra buttons
+    is_premium = await db.has_premium_access(user_id)
+    if current_media_type == "video":
+        row2 = []
+        if is_premium:
+            row2.append(InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"))
+        row2.append(InlineKeyboardButton("💎 Subscribe", callback_data="get_subscription"))
+        buttons.append(row2)
+    else:
+        buttons.append([
+            InlineKeyboardButton("🎬 Main Videos", callback_data="get_video"),
+            InlineKeyboardButton("💎 Subscribe", callback_data="get_subscription")
+        ])
+    
+    # Row 3: My Plan
+    buttons.append([
+        InlineKeyboardButton("📊 My Plan", callback_data="my_plan")
+    ])
+    
+    reply_markup = InlineKeyboardMarkup(buttons)
+    
+    # Send video
+    try:
+        sent = await client.send_video(
+            chat_id=message.chat.id,
+            video=file_id,
+            protect_content=PROTECT_CONTENT,
+            caption=(
+                f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+                f"<blockquote>"
+                f"ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+                f"ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+                f"ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+                f"</blockquote>"
+            ),
+            reply_to_message_id=message.id,
+            reply_markup=reply_markup
+        )
+        
+        # Auto delete after 10 minutes
+        asyncio.create_task(auto_delete_message(message, sent))
+        
+        # Update video count (only for new videos)
+        if is_next:
+            await db.increase_video_count(user_id, message.from_user.username or "Unknown")
+        
+        return sent
+        
+    except Exception as e:
+        await message.reply(f"❌ Failed to send video: {str(e)}")
+        return None
