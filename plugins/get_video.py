@@ -111,6 +111,8 @@ async def handle_video_request(client, m: Message):
     ]
 ])
         
+        # In get_video.py, inside the handle_video_request function, after sending the video:
+
         sent = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
@@ -124,8 +126,14 @@ async def handle_video_request(client, m: Message):
                 "</blockquote>"
             ),
             reply_to_message_id=m.id,
-            reply_markup=reply_markup  # Added Next button
+            reply_markup=reply_markup
         )
+
+        # ✅ SAVE NAVIGATION HERE
+        await db.save_video_navigation(user_id, video_id)
+
+        # Increase daily count ONLY after successful send
+        await db.increase_video_count(user_id, username)
 
         # Increase daily count ONLY after successful send
         await db.increase_video_count(user_id, username)
