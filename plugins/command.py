@@ -224,3 +224,35 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
+
+if data == "prev_video":
+
+    prev_video = await db.get_previous_navigation_video(user_id)
+
+    if not prev_video:
+        await query.answer(
+            "First Video Reached",
+            show_alert=True
+        )
+        return
+
+    await client.send_video(
+        query.message.chat.id,
+        prev_video,
+        protect_content=True,
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "⏪ Previous",
+                    callback_data="prev_video"
+                ),
+                InlineKeyboardButton(
+                    "⏩ Next",
+                    callback_data="next_video"
+                )
+            ]
+        ])
+    )
+
+    await query.answer()
+    return
