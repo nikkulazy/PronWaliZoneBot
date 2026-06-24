@@ -7,6 +7,7 @@ import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
+await db.save_video_navigation(user_id, video_id)
 
 
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
@@ -106,8 +107,11 @@ async def handle_video_request(client, m: Message):
     try:
         # Create Next button
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏩ Next Video", callback_data="get_video")]
-        ])
+    [
+        InlineKeyboardButton("⏪ Previous", callback_data="prev_video"),
+        InlineKeyboardButton("⏩ Next", callback_data="next_video")
+    ]
+])
         
         sent = await client.send_video(
             chat_id=m.chat.id,
