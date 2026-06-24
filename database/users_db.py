@@ -411,6 +411,107 @@ class Database:
             {"$set": {"seen": []}},
             upsert=True
         )
+
+    # =============================================
+# 🆕 HISTORY FUNCTIONS FOR PREVIOUS/NEXT BUTTON
+# =============================================
+
+    async def add_to_history(self, user_id, file_unique_id, file_id, media_type="video"):
+        """Add video to user's watch history"""
+        try:
+            history_collection = self.db["user_history"]
+            
+            # Remove if already exists (to maintain order)
+            await history_collection.update_one(
+                {"user_id": user_id},
+                {"$pull": {"history": {"file_unique_id": file_unique_id}}}
+            )
+            
+            # Add to beginning of history
+            await history_collection.update_one(
+                {"user_id": user_id},
+                {
+                    "$push": {
+                        "history": {
+                            "$each": [{
+                                "file_unique_id": file_unique_id,
+                                "file_id": file_id,
+                                "media_type": media_type,
+                                "watched_at": datetime.now(timezone.utc)
+                            }],
+                            "$position": 0
+                        }
+                    }
+                },
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            print(f"Error adding to history: {e}")
+            return False
+
+    async def get_previous_video(self, user_id, current_file_unique_id, media_type="video"):
+        """Get previous video from history (before current)"""
+        try:
+            history_collection = self.db["user_history"]
+            user_history = await history_collection.find_one({"user_id": user_id})
+            
+            if not user_history or "history" not in user_history:
+                return None
+            
+            history = user_history["history"]
+            
+            # Find current video index
+            for i, item in enumerate(history):
+                if item["file_unique_id"] == current_file_unique_id:
+                    # Previous video exists (i+1 because newest first)
+                    if i + 1 < len(history):
+                        prev_item = history[i + 1]
+                        return {
+                            "file_unique_id": prev_item["file_unique_id"],
+                            "file_id": prev_item["file_id"],
+                            "media_type": prev_item.get("media_type", "video")
+                        }
+                    break
+            return None
+        except Exception as e:
+            print(f"Error getting previous video: {e}")
+            return None
+
+    async def clear_current_video(self, user_id, file_unique_id):
+        """Remove specific video from history (called when video deleted)"""
+        try:
+            history_collection = self.db["user_history"]
+            await history_collection.update_one(
+                {"user_id": user_id},
+                {"$pull": {"history": {"file_unique_id": file_unique_id}}}
+            )
+            return True
+        except Exception as e:
+            print(f"Error clearing video: {e}")
+            return False
+
+    async def get_history_count(self, user_id):
+        """Get total history count for user"""
+        try:
+            history_collection = self.db["user_history"]
+            user_history = await history_collection.find_one({"user_id": user_id})
+            if user_history and "history" in user_history:
+                return len(user_history["history"])
+            return 0
+        except Exception as e:
+            print(f"Error getting history count: {e}")
+            return 0
+
+    async def clear_user_history(self, user_id):
+        """Clear entire history for user"""
+        try:
+            history_collection = self.db["user_history"]
+            await history_collection.delete_one({"user_id": user_id})
+            return True
+        except Exception as e:
+            print(f"Error clearing history: {e}")
+            return False
             
     # ---------- VERIFICATION SYSTEM ----------
     async def get_notcopy_user(self, user_id):
