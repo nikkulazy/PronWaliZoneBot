@@ -224,3 +224,131 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
+
+# =============================================
+# 🆕 NEXT VIDEO CALLBACK (UNIVERSAL)
+# =============================================
+@Client.on_callback_query(filters.regex(r"^next_"))
+async def universal_next_callback(client, query: CallbackQuery):
+    """Handle Next button click - universal for both video and brazzers"""
+    data = query.data.split("_")
+    media_type = data[1]  # "video" or "brazzers"
+    
+    user_id = query.from_user.id
+    
+    # Delete current message
+    try:
+        await query.message.delete()
+    except:
+        pass
+    
+    if media_type == "video":
+        from plugins.get_video import handle_video_request
+        fake_msg = query.message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = query.message.chat
+        await handle_video_request(client, fake_msg)
+    else:
+        from plugins.brazzers import process_brazzers_request
+        fake_msg = query.message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = query.message.chat
+        await process_brazzers_request(client, fake_msg)
+    
+    await query.answer("⏩ Loading next...")
+
+
+# =============================================
+# 🆕 PREVIOUS VIDEO CALLBACK (UNIVERSAL)
+# =============================================
+@Client.on_callback_query(filters.regex(r"^prev_"))
+async def universal_previous_callback(client, query: CallbackQuery):
+    """Handle Previous button click - universal for both video and brazzers"""
+    data = query.data.split("_")
+    media_type = data[1]  # "video" or "brazzers"
+    current_file_unique_id = data[2]
+    
+    user_id = query.from_user.id
+    
+    # Get previous video from history
+    prev_video = await db.get_previous_video(user_id, current_file_unique_id, media_type)
+    
+    if not prev_video:
+        await query.answer("❌ No previous video found!", show_alert=True)
+        return
+    
+    # Send previous video
+    from utils import get_video_with_buttons
+    await get_video_with_buttons(
+        client=client,
+        message=query.message,
+        user_id=user_id,
+        video_data=prev_video,
+        media_type=media_type,
+        is_next=False
+    )
+    
+    # Delete current message (old video)
+    try:
+        await query.message.delete()
+    except:
+        pass
+    
+    await query.answer("⏪ Loading previous...")
+
+
+# =============================================
+# 🆕 NO HISTORY CALLBACK
+# =============================================
+@Client.on_callback_query(filters.regex(r"^no_history$"))
+async def no_history_callback(client, query: CallbackQuery):
+    """Handle No History button click"""
+    await query.answer("❌ No previous video in history!", show_alert=True)
+
+
+# =============================================
+# MODIFIED: GET VIDEO CALLBACK (Update)
+# =============================================
+# REPLACE EXISTING get_video callback with this:
+@Client.on_callback_query(filters.regex(r"^get_video$"))
+async def get_video_callback(client, query: CallbackQuery):
+    """Handle Get Video button click"""
+    await query.answer("⏳ Loading...", show_alert=False)
+    
+    # Delete any previous video messages to avoid clutter
+    try:
+        await query.message.delete()
+    except:
+        pass
+    
+    from plugins.get_video import handle_video_request
+    fake_msg = query.message
+    fake_msg.from_user = query.from_user
+    fake_msg.chat = query.message.chat
+    await handle_video_request(client, fake_msg)
+
+
+# =============================================
+# MODIFIED: GET BRAZZERS CALLBACK (Update)
+# =============================================
+# REPLACE EXISTING get_brazzers callback with this:
+@Client.on_callback_query(filters.regex(r"^get_brazzers$"))
+async def get_brazzers_callback(client, query: CallbackQuery):
+    """Handle Get Brazzers button click"""
+    try:
+        await query.answer("⏳ Processing...", show_alert=False)
+        
+        # Delete current message
+        try:
+            await query.message.delete()
+        except:
+            pass
+        
+        from plugins.brazzers import process_brazzers_request
+        fake_msg = query.message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = query.message.chat
+        await process_brazzers_request(client, fake_msg)
+    except Exception as e:
+        print(f"Brazzers callback error: {e}")
+        await query.answer("❌ Error processing request", show_alert=True)
