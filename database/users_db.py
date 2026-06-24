@@ -415,7 +415,7 @@ class Database:
     # ==========================
 # VIDEO NAVIGATION
 # ==========================
-# In users_db.py, replace the navigation section with this:
+# In users_db.py, starting from line ~460, the navigation section should be properly indented:
 
     # ==========================
     # VIDEO NAVIGATION
@@ -489,10 +489,6 @@ class Database:
 
         return history[index]
 
-    # ---------- VERIFICATION SYSTEM ----------
-    async def get_notcopy_user(self, user_id):
-        # ... rest of the verification methods remain the same ...
-            
     # ---------- VERIFICATION SYSTEM ----------
     async def get_notcopy_user(self, user_id):
         user_id = int(user_id)
