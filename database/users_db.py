@@ -411,6 +411,79 @@ class Database:
             {"$set": {"seen": []}},
             upsert=True
         )
+
+    # ==========================
+# VIDEO NAVIGATION
+# ==========================
+
+async def save_video_navigation(self, user_id, file_id):
+    user = await self.misc.find_one({"user_id": user_id})
+
+    if not user:
+        await self.misc.insert_one({
+            "user_id": user_id,
+            "video_history": [file_id],
+            "current_index": 0
+        })
+        return
+
+    history = user.get("video_history", [])
+
+    # duplicate avoid
+    if not history or history[-1] != file_id:
+        history.append(file_id)
+
+    await self.misc.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "video_history": history,
+                "current_index": len(history) - 1
+            }
+        }
+    )
+
+async def get_previous_navigation_video(self, user_id):
+    user = await self.misc.find_one({"user_id": user_id})
+
+    if not user:
+        return None
+
+    history = user.get("video_history", [])
+    index = user.get("current_index", 0)
+
+    if index <= 0:
+        return None
+
+    index -= 1
+
+    await self.misc.update_one(
+        {"user_id": user_id},
+        {"$set": {"current_index": index}}
+    )
+
+    return history[index]
+
+async def get_next_navigation_video(self, user_id):
+    user = await self.misc.find_one({"user_id": user_id})
+
+    if not user:
+        return None
+
+    history = user.get("video_history", [])
+    index = user.get("current_index", 0)
+
+    if index >= len(history) - 1:
+        return None
+
+    index += 1
+
+    await self.misc.update_one(
+        {"user_id": user_id},
+        {"$set": {"current_index": index}}
+    )
+
+    return history[index]
             
     # ---------- VERIFICATION SYSTEM ----------
     async def get_notcopy_user(self, user_id):
