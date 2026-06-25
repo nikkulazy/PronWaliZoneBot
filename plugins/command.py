@@ -66,7 +66,7 @@ async def start_command(client, message: Message):
             pass
 
     buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
+        [InlineKeyboardButton("🎬 Get Video", callback_data="get_video", style=enums.ButtonStyle.PRIMARY)],  # ✅ सिर्फ यह नीला
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
          InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
         [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), 
