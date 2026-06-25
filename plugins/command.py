@@ -11,7 +11,7 @@ from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 # =================================================
 # START COMMAND
 # =================================================
@@ -66,7 +66,7 @@ async def start_command(client, message: Message):
             pass
 
     buttons = InlineKeyboardMarkup([
-    [InlineKeyboardButton("🎬 Get Video", callback_data="get_video", style="primary")],  # ✅ सिर्फ यह नीला
+        [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
          InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
         [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), 
