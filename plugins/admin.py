@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from info import ADMINS
+from info import ADMINS, DAILY_LIMIT
 from database.users_db import db
 
 @Client.on_message(filters.command("owner_cmd") & filters.user(ADMINS))
