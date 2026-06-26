@@ -293,6 +293,21 @@ async def get_shortlink_av(url):
             
     return url
 
+# utils.py - temp class ke andar yeh add karo
+class temp(object):
+    ME = None
+    U_NAME = None
+    B_NAME = None
+    B_LINK = None
+    BOT = None
+    USERS_CANCEL = False
+    CANCEL = False  
+    START_TIME = 0  
+    CURRENT = 0
+    
+    # ---------- NEW: Video History for Previous Button ----------
+    USER_LAST_VIDEO = {}  # {user_id: {"file_id": str, "is_brazzers": bool}}
+
 # --- BACKGROUND DELETE HELPER ---
 async def auto_delete_message(message, dlt_msg):
     await asyncio.sleep(600)
