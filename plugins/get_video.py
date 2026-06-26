@@ -1,5 +1,3 @@
-# get_video.py - COMPLETE REWRITE WITH HISTORY
-
 from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
@@ -100,27 +98,21 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     # Get current index
     history = temp.USER_VIDEO_HISTORY[user_id]
     current_idx = history["current_index"]
-    total_videos = len(history["history"])
     
-    # Build Buttons - Previous + Next always visible
+    # Build Buttons - Previous + Next only
     buttons = []
     row = []
     
-    # Previous button - Always show (agar history mein pehle se koi video hai)
+    # ✅ Previous button - Always show (agar history mein pehle se koi video hai)
     if current_idx > 0:
         row.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
     else:
-        # Disabled previous button (grayed out - optional)
+        # ✅ Disabled previous button (grayed out - but still visible)
         row.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
     
-    # Next button - Always show
+    # ✅ Next button - Always show
     row.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row)
-    
-    # Show video count
-    buttons.append([
-        InlineKeyboardButton(f"📊 {current_idx + 1}/{total_videos}", callback_data="noop")
-    ])
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -170,7 +162,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
     
     # Handle noop (disabled button click)
     if data == "noop":
-        await query.answer("⚠️ No more videos in this direction!", show_alert=True)
+        await query.answer("⚠️ This is the first video!", show_alert=True)
         return
     
     # Parse callback data: next_video, prev_video, next_brazzers, prev_brazzers
