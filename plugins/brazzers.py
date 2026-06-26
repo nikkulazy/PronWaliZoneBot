@@ -1,5 +1,3 @@
-# brazzers.py - modified
-
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -46,10 +44,7 @@ async def process_brazzers_request(client, m: Message):
         return
 
     # Store last video for previous button
-    temp.USER_LAST_VIDEO[user_id] = {
-        "file_id": video_id,
-        "is_brazzers": True
-    }
+    temp.USER_LAST_VIDEO[user_id] = video_id
 
     # Use common send function
     await send_video_with_buttons(
@@ -59,3 +54,13 @@ async def process_brazzers_request(client, m: Message):
         video_id,
         is_brazzers=True
     )
+
+
+# ---------- BRAZZERS CALLBACK ----------
+@Client.on_callback_query(filters.regex(r"^get_brazzers$"))
+async def brazzers_callback(client, query: CallbackQuery):
+    await query.answer("⏳ Processing...", show_alert=False)
+    fake_msg = query.message
+    fake_msg.from_user = query.from_user
+    fake_msg.chat = query.message.chat
+    await process_brazzers_request(client, fake_msg)
