@@ -37,7 +37,8 @@ class temp(object):
     USERS_CANCEL = False
     CANCEL = False  
     START_TIME = 0  
-    CURRENT = 0    
+    CURRENT = 0 
+    USER_VIDEO_HISTORY = {}
 
 # =================================================
 # 📢 FORCE SUBSCRIBE CHECK (Updated)
@@ -292,24 +293,7 @@ async def get_shortlink_av(url):
             logger.error("Failed to generate shortlink via Shortzy")
             
     return url
-
-# utils.py - temp class mein yeh add karo
-
-class temp(object):
-    ME = None
-    U_NAME = None
-    B_NAME = None
-    B_LINK = None
-    BOT = None
-    USERS_CANCEL = False
-    CANCEL = False  
-    START_TIME = 0  
-    CURRENT = 0
     
-    # ---------- NEW: Video History for Previous Button ----------
-    USER_LAST_VIDEO = {}  # {user_id: {"file_id": str, "is_brazzers": bool}}
-    USER_VIDEO_HISTORY = {}  # {user_id: [file_id1, file_id2, ...]} - optional for multiple previous
-
 # --- BACKGROUND DELETE HELPER ---
 async def auto_delete_message(message, dlt_msg):
     await asyncio.sleep(600)
