@@ -5,7 +5,7 @@ from database.users_db import db
 from info import LOG_CHANNEL, PREMIUM_DAILY_LIMIT, FSUB, PROTECT_CONTENT
 from utils import temp, auto_delete_message, is_user_joined
 from plugins.ban_manager import ban_manager
-from plugins.get_video import send_video_with_buttons  # Import common function
+from plugins.get_video import send_video_with_buttons, init_user_history
 
 @Client.on_message(filters.command("brazzers") & filters.private)
 async def handle_brazzers_command(client, m: Message):
@@ -43,8 +43,13 @@ async def process_brazzers_request(client, m: Message):
         await m.reply("❌ No unseen videos found!")
         return
 
-    # Store last video for previous button
-    temp.USER_LAST_VIDEO[user_id] = video_id
+    # Initialize history for Brazzers
+    init_user_history(user_id, is_brazzers=True)
+    
+    # Add video to history if not already present
+    if video_id not in temp.USER_VIDEO_HISTORY[user_id]["history"]:
+        temp.USER_VIDEO_HISTORY[user_id]["history"].append(video_id)
+        temp.USER_VIDEO_HISTORY[user_id]["current_index"] = len(temp.USER_VIDEO_HISTORY[user_id]["history"]) - 1
 
     # Use common send function
     await send_video_with_buttons(
