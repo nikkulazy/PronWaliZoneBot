@@ -240,7 +240,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # ... baaki sab same rahega ...
 
     # ---------- DELETE HANDLER ----------
-    if data.startswith("delete_"):
+   """ if data.startswith("delete_"):
         from plugins.admin import delete_callback_handler
         await delete_callback_handler(client, query)
         return
@@ -274,6 +274,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         except Exception as e:
             print(f"Brazzers callback error: {e}")
             await query.answer("❌ Error processing request", show_alert=True)
-        return
+        return"""""
 
     # ... baaki sab same rahega ...
