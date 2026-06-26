@@ -66,7 +66,7 @@ async def start_command(client, message: Message):
             pass
 
     buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Get Video", callback_data="get_video")],
+        [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")],
         [InlineKeyboardButton("🔞 Brazzers", callback_data="get_brazzers"), 
          InlineKeyboardButton("✨ Subscription", callback_data="get_subscription")],
         [InlineKeyboardButton("📊 My Plan", callback_data="my_plan"), 
@@ -122,7 +122,7 @@ async def send_about_text(client, message):
     )
 
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler (UPDATED)
+# CALLBACK QUERY HANDLER - Main Handler (UPDATED WITH PREV/NEXT)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
@@ -131,22 +131,39 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
-    # 🆕 DELETE HANDLER - ADDED
+    # 🆕 NEXT / PREVIOUS NAVIGATION
+    # =============================================
+    if data.startswith("next_") or data.startswith("prev_") or data == "noop":
+        from plugins.get_video import video_navigation_callback
+        await video_navigation_callback(client, query)
+        return
+
+    # =============================================
+    # 🆕 DELETE HANDLER
     # =============================================
     if data.startswith("delete_"):
         from plugins.admin import delete_callback_handler
         await delete_callback_handler(client, query)
         return
 
+    # =============================================
+    # INDEX HANDLER
+    # =============================================
     if data.startswith("index"):
         from plugins.index import index_files
         await index_files(client, query)
         return
 
+    # =============================================
+    # CLOSE BUTTON
+    # =============================================
     if data == "close_data":
         await query.message.delete()
         return
 
+    # =============================================
+    # GET VIDEO
+    # =============================================
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.get_video import handle_video_request
@@ -156,6 +173,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await handle_video_request(client, fake_msg)
         return
 
+    # =============================================
+    # GET BRAZZERS
+    # =============================================
     if data == "get_brazzers":
         try:
             await query.answer("⏳ Processing...", show_alert=False)
@@ -169,6 +189,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
             await query.answer("❌ Error processing request", show_alert=True)
         return
 
+    # =============================================
+    # SUBSCRIPTION
+    # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
@@ -178,6 +201,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await buy_handler(client, fake_msg)
         return
 
+    # =============================================
+    # MY PLAN
+    # =============================================
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
@@ -187,6 +213,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await myplan_handler(client, fake_msg)
         return
 
+    # =============================================
+    # REFER
+    # =============================================
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
@@ -196,6 +225,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await invite_command_handler(client, fake_msg)
         return
 
+    # =============================================
+    # HELP
+    # =============================================
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
@@ -204,6 +236,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await send_legal_text(client, fake_msg, script.HELP_TXT)
         return
 
+    # =============================================
+    # ABOUT
+    # =============================================
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
@@ -212,6 +247,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await send_about_text(client, fake_msg)
         return
 
+    # =============================================
+    # GET (Subscription Buy)
+    # =============================================
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
         buttons = [
@@ -225,55 +263,25 @@ async def cb_handler(client: Client, query: CallbackQuery):
         )
         return
 
-@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    data = query.data
-    user_id = query.from_user.id
-    message = query.message
-
-    # ---------- NEXT / PREVIOUS NAVIGATION ----------
-    if data.startswith("next_") or data.startswith("prev_") or data == "noop":
-        from plugins.get_video import video_navigation_callback
-        await video_navigation_callback(client, query)
+    # =============================================
+    # PREMIUM APPROVE/REJECT
+    # =============================================
+    if data.startswith("add_prem_"):
+        await approve_payment(client, query)
         return
 
-    # ... baaki sab same rahega ...
-
-    # ---------- DELETE HANDLER ----------
-   """ if data.startswith("delete_"):
-        from plugins.admin import delete_callback_handler
-        await delete_callback_handler(client, query)
+    if data.startswith("reject_pay_"):
+        await reject_payment(client, query)
         return
 
-    if data.startswith("index"):
-        from plugins.index import index_files
-        await index_files(client, query)
-        return
-
-    if data == "close_data":
-        await query.message.delete()
-        return
-
-    if data == "get_video":
+    # =============================================
+    # ✅ NEW: MY PLAN FROM CALLBACK (if needed)
+    # =============================================
+    if data == "my_plan_callback":
         await query.answer("⏳ Loading...", show_alert=False)
-        from plugins.get_video import handle_video_request
+        from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
-        await handle_video_request(client, fake_msg)
+        await myplan_handler(client, fake_msg)
         return
-
-    if data == "get_brazzers":
-        try:
-            await query.answer("⏳ Processing...", show_alert=False)
-            from plugins.brazzers import process_brazzers_request
-            fake_msg = message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
-            await process_brazzers_request(client, fake_msg)
-        except Exception as e:
-            print(f"Brazzers callback error: {e}")
-            await query.answer("❌ Error processing request", show_alert=True)
-        return"""""
-
-    # ... baaki sab same rahega ...
