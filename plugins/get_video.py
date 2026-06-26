@@ -1,5 +1,3 @@
-# get_video.py - modified
-
 from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
@@ -9,6 +7,7 @@ import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
+
 
 # ---------- MAIN COMMAND HANDLER ----------
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
@@ -68,38 +67,28 @@ async def handle_video_request(client, m: Message):
         return await m.reply("❌ No videos found.")
 
     # ---------- STORE LAST VIDEO FOR PREVIOUS BUTTON ----------
-    temp.USER_LAST_VIDEO[user_id] = {
-        "file_id": video_id,
-        "is_brazzers": False
-    }
+    temp.USER_LAST_VIDEO[user_id] = video_id  # Store single last video
 
     # ---------- SEND VIDEO WITH NEXT + PREVIOUS BUTTONS ----------
     await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
 
 
-# ---------- SEND VIDEO FUNCTION (Common for both) ----------
+# ---------- SEND VIDEO FUNCTION (Common for both getvideo & brazzers) ----------
 async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
-    # Get current video history
-    last_data = temp.USER_LAST_VIDEO.get(user_id, {})
-    prev_file_id = last_data.get("file_id") if not is_brazzers else None
-    has_prev = prev_file_id is not None and prev_file_id != video_id
+    # Check if previous video exists
+    prev_video = temp.USER_LAST_VIDEO.get(user_id)
+    has_prev = prev_video is not None and prev_video != video_id
 
-    # Build Buttons
+    # Build Buttons - Previous + Next in same row
     buttons = []
     row = []
     
     if has_prev:
-        row.append(InlineKeyboardButton("⏪ Previous", callback_data="prev_video"))
-    row.append(InlineKeyboardButton("⏩ Next", callback_data="next_video"))
+        row.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+    row.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row)
-    
-    # Optional: Extra button for Brazzers
-    if is_brazzers:
-        buttons.append([InlineKeyboardButton("🔞 More Brazzers", callback_data="get_brazzers")])
-    else:
-        buttons.append([InlineKeyboardButton("🎬 Next Video", callback_data="get_video")])
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -120,7 +109,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         reply_markup=reply_markup
     )
 
-    # Increase count only for NEXT (not for previous)
+    # Increase count only for new videos (not for previous)
     if not is_brazzers:
         await db.increase_video_count(user_id, username)
 
@@ -128,23 +117,26 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
 
 
 # ---------- CALLBACK HANDLER FOR NEXT / PREVIOUS ----------
-@Client.on_callback_query(filters.regex(r"^(next_video|prev_video)$"))
+@Client.on_callback_query(filters.regex(r"^(next_|prev_)"))
 async def video_navigation_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
-    action = query.data
+    data = query.data
     message = query.message
+    
+    # Parse callback data: next_video, prev_video, next_brazzers, prev_brazzers
+    action, video_type = data.split("_")
+    is_brazzers = video_type == "brazzers"
 
-    # Get current video data
-    last_data = temp.USER_LAST_VIDEO.get(user_id, {})
-    current_file_id = last_data.get("file_id")
-
-    if not current_file_id:
-        await query.answer("❌ No video found. Try /getvideo again.", show_alert=True)
+    # Get current video from message (we need to track it)
+    # We'll store current video ID in temp
+    current_video = temp.USER_LAST_VIDEO.get(user_id)
+    
+    if not current_video:
+        await query.answer("❌ No video found. Try again!", show_alert=True)
         return
 
     # ---------- PREVIOUS BUTTON ----------
-    if action == "prev_video":
-        # Previous video = same file_id (dubara bhejo)
+    if action == "prev":
         await query.answer("⏪ Sending previous video...", show_alert=False)
         
         # Delete old message
@@ -153,22 +145,23 @@ async def video_navigation_callback(client, query: CallbackQuery):
         except:
             pass
 
-        # Resend same video with buttons
+        # Resend same video (previous = current video)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
+        # Don't increase count for previous
         await send_video_with_buttons(
             client, 
             fake_msg, 
             user_id, 
-            current_file_id,
-            is_brazzers=last_data.get("is_brazzers", False)
+            current_video,
+            is_brazzers=is_brazzers
         )
         return
 
     # ---------- NEXT BUTTON ----------
-    if action == "next_video":
+    if action == "next":
         await query.answer("⏩ Loading next video...", show_alert=False)
         
         # Delete old message
@@ -178,16 +171,16 @@ async def video_navigation_callback(client, query: CallbackQuery):
             pass
 
         # Mark current as seen (only for next)
-        if last_data.get("is_brazzers", False):
-            await db.mark_brazzers_seen(user_id, current_file_id)
+        if is_brazzers:
+            await db.mark_brazzers_seen(user_id, current_video)
         else:
-            await db.mark_seen(user_id, current_file_id)
+            await db.mark_seen(user_id, current_video)
 
         # Get new video
-        if last_data.get("is_brazzers", False):
+        if is_brazzers:
             new_video = await db.get_unseen_brazzers(user_id)
             if not new_video:
-                await query.message.reply("❌ No more unseen videos!")
+                await query.message.reply("❌ No more unseen Brazzers videos!")
                 return
         else:
             new_video = await db.get_unseen_video(user_id)
@@ -197,11 +190,8 @@ async def video_navigation_callback(client, query: CallbackQuery):
                 await query.message.reply("❌ No more videos!")
                 return
 
-        # Update last video
-        temp.USER_LAST_VIDEO[user_id] = {
-            "file_id": new_video,
-            "is_brazzers": last_data.get("is_brazzers", False)
-        }
+        # Update last video for previous button
+        temp.USER_LAST_VIDEO[user_id] = new_video
 
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -212,5 +202,5 @@ async def video_navigation_callback(client, query: CallbackQuery):
             fake_msg,
             user_id,
             new_video,
-            is_brazzers=last_data.get("is_brazzers", False)
+            is_brazzers=is_brazzers
         )
