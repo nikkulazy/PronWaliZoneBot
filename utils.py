@@ -293,7 +293,8 @@ async def get_shortlink_av(url):
             
     return url
 
-# utils.py - temp class ke andar yeh add karo
+# utils.py - temp class mein yeh add karo
+
 class temp(object):
     ME = None
     U_NAME = None
@@ -307,6 +308,7 @@ class temp(object):
     
     # ---------- NEW: Video History for Previous Button ----------
     USER_LAST_VIDEO = {}  # {user_id: {"file_id": str, "is_brazzers": bool}}
+    USER_VIDEO_HISTORY = {}  # {user_id: [file_id1, file_id2, ...]} - optional for multiple previous
 
 # --- BACKGROUND DELETE HELPER ---
 async def auto_delete_message(message, dlt_msg):
