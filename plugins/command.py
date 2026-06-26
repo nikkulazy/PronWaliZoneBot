@@ -224,3 +224,56 @@ async def cb_handler(client: Client, query: CallbackQuery):
             parse_mode=enums.ParseMode.HTML
         )
         return
+
+# command.py - add this inside cb_handler
+
+@Client.on_callback_query()
+async def cb_handler(client: Client, query: CallbackQuery):
+    data = query.data
+    user_id = query.from_user.id
+    message = query.message
+
+    # ---------- NEW: Next / Previous Navigation ----------
+    if data.startswith("next_") or data.startswith("prev_"):
+        from plugins.get_video import video_navigation_callback
+        await video_navigation_callback(client, query)
+        return
+
+    # ---------- DELETE HANDLER ----------
+    if data.startswith("delete_"):
+        from plugins.admin import delete_callback_handler
+        await delete_callback_handler(client, query)
+        return
+
+    if data.startswith("index"):
+        from plugins.index import index_files
+        await index_files(client, query)
+        return
+
+    if data == "close_data":
+        await query.message.delete()
+        return
+
+    if data == "get_video":
+        await query.answer("⏳ Loading...", show_alert=False)
+        from plugins.get_video import handle_video_request
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await handle_video_request(client, fake_msg)
+        return
+
+    if data == "get_brazzers":
+        try:
+            await query.answer("⏳ Processing...", show_alert=False)
+            from plugins.brazzers import process_brazzers_request
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            await process_brazzers_request(client, fake_msg)
+        except Exception as e:
+            print(f"Brazzers callback error: {e}")
+            await query.answer("❌ Error processing request", show_alert=True)
+        return
+
+    # ... baaki sab same rahega ...
