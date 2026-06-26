@@ -105,6 +105,32 @@ class Database:
         )
         return new_points
 
+    # =================================================
+# RESET USER LIMIT FUNCTION
+# =================================================
+
+async def reset_user_video_limit(user_id: int):
+    """
+    Reset a user's daily video count to 0
+    Returns: True if successful, False if user not found
+    """
+    try:
+        result = await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"video_count": 0}}
+        )
+        if result.modified_count > 0:
+            return True
+        else:
+            # Check if user exists
+            user = await db.users.find_one({"user_id": user_id})
+            if user:
+                return True
+            return False
+    except Exception as e:
+        print(f"Error resetting user limit: {e}")
+        return False
+
     # ---------- MANUAL PAYMENT (ADD PREMIUM) ----------
     async def add_premium_access(self, user_id, days):
         user = await self.get_user(user_id)
