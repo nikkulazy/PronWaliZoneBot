@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 from info import ADMINS, DAILY_LIMIT
 from database.users_db import db
 
@@ -26,7 +26,7 @@ async def admin_cmd(client, message):
 
 
 # =============================================
-# 🗑️ DELETE ALL COMMAND HANDLER (NEW)
+# 🗑️ DELETE ALL COMMAND HANDLER
 # =============================================
 @Client.on_message(filters.command("deleteall") & filters.user(ADMINS))
 async def delete_all_handler(client, message):
@@ -52,7 +52,7 @@ async def delete_all_handler(client, message):
 
 
 # =============================================
-# DELETE CALLBACK HANDLER (NEW)
+# DELETE CALLBACK HANDLER
 # =============================================
 @Client.on_callback_query(filters.regex(r"^delete_"))
 async def delete_callback_handler(client, query: CallbackQuery):
@@ -102,6 +102,7 @@ async def delete_callback_handler(client, query: CallbackQuery):
         except Exception as e:
             await query.message.edit_text(f"❌ Error: {str(e)}")
         return
+
 
 # =================================================
 # RESET USER LIMIT COMMAND
