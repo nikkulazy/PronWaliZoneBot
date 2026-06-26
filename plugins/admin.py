@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
-from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
-from info import ADMINS, DAILY_LIMIT
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from info import ADMINS
 from database.users_db import db
 
 @Client.on_message(filters.command("owner_cmd") & filters.user(ADMINS))
@@ -26,7 +26,7 @@ async def admin_cmd(client, message):
 
 
 # =============================================
-# 🗑️ DELETE ALL COMMAND HANDLER
+# 🗑️ DELETE ALL COMMAND HANDLER (NEW)
 # =============================================
 @Client.on_message(filters.command("deleteall") & filters.user(ADMINS))
 async def delete_all_handler(client, message):
@@ -52,7 +52,7 @@ async def delete_all_handler(client, message):
 
 
 # =============================================
-# DELETE CALLBACK HANDLER
+# DELETE CALLBACK HANDLER (NEW)
 # =============================================
 @Client.on_callback_query(filters.regex(r"^delete_"))
 async def delete_callback_handler(client, query: CallbackQuery):
@@ -102,40 +102,3 @@ async def delete_callback_handler(client, query: CallbackQuery):
         except Exception as e:
             await query.message.edit_text(f"❌ Error: {str(e)}")
         return
-
-
-# =================================================
-# RESET USER LIMIT COMMAND
-# =================================================
-
-@Client.on_message(filters.command("resetlimit") & filters.user(ADMINS))
-async def reset_user_limit_command(client, message: Message):
-    """
-    Usage: /resetlimit <user_id>
-    Reset a user's daily video limit
-    """
-    # Check if user_id provided
-    if len(message.command) < 2:
-        await message.reply(
-            "❌ **Usage:** `/resetlimit <user_id>`\n"
-            "Example: `/resetlimit 123456789`"
-        )
-        return
-    
-    try:
-        user_id = int(message.command[1])
-    except ValueError:
-        await message.reply("❌ Invalid user_id! Please provide a valid numeric ID.")
-        return
-    
-    # Reset the limit
-    success = await db.reset_user_video_limit(user_id)
-    
-    if success:
-        await message.reply(
-            f"✅ **User limit reset successfully!**\n\n"
-            f"🆔 User ID: `{user_id}`\n"
-            f"📊 Video count: **0**"
-        )
-    else:
-        await message.reply(f"❌ Failed to reset limit for user `{user_id}`!")
