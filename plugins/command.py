@@ -225,19 +225,19 @@ async def cb_handler(client: Client, query: CallbackQuery):
         )
         return
 
-# command.py - add this inside cb_handler
-
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
 
-    # ---------- NEW: Next / Previous Navigation ----------
-    if data.startswith("next_") or data.startswith("prev_"):
+    # ---------- NEXT / PREVIOUS NAVIGATION ----------
+    if data.startswith("next_") or data.startswith("prev_") or data == "noop":
         from plugins.get_video import video_navigation_callback
         await video_navigation_callback(client, query)
         return
+
+    # ... baaki sab same rahega ...
 
     # ---------- DELETE HANDLER ----------
     if data.startswith("delete_"):
