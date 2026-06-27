@@ -455,27 +455,36 @@ class Database:
         return False
 
     # =================================================
-    # RESET USER LIMIT FUNCTION (CLASS METHOD)
+    # RESET USER LIMIT FUNCTION (CLASS METHOD) - FIXED
     # =================================================
     
     async def reset_user_video_limit(self, user_id: int):
-    try:
-        today = get_ist_today()
-        today_dt = datetime.combine(today, datetime.min.time())
-        
-        result = await self.users.update_one(
-            {"id": user_id},  # ✅ Field name sahi kiya
-            {"$set": {
-                "video_count": 0,
-                "last_date": today_dt  # ✅ LAST_DATE bhi update
-            }}
-        )
+        """
+        Reset a user's daily video count to 0 and update last_date to today
+        Returns: True if successful, False if user not found
+        """
+        try:
+            today = get_ist_today()
+            today_dt = datetime.combine(today, datetime.min.time())
+            
+            result = await self.users.update_one(
+                {"id": user_id},
+                {"$set": {
+                    "video_count": 0,
+                    "last_date": today_dt
+                }}
+            )
             if result.modified_count > 0:
                 return True
             else:
                 # Check if user exists
                 user = await self.users.find_one({"id": user_id})
                 if user:
+                    # User exists but video_count already 0 hai, last_date update karo
+                    await self.users.update_one(
+                        {"id": user_id},
+                        {"$set": {"last_date": today_dt}}
+                    )
                     return True
                 return False
         except Exception as e:
