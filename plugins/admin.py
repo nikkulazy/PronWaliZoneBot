@@ -1,6 +1,3 @@
-import pytz  # 🔥 NEW
-from datetime import datetime  # 🔥 NEW
-from info import ... TIMEZONE  # 🔥 TIMEZONE add kiya
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 from info import ADMINS, DAILY_LIMIT
