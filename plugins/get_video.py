@@ -21,6 +21,11 @@ def init_user_history(user_id, is_brazzers=False):
         }
 
 
+# ---------- HELPER FUNCTION ----------
+def get_ist_today():
+    return datetime.now(pytz.timezone(TIMEZONE)).date()
+
+
 # ---------- MAIN COMMAND HANDLER ----------
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
@@ -45,7 +50,31 @@ async def handle_video_request(client, m: Message):
     else:
         current_limit = DAILY_LIMIT
     
+    # Get used count
     used = await db.get_video_count(user_id) or 0
+    
+    # 🔥 AUTO RESET: Agar date change ho gayi hai toh reset karo
+    user = await db.get_user(user_id)
+    if user:
+        last_date = user.get("last_date")
+        today = get_ist_today()
+        
+        if last_date:
+            if isinstance(last_date, datetime):
+                if last_date.tzinfo is not None:
+                    check_date = last_date.astimezone(pytz.timezone(TIMEZONE)).date()
+                else:
+                    check_date = last_date.date()
+            else:
+                check_date = None
+                
+            if check_date != today:
+                # Auto reset if date changed
+                await db.users.update_one(
+                    {"id": user_id},
+                    {"$set": {"video_count": 0, "last_date": datetime.combine(today, datetime.min.time())}}
+                )
+                used = 0
 
     # ---------- LIMIT CHECK ----------
     if is_premium:
@@ -291,26 +320,3 @@ async def video_navigation_callback(client, query: CallbackQuery):
             new_video,
             is_brazzers=is_brazzers
         )
-
-# 🔥 NEW: Auto reset agar date change ho gayi ho
-user = await db.get_user(user_id)
-if user:
-    last_date = user.get("last_date")
-    today = get_ist_today()
-    
-    if last_date:
-        if isinstance(last_date, datetime):
-            if last_date.tzinfo is not None:
-                check_date = last_date.astimezone(pytz.timezone(TIMEZONE)).date()
-            else:
-                check_date = last_date.date()
-        else:
-            check_date = None
-            
-        if check_date != today:
-            # 🔥 Auto reset if date changed
-            await db.users.update_one(
-                {"id": user_id},
-                {"$set": {"video_count": 0, "last_date": datetime.combine(today, datetime.min.time())}}
-            )
-            used = 0
