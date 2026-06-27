@@ -459,15 +459,17 @@ class Database:
     # =================================================
     
     async def reset_user_video_limit(self, user_id: int):
-        """
-        Reset a user's daily video count to 0
-        Returns: True if successful, False if user not found
-        """
-        try:
-            result = await self.users.update_one(
-                {"id": user_id},  # 🔥 FIX: "user_id" se "id" karo
-                {"$set": {"video_count": 0}}
-            )
+    try:
+        today = get_ist_today()
+        today_dt = datetime.combine(today, datetime.min.time())
+        
+        result = await self.users.update_one(
+            {"id": user_id},  # ✅ Field name sahi kiya
+            {"$set": {
+                "video_count": 0,
+                "last_date": today_dt  # ✅ LAST_DATE bhi update
+            }}
+        )
             if result.modified_count > 0:
                 return True
             else:
