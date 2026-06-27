@@ -1,11 +1,8 @@
-import pytz  # 🔥 NEW
-from datetime import datetime  # 🔥 NEW
-from info import ... TIMEZONE  # 🔥 TIMEZONE add kiya
 from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
-from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY
+from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE
 import asyncio
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
