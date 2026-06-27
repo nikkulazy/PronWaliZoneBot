@@ -454,6 +454,32 @@ class Database:
             
         return False
 
+    # =================================================
+# RESET USER LIMIT FUNCTION
+# =================================================
+
+async def reset_user_video_limit(self, user_id: int):
+    """
+    Reset a user's daily video count to 0
+    Returns: True if successful, False if user not found
+    """
+    try:
+        result = await self.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"video_count": 0}}
+        )
+        if result.modified_count > 0:
+            return True
+        else:
+            # Check if user exists
+            user = await self.users.find_one({"user_id": user_id})
+            if user:
+                return True
+            return False
+    except Exception as e:
+        print(f"Error resetting user limit: {e}")
+        return False
+
     async def create_verify_id(self, user_id: int, hash, file_id=None):
         res = {"user_id": user_id, "hash": hash, "verified": False, "file_id": file_id}
         return await self.verify_id.insert_one(res)
