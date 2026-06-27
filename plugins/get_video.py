@@ -50,10 +50,8 @@ async def handle_video_request(client, m: Message):
     else:
         current_limit = DAILY_LIMIT
     
-    # Get used count
     used = await db.get_video_count(user_id) or 0
     
-    # 🔥 AUTO RESET: Agar date change ho gayi hai toh reset karo
     user = await db.get_user(user_id)
     if user:
         last_date = user.get("last_date")
@@ -69,14 +67,12 @@ async def handle_video_request(client, m: Message):
                 check_date = None
                 
             if check_date != today:
-                # Auto reset if date changed
                 await db.users.update_one(
                     {"id": user_id},
                     {"$set": {"video_count": 0, "last_date": datetime.combine(today, datetime.min.time())}}
                 )
                 used = 0
 
-    # ---------- LIMIT CHECK ----------
     if is_premium:
         if used >= PREMIUM_DAILY_LIMIT:
             return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
@@ -100,22 +96,18 @@ async def handle_video_request(client, m: Message):
                         ])
                     )
 
-    # ---------- GET NEW VIDEO ----------
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
         video_id = await db.get_random_video()
     if not video_id:
         return await m.reply("❌ No videos found.")
 
-    # ---------- INITIALIZE HISTORY ----------
     init_user_history(user_id, is_brazzers=False)
     
-    # Add video to history if not already present
     if video_id not in temp.USER_VIDEO_HISTORY[user_id]["history"]:
         temp.USER_VIDEO_HISTORY[user_id]["history"].append(video_id)
         temp.USER_VIDEO_HISTORY[user_id]["current_index"] = len(temp.USER_VIDEO_HISTORY[user_id]["history"]) - 1
 
-    # ---------- SEND VIDEO WITH BUTTONS ----------
     await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
 
 
@@ -123,31 +115,24 @@ async def handle_video_request(client, m: Message):
 async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
-    # Ensure history exists
     init_user_history(user_id, is_brazzers)
     
-    # Get current index
     history = temp.USER_VIDEO_HISTORY[user_id]
     current_idx = history["current_index"]
     
-    # Build Buttons - Previous + Next only
     buttons = []
     row = []
     
-    # ✅ Previous button - Always show (agar history mein pehle se koi video hai)
     if current_idx > 0:
         row.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
     else:
-        # ✅ Disabled previous button (grayed out - but still visible)
         row.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
     
-    # ✅ Next button - Always show
     row.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row)
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
-    # Send video
     sent = await client.send_video(
         chat_id=m.chat.id,
         video=video_id,
@@ -164,27 +149,13 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         reply_markup=reply_markup
     )
 
-    # Increase count only for new videos (not for navigation)
     if not is_brazzers:
         await db.increase_video_count(user_id, username)
 
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- GET VIDEO FROM HISTORY BY INDEX ----------
-async def get_video_from_history(user_id, index, is_brazzers):
-    history_data = temp.USER_VIDEO_HISTORY.get(user_id)
-    if not history_data:
-        return None
-    
-    history = history_data["history"]
-    if index < 0 or index >= len(history):
-        return None
-    
-    return history[index]
-
-
-# ---------- CALLBACK HANDLER FOR NEXT / PREVIOUS ----------
+# ---------- CALLBACK HANDLER ----------
 @Client.on_callback_query(filters.regex(r"^(next_|prev_|noop)"))
 async def video_navigation_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -195,7 +166,12 @@ async def video_navigation_callback(client, query: CallbackQuery):
         await query.answer("⚠️ This is the first video!", show_alert=True)
         return
     
-    action, video_type = data.split("_")
+    try:
+        action, video_type = data.split("_")
+    except ValueError:
+        await query.answer("❌ Invalid action!", show_alert=True)
+        return
+    
     is_brazzers = video_type == "brazzers"
 
     history_data = temp.USER_VIDEO_HISTORY.get(user_id)
@@ -214,7 +190,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
             await query.answer("⚠️ This is the first video!", show_alert=True)
             return
         
-        # 🔥 CHECK LIMIT BEFORE PREVIOUS
+        # 🔥 LIMIT CHECK - PREVIOUS
         if not is_brazzers:
             is_premium = await db.has_premium_access(user_id)
             is_verified = await db.is_user_verified(user_id)
@@ -229,12 +205,8 @@ async def video_navigation_callback(client, query: CallbackQuery):
             used = await db.get_video_count(user_id) or 0
             
             if used >= current_limit:
-                await query.answer(f"❌ Daily limit ({current_limit}) reached!", show_alert=True)
+                await query.answer(f"❌ Daily limit ({current_limit}) reached! Try tomorrow.", show_alert=True)
                 return
-            
-            # 🔥 INCREASE COUNT FOR PREVIOUS
-            username = query.from_user.username or query.from_user.first_name or "Unknown"
-            await db.increase_video_count(user_id, username)
         
         new_idx = current_idx - 1
         video_id = history[new_idx]
@@ -266,7 +238,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
     if action == "next":
         # Check if video already in history
         if current_idx + 1 < len(history):
-            # 🔥 CHECK LIMIT BEFORE HISTORY NEXT
+            # 🔥 LIMIT CHECK - HISTORY NEXT
             if not is_brazzers:
                 is_premium = await db.has_premium_access(user_id)
                 is_verified = await db.is_user_verified(user_id)
@@ -283,10 +255,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
                 if used >= current_limit:
                     await query.answer(f"❌ Daily limit ({current_limit}) reached!", show_alert=True)
                     return
-                
-                # 🔥 INCREASE COUNT FOR HISTORY NEXT
-                username = query.from_user.username or query.from_user.first_name or "Unknown"
-                await db.increase_video_count(user_id, username)
             
             new_idx = current_idx + 1
             video_id = history[new_idx]
@@ -324,7 +292,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
         else:
             await db.mark_seen(user_id, current_video)
 
-        # 🔥 CHECK LIMIT BEFORE NEW VIDEO
+        # 🔥🔥🔥 LIMIT CHECK - NEW VIDEO 🔥🔥🔥
         if not is_brazzers:
             is_premium = await db.has_premium_access(user_id)
             is_verified = await db.is_user_verified(user_id)
@@ -360,7 +328,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
         history.append(new_video)
         history_data["current_index"] = len(history) - 1
 
-        # 🔥 INCREASE COUNT FOR NEW VIDEO
+        # Increase count
         if not is_brazzers:
             username = query.from_user.username or query.from_user.first_name or "Unknown"
             await db.increase_video_count(user_id, username)
