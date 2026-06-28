@@ -188,13 +188,15 @@ async def myplan_handler(_, m: Message):
     premium_details = await db.get_user(user_id) if is_premium else None
 
     # -------- SAME STYLE TEXT --------
-    text = f"""📊 <blockquote>**𝖯𝗅𝖺𝗇 𝖣𝖾𝗍𝖺𝗂𝗅𝗌**</blockquote>
+    text = f"""📊 <b>Your Plan Details</b>
 
-👤 <b>𝖴𝗌𝖾𝗋 𝖺𝗆𝖾:</b> {username}
-🆔 <b>𝖴𝗌𝖾𝗋 𝖨𝖣 :</b> <code>{user_id}</code>
-💠 <b>𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇:</b> {subscription_type}
-📂 <b>𝖣𝖺𝗂𝗅𝗒 𝖫𝗂𝗆𝗂𝗍:</b> {daily_limit} 𝖥𝗂𝗅𝖾𝗌
-📉 <b>𝖴𝗌𝖾𝖽:</b> {used} | <b>𝖫𝖾𝖿𝗍:</b> {remaining}"""
+👤 <b>User:</b> {username}
+🆔 <b>User ID:</b> <code>{user_id}</code>
+💠 <b>Subscription:</b> {subscription_type}
+📂 <b>Daily Limit:</b> {daily_limit} Files
+📉 <b>Used:</b> {used} | <b>Left:</b> {remaining}
+
+✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎"""
 
     # -------- PREMIUM EXPIRY --------
     if is_premium and premium_details and premium_details.get('expiry_time'):
@@ -319,7 +321,9 @@ async def myplan_handler(_, m: Message):
 🆔 <b>User ID:</b> <code>{user_id}</code>
 💠 <b>Subscription:</b> {subscription_type}
 📂 <b>Daily Limit:</b> {daily_limit} Files
-📉 <b>Used:</b> {used} | <b>Left:</b> {remaining}"""
+📉 <b>Used:</b> {used} | <b>Left:</b> {remaining}
+
+✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎"""
 
     # -------- PREMIUM EXPIRY --------
     if is_premium and premium_details and premium_details.get('expiry_time'):
@@ -335,7 +339,7 @@ async def myplan_handler(_, m: Message):
 ⏰ Time: {expiry_ist.strftime('%I:%M %p')}"""
 
     await m.reply(text, reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-        [InlineKeyboardButton("❌ Close", callback_data="close_data")]
+        [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
+        [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ]))
         
