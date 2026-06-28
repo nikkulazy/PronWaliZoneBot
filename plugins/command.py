@@ -166,17 +166,18 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO
     # =============================================
-    if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
-        from plugins.get_video import handle_video_request
-        fake_msg = message
-        fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
-        await handle_video_request(client, fake_msg)
-        return
-
+# GET VIDEO
+# =============================================
+if data == "get_video":
+    await query.answer("⏳ Loading...", show_alert=False)
+    from plugins.get_video import handle_video_request
+    fake_msg = message
+    fake_msg.from_user = query.from_user
+    fake_msg.chat = message.chat
+    fake_msg.command = []  # ✅ YAHAN ADD KARO - IMPORTANT!
+    await handle_video_request(client, fake_msg)
+    return
     # =============================================
     # GET BRAZZERS
     # =============================================
