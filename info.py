@@ -1,5 +1,6 @@
 import re
 from os import environ
+import random  # ← Add this
 
 # -------------------------
 # Helper
@@ -43,7 +44,7 @@ auth_channel_str = environ.get("AUTH_CHANNEL", "-1002072782451")
 AUTH_CHANNEL = [int(x) for x in auth_channel_str.split() if x.strip().lstrip("-").isdigit()]
 
 # =========================================================
-# ⚙️ FEATURES & TOGGLES  (FIXED)
+# ⚙️ FEATURES & TOGGLES
 # =========================================================
 FSUB = str_to_bool(environ.get("FSUB"), True)
 IS_VERIFY = str_to_bool(environ.get("IS_VERIFY"), False)
@@ -57,8 +58,9 @@ PROTECT_CONTENT = str_to_bool(environ.get("PROTECT_CONTENT"), True)
 DAILY_LIMIT = int(environ.get("DAILY_LIMIT", "5"))
 VERIFICATION_DAILY_LIMIT = int(environ.get("VERIFICATION_DAILY_LIMIT", "20"))
 PREMIUM_DAILY_LIMIT = int(environ.get("PREMIUM_DAILY_LIMIT", "50"))
-FREE_VIDEO_DURATION = int(environ.get("FREE_VIDEO_DURATION", "60"))  # Seconds mein (default 60 seconds = 1 minute)
-FREE_VIDEO_DURATION=60  # 60 seconds = 1 minute
+FREE_VIDEO_DURATION = int(environ.get("FREE_VIDEO_DURATION", "60"))
+FREE_VIDEO_DURATION = 60
+
 # =========================================================
 # 🔗 SHORTLINK & VERIFICATION
 # =========================================================
@@ -82,6 +84,17 @@ START_PIC = environ.get("START_PIC", "http://ibb.co/zCGSdbR")
 AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
 VERIFY_IMG = environ.get("VERIFY_IMG", "http://ibb.co/zCGSdbR")
 NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
+
+# 🎯 RANDOM PICS LIST (Multiple images for random display)
+PICS = [
+    START_PIC,  # Default start pic
+    "https://graph.org/file/1a2e64aee3d4d10edd930.jpg",
+    "https://graph.org/file/99eebf5dbe8a134f548e0.jpg",
+    "https://i.ibb.co/whf8xF7j/photo-2025-07-26-10-42-46-7531339305176793100.jpg",
+    "https://i.ibb.co/0jC8MSDZ/photo-2025-07-26-10-42-36-7531339283701956616.jpg",
+    "https://i.ibb.co/kWtBcgx/photo-2025-08-04-09-11-58-7534655638404595732.jpg",
+    "https://i.ibb.co/zCGSdbR/photo-2025-07-26-10-42-36-7531339283701956616.jpg",
+]
 
 # =========================================================
 # 🌐 WEB APP
