@@ -143,7 +143,6 @@ async def handle_video_request(client, m: Message):
                             [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
                         ])
                     )
-
     # ---------- GET NEW VIDEO ----------
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
