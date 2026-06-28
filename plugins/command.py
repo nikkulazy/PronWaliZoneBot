@@ -76,16 +76,15 @@ async def start_command(client, message: Message):
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
 
-    await message.reply_photo(
-    photo=random.choice(PICS),
-    caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-    reply_markup=buttons,
-)
-
-await asyncio.sleep(30)
-await message.delete()  # ✅ User ke message ko delete karega
-
-# ... Rest of the code remains same ...
+    msg = await message.reply_photo(
+        photo=random.choice(PICS),
+        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
+        reply_markup=buttons,
+    )
+    
+    
+    await asyncio.sleep(30)
+    await msg.delete()  
 # =================================================
 # HELPER HANDLERS
 # =================================================
