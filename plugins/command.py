@@ -74,19 +74,21 @@ async def start_command(client, message: Message):
         [InlineKeyboardButton("📝 Help", callback_data="help"), 
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
+    # ✅ Simple way - but blocks the function
+sent_message = await message.reply_photo(
+    photo=random.choice(START_PICS),
+    caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
+    reply_markup=buttons,
+)
 
-    await message.reply_photo(
-            photo=random.choice(START_PICS),
-            caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
-            reply_markup=buttons,
-            parse_mode=enums.ParseMode.HTML
-        )
-    await asyncio.sleep(30)
-    await dlt.delete()
-    return
+await asyncio.sleep(30)
+try:
+    await sent_message.delete()
+    await message.delete()
+except Exception:
+    pass
+return
     
-
-
 # =================================================
 # HELPER HANDLERS
 # =================================================
