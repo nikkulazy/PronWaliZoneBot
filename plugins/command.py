@@ -76,10 +76,11 @@ async def start_command(client, message: Message):
     ])
 
     await message.reply_photo(
-        photo=random.choice(START_PICS),  # ← Yeh line change
-        caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
-        reply_markup=buttons,
-    )
+            photo=random.choice(START_PICS),
+            caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
+            reply_markup=buttons,
+            parse_mode=enums.ParseMode.HTML
+        )
     await asyncio.sleep(30)
     await dlt.delete()
     return
