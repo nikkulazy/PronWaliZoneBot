@@ -1,5 +1,6 @@
 import datetime
 import asyncio
+from info import START_PICS
 import random
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
