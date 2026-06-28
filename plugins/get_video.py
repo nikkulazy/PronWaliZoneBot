@@ -100,7 +100,6 @@ async def send_limit_message(message, limit_data):
 
 
 # ---------- MAIN COMMAND HANDLER ----------
-# ---------- MAIN COMMAND HANDLER ----------
 @Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
 async def handle_video_request(client, m: Message):
     if not m.from_user:
@@ -114,58 +113,36 @@ async def handle_video_request(client, m: Message):
     if await ban_manager.check_ban(client, m):
         return
 
-    # ✅ FIX: Pehle check karo user verified hai ya nahi
-    # Agar limit cross hai aur user verified nahi hai toh verification bhejo
-    is_premium = await db.has_premium_access(user_id)
-    is_verified = await db.is_user_verified(user_id)
-    
     # Check limit
     limit_data = await check_user_limit(user_id)
     
-    # ✅ FIX: Agar limit reached hai
     if limit_data["reached"]:
-        # Premium user ka limit reached - direct message
         if limit_data["is_premium"]:
             return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
-        
-        # Verified user ka limit reached
-        elif limit_data["is_verified"]:
-            return await m.reply(
-                f"❌ Daily limit {limit_data['limit']} reached.\n"
-                f"✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌! 💎",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-                    [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-                ])
-            )
-        
-        # ✅ FIX: Free user - pehle verification check karo
         else:
-            if IS_VERIFY:
-                # ✅ Pehle verify kar lo
-                verified = await av_x_verification(client, m)
-                if not verified:
-                    return
-                # Verification ke baad dubara limit check karo
-                limit_data = await check_user_limit(user_id)
-                if limit_data["reached"]:
+            if limit_data["is_verified"]:
+                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎")
+            else:
+                if IS_VERIFY:
+                    # ✅ FIX: Ensure command attribute exists
+                    if not hasattr(m, 'command') or m.command is None:
+                        m.command = []
+                    
+                    verified = await av_x_verification(client, m)
+                    if not verified:
+                        return
+                    # Recheck after verification
+                    limit_data = await check_user_limit(user_id)
+                    if limit_data["reached"]:
+                        return await m.reply(f"❌ Verified limit reached. Buy premium!")
+                else:
                     return await m.reply(
-                        f"❌ Verified limit {limit_data['limit']} reached.\n"
-                        f"✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌! 💎",
+                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎",
                         reply_markup=InlineKeyboardMarkup([
                             [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
                             [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
                         ])
                     )
-            else:
-                return await m.reply(
-                    f"❌ Daily limit {limit_data['limit']} reached.\n"
-                    f"✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌! 💎",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-                        [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-                    ])
-                )
 
     # ---------- GET NEW VIDEO ----------
     video_id = await db.get_unseen_video(user_id)
