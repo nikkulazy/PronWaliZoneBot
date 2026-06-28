@@ -80,13 +80,14 @@ async def start_command(client, message: Message):
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
     )
-# 🔥 AUTO-DELETE: 60 seconds
-await asyncio.sleep(60)
-try:
-    await sent_message.delete()
-    await message.delete()
-except Exception:
-    pass
+    
+    # ✅ Auto-delete after 60 seconds
+    await asyncio.sleep(60)
+    try:
+        await sent_message.delete()
+        await message.delete()
+    except Exception:
+        pass
 # =================================================
 # HELPER HANDLERS
 # =================================================
