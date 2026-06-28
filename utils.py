@@ -281,26 +281,18 @@ async def get_shortlink_av(url):
     api = SHORTLINK_API
     site = SHORTLINK_URL
 
-    # ✅ Agar API ya Site set nahi hai toh direct URL return karo
-    if not api or not site:
-        print("⚠️ SHORTLINK_API or SHORTLINK_URL not configured!")
-        return url
-
     try:
         shortzy = Shortzy(api, site)
         url = await shortzy.convert(url)
-        print(f"✅ Shortlink generated: {url}")
-        return url
     except Exception as e:
-        print(f"⚠️ Shortzy Error: {e}")
+        logger.error(f"Shortzy Error: {e}")
         try:
             shortzy = Shortzy(api, site)
             url = await shortzy.get_quick_link(url)
-            print(f"✅ Quick link generated: {url}")
-            return url
-        except Exception as e2:
-            print(f"⚠️ Quick link failed: {e2}")
-            return url  # ✅ Direct URL return karo
+        except Exception:
+            logger.error("Failed to generate shortlink via Shortzy")
+            
+    return url
     
 # --- BACKGROUND DELETE HELPER ---
 async def auto_delete_message(message, dlt_msg):
