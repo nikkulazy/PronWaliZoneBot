@@ -121,9 +121,13 @@ async def handle_video_request(client, m: Message):
             return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
         else:
             if limit_data["is_verified"]:
-                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎!")
+                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎")
             else:
                 if IS_VERIFY:
+                    # ✅ Ensure command attribute exists
+                    if not hasattr(m, 'command') or m.command is None:
+                        m.command = []
+                    
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
@@ -133,7 +137,7 @@ async def handle_video_request(client, m: Message):
                         return await m.reply(f"❌ Verified limit reached. Buy premium!")
                 else:
                     return await m.reply(
-                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎",
+                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎",
                         reply_markup=InlineKeyboardMarkup([
                             [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
                             [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
@@ -155,8 +159,12 @@ async def handle_video_request(client, m: Message):
         temp.USER_VIDEO_HISTORY[user_id]["history"].append(video_id)
         temp.USER_VIDEO_HISTORY[user_id]["current_index"] = len(temp.USER_VIDEO_HISTORY[user_id]["history"]) - 1
 
-    #get and send video function 
-    async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
+    # ---------- SEND VIDEO WITH BUTTONS ----------
+    await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
+
+
+# ---------- SEND VIDEO FUNCTION ----------
+async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
     # Ensure history exists
@@ -182,7 +190,7 @@ async def handle_video_request(client, m: Message):
     row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row1)
     
-    # ✅ Row 2: Close Button (New)
+    # ✅ Row 2: Close Button
     row2 = [
         InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
     ]
@@ -206,12 +214,6 @@ async def handle_video_request(client, m: Message):
         reply_to_message_id=m.id,
         reply_markup=reply_markup
     )
-
-    # Increase count only for new videos (not for navigation)
-    if not is_brazzers:
-        await db.increase_video_count(user_id, username)
-
-    asyncio.create_task(auto_delete_message(m, sent))
 
     # Increase count only for new videos (not for navigation)
     if not is_brazzers:
