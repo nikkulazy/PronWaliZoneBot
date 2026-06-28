@@ -166,18 +166,17 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
+    # GET VIDEO
     # =============================================
-# GET VIDEO
-# =============================================
-if data == "get_video":
-    await query.answer("⏳ Loading...", show_alert=False)
-    from plugins.get_video import handle_video_request
-    fake_msg = message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = message.chat
-    fake_msg.command = []  # ✅ YAHAN ADD KARO - IMPORTANT!
-    await handle_video_request(client, fake_msg)
-    return
+    if data == "get_video":
+        await query.answer("⏳ Loading...", show_alert=False)
+        from plugins.get_video import handle_video_request
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await handle_video_request(client, fake_msg)
+        return
+
     # =============================================
     # GET BRAZZERS
     # =============================================
@@ -290,13 +289,3 @@ if data == "get_video":
         fake_msg.chat = message.chat
         await myplan_handler(client, fake_msg)
         return
-
-
-@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    # ✅ DEBUG: Print callback data
-    print(f"📥 Callback received: {query.data} from {query.from_user.id}")
-    
-    data = query.data
-    user_id = query.from_user.id
-    message = query.message

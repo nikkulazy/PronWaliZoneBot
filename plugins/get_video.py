@@ -121,13 +121,9 @@ async def handle_video_request(client, m: Message):
             return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
         else:
             if limit_data["is_verified"]:
-                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎")
+                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎!")
             else:
                 if IS_VERIFY:
-                    # ✅ FIX: Ensure command attribute exists
-                    if not hasattr(m, 'command') or m.command is None:
-                        m.command = []
-                    
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
@@ -137,12 +133,13 @@ async def handle_video_request(client, m: Message):
                         return await m.reply(f"❌ Verified limit reached. Buy premium!")
                 else:
                     return await m.reply(
-                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎",
+                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎",
                         reply_markup=InlineKeyboardMarkup([
                             [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
                             [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
                         ])
                     )
+
     # ---------- GET NEW VIDEO ----------
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
