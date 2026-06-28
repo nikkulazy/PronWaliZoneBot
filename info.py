@@ -80,7 +80,7 @@ QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "https://i.ibb.co/kWtBcgx/photo-202
 # =========================================================
 # 🖼️ IMAGES
 # =========================================================
-START_PIC = environ.get("START_PIC", "http://ibb.co/zCGSdbR")
+START_PIC = environ.get("START_PIC", "https://i.ibb.co/Xn2b08M/photo-2026-06-28-12-30-38-7656422767314599952.jpg")
 AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
 VERIFY_IMG = environ.get("VERIFY_IMG", "http://ibb.co/zCGSdbR")
 NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
@@ -91,7 +91,7 @@ PICS = [
     "https://i.ibb.co/HfkPW3Xc/photo-2026-06-28-12-25-46-7656421521774084124.jpg",
     "https://i.ibb.co/SDVNR24F/photo-2026-06-28-12-26-58-7656421826716762128.jpg",
     "https://i.ibb.co/hRXPR4bh/photo-2026-06-28-12-27-56-7656422084414799876.jpg",
-    "https://i.ibb.co/VYytcFkg/photo-2026-06-28-12-29-54-7656422582631006232.jpg",
+    "https://i.ibb.co/KpthX4Kh/photo-2026-06-28-12-32-53-7656423377199955984.jpg",
     "https://i.ibb.co/Xn2b08M/photo-2026-06-28-12-30-38-7656422767314599952.jpg",
     "https://i.ibb.co/v6jJqLCR/photo-2026-06-28-12-31-19-7656422951998193672.jpg",
 ]
