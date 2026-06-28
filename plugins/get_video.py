@@ -91,11 +91,12 @@ async def send_limit_message(message, limit_data):
         text = f"❌ **Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for unlimited access!"
     
     await message.reply(
-        text,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
-        ])
-    )
+    text,
+    reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
+        [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
+    ])
+)
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -134,7 +135,8 @@ async def handle_video_request(client, m: Message):
                     return await m.reply(
                         f"❌ Daily limit {limit_data['limit']} reached. Buy premium!",
                         reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
+                            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
+                            [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
                         ])
                     )
 
