@@ -1,16 +1,18 @@
 import datetime
 import asyncio
+import random  # ← Add this
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
 from Script import script
 from database.users_db import db
-from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID
+from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS  # ← Add PICS
 from utils import temp, is_user_joined
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
+
 # =================================================
 # START COMMAND
 # =================================================
@@ -74,12 +76,14 @@ async def start_command(client, message: Message):
          InlineKeyboardButton("ℹ️ About", callback_data="about")]
     ])
 
+    # ✅ CHANGED: Using random.choice(PICS) instead of START_PIC
     await message.reply_photo(
-        photo=START_PIC,
+        photo=random.choice(PICS),  # ← Yahan change kiya
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
     )
 
+# ... Rest of the code remains same ...
 # =================================================
 # HELPER HANDLERS
 # =================================================
