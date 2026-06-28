@@ -133,7 +133,7 @@ async def handle_video_request(client, m: Message):
                         return await m.reply(f"❌ Verified limit reached. Buy premium!")
                 else:
                     return await m.reply(
-                        f"❌ Daily limit {limit_data['limit']} reached. Buy premium!",
+                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎",
                         reply_markup=InlineKeyboardMarkup([
                             [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
                             [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
