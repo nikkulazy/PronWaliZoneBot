@@ -155,12 +155,8 @@ async def handle_video_request(client, m: Message):
         temp.USER_VIDEO_HISTORY[user_id]["history"].append(video_id)
         temp.USER_VIDEO_HISTORY[user_id]["current_index"] = len(temp.USER_VIDEO_HISTORY[user_id]["history"]) - 1
 
-    # ---------- SEND VIDEO WITH BUTTONS ----------
-    await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
-
-
-# ---------- SEND VIDEO FUNCTION ----------
-async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
+    #get and send video function 
+    async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
     # Ensure history exists
@@ -170,20 +166,27 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     history = temp.USER_VIDEO_HISTORY[user_id]
     current_idx = history["current_index"]
     
-    # Build Buttons - Previous + Next only
+    # Build Buttons - Previous + Next + Close
     buttons = []
-    row = []
     
-    # ✅ Previous button - Always show (agar history mein pehle se koi video hai)
+    # ✅ Row 1: Previous + Next
+    row1 = []
+    
+    # ✅ Previous button
     if current_idx > 0:
-        row.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
     else:
-        # ✅ Disabled previous button (grayed out - but still visible)
-        row.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
     
-    # ✅ Next button - Always show
-    row.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
-    buttons.append(row)
+    # ✅ Next button
+    row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+    buttons.append(row1)
+    
+    # ✅ Row 2: Close Button (New)
+    row2 = [
+        InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
+    ]
+    buttons.append(row2)
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -203,6 +206,12 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         reply_to_message_id=m.id,
         reply_markup=reply_markup
     )
+
+    # Increase count only for new videos (not for navigation)
+    if not is_brazzers:
+        await db.increase_video_count(user_id, username)
+
+    asyncio.create_task(auto_delete_message(m, sent))
 
     # Increase count only for new videos (not for navigation)
     if not is_brazzers:
