@@ -289,7 +289,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
             new_idx = current_idx + 1
             video_id = history[new_idx]
             
-            await query.answer("⏩ Loading next video from history...", show_alert=False)
+            await query.answer("⏩ Loading...", show_alert=False)
             
             # Update current index
             history_data["current_index"] = new_idx
@@ -314,7 +314,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
             return
         
         # ---------- GET NEW VIDEO (Not in history) ----------
-        await query.answer("⏩ Loading new video...", show_alert=False)
+        await query.answer("⏩ Loading....", show_alert=False)
         
         # Mark current as seen (only for next)
         current_video = history[current_idx]
