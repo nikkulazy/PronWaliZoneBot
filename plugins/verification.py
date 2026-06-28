@@ -32,8 +32,8 @@ async def av_x_verification(client, message):
         
     file_id = None
     
-    # 🔴 FIX: Check agar message.command None nahi hai tabhi length check karein
-    if message.command and len(message.command) > 1:
+    # ✅ FIX: Safe command attribute check
+    if hasattr(message, 'command') and message.command and len(message.command) > 1:
         file_id = message.command[1]
     
     verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
