@@ -81,18 +81,6 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    # ✅ Auto-delete after 30 seconds - CORRECT WAY
-    asyncio.create_task(delete_after_30(sent_message, message))
-
-
-# ✅ Auto-delete function - Function ke ANDAR hai
-async def delete_after_30(sent_message, user_message):
-    await asyncio.sleep(30)
-    try:
-        await sent_message.delete()
-        await user_message.delete()
-    except Exception:
-        pass
 
 
 # =================================================
