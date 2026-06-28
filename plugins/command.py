@@ -80,6 +80,9 @@ async def start_command(client, message: Message):
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
     )
+    await asyncio.sleep(30)
+    await dlt.delete()
+    return
     
 
 
