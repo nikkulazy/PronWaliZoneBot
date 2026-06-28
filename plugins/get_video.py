@@ -26,34 +26,25 @@ def get_ist_today():
     return datetime.now(pytz.timezone(TIMEZONE)).date()
 
 
-# ---------- MAIN COMMAND HANDLER ----------
-@Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
-async def handle_video_request(client, m: Message):
-    if not m.from_user:
-        return
-    if FSUB and not await is_user_joined(client, m):
-        return
-
-    user_id = m.from_user.id
-    username = m.from_user.username or m.from_user.first_name or "Unknown"
-
-    if await ban_manager.check_ban(client, m):
-        return
-
+# ---------- CHECK LIMIT FUNCTION ----------
+async def check_user_limit(user_id):
+    """Check if user has reached daily limit"""
     is_premium = await db.has_premium_access(user_id)
     is_verified = await db.is_user_verified(user_id)
     
     if is_premium:
         current_limit = PREMIUM_DAILY_LIMIT
+        user_type = "premium"
     elif is_verified:
         current_limit = VERIFICATION_DAILY_LIMIT
+        user_type = "verified"
     else:
         current_limit = DAILY_LIMIT
+        user_type = "normal"
     
-    # Get used count
     used = await db.get_video_count(user_id) or 0
     
-    # 🔥 AUTO RESET: Agar date change ho gayi hai toh reset karo
+    # Auto reset check
     user = await db.get_user(user_id)
     if user:
         last_date = user.get("last_date")
@@ -69,32 +60,79 @@ async def handle_video_request(client, m: Message):
                 check_date = None
                 
             if check_date != today:
-                # Auto reset if date changed
                 await db.users.update_one(
                     {"id": user_id},
                     {"$set": {"video_count": 0, "last_date": datetime.combine(today, datetime.min.time())}}
                 )
                 used = 0
+    
+    return {
+        "used": used,
+        "limit": current_limit,
+        "is_premium": is_premium,
+        "is_verified": is_verified,
+        "user_type": user_type,
+        "reached": used >= current_limit
+    }
 
-    # ---------- LIMIT CHECK ----------
-    if is_premium:
-        if used >= PREMIUM_DAILY_LIMIT:
-            return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
+
+# ---------- SEND LIMIT MESSAGE ----------
+async def send_limit_message(message, limit_data):
+    """Send proper limit reached message"""
+    used = limit_data["used"]
+    limit = limit_data["limit"]
+    user_type = limit_data["user_type"]
+    
+    if user_type == "premium":
+        text = f"❌ **Premium Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n🔄 Please try again tomorrow."
+    elif user_type == "verified":
+        text = f"❌ **Verified Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for more!"
     else:
-        if used >= current_limit:
-            if is_verified:
-                return await m.reply(f"❌ Daily limit {current_limit} reached. Buy premium!")
+        text = f"❌ **Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for unlimited access!"
+    
+    await message.reply(
+        text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
+        ])
+    )
+
+
+# ---------- MAIN COMMAND HANDLER ----------
+@Client.on_message(filters.command("getvideo") | filters.regex(r"(?i)get video"))
+async def handle_video_request(client, m: Message):
+    if not m.from_user:
+        return
+    if FSUB and not await is_user_joined(client, m):
+        return
+
+    user_id = m.from_user.id
+    username = m.from_user.username or m.from_user.first_name or "Unknown"
+
+    if await ban_manager.check_ban(client, m):
+        return
+
+    # Check limit
+    limit_data = await check_user_limit(user_id)
+    
+    if limit_data["reached"]:
+        if limit_data["is_premium"]:
+            return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
+        else:
+            if limit_data["is_verified"]:
+                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached. Buy premium!")
             else:
                 if IS_VERIFY:
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
-                    used = await db.get_video_count(user_id) or 0
-                    if used >= VERIFICATION_DAILY_LIMIT:
+                    # Recheck after verification
+                    limit_data = await check_user_limit(user_id)
+                    if limit_data["reached"]:
                         return await m.reply(f"❌ Verified limit reached. Buy premium!")
                 else:
                     return await m.reply(
-                        f"❌ Daily limit {current_limit} reached. Buy premium!",
+                        f"❌ Daily limit {limit_data['limit']} reached. Buy premium!",
                         reply_markup=InlineKeyboardMarkup([
                             [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
                         ])
@@ -171,19 +209,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- GET VIDEO FROM HISTORY BY INDEX ----------
-async def get_video_from_history(user_id, index, is_brazzers):
-    history_data = temp.USER_VIDEO_HISTORY.get(user_id)
-    if not history_data:
-        return None
-    
-    history = history_data["history"]
-    if index < 0 or index >= len(history):
-        return None
-    
-    return history[index]
-
-
 # ---------- CALLBACK HANDLER FOR NEXT / PREVIOUS ----------
 @Client.on_callback_query(filters.regex(r"^(next_|prev_|noop)"))
 async def video_navigation_callback(client, query: CallbackQuery):
@@ -197,7 +222,12 @@ async def video_navigation_callback(client, query: CallbackQuery):
         return
     
     # Parse callback data: next_video, prev_video, next_brazzers, prev_brazzers
-    action, video_type = data.split("_")
+    try:
+        action, video_type = data.split("_")
+    except ValueError:
+        await query.answer("❌ Invalid request!", show_alert=True)
+        return
+    
     is_brazzers = video_type == "brazzers"
 
     # Get user history
@@ -209,122 +239,122 @@ async def video_navigation_callback(client, query: CallbackQuery):
     history = history_data["history"]
     current_idx = history_data["current_index"]
     
-    # ---------- PREVIOUS BUTTON ----------
-if action == "prev":
-    if current_idx <= 0:
-        await query.answer("⚠️ This is the first video!", show_alert=True)
+    # ---------- CHECK LIMIT FIRST (for both Next and Previous) ----------
+    limit_data = await check_user_limit(user_id)
+    
+    if limit_data["reached"]:
+        # Don't show popup, just send message
+        await send_limit_message(message, limit_data)
         return
     
-    # ✅ CHECK LIMIT BEFORE PREVIOUS NAVIGATION
-    is_premium = await db.has_premium_access(user_id)
-    is_verified = await db.is_user_verified(user_id)
-    
-    if is_premium:
-        current_limit = PREMIUM_DAILY_LIMIT
-    elif is_verified:
-        current_limit = VERIFICATION_DAILY_LIMIT
-    else:
-        current_limit = DAILY_LIMIT
-    
-    used = await db.get_video_count(user_id) or 0
-    
-    # Auto reset check
-    user = await db.get_user(user_id)
-    if user:
-        last_date = user.get("last_date")
-        today = get_ist_today()
+    # ---------- PREVIOUS BUTTON ----------
+    if action == "prev":
+        if current_idx <= 0:
+            await query.answer("⚠️ This is the first video!", show_alert=True)
+            return
         
-        if last_date:
-            if isinstance(last_date, datetime):
-                if last_date.tzinfo is not None:
-                    check_date = last_date.astimezone(pytz.timezone(TIMEZONE)).date()
-                else:
-                    check_date = last_date.date()
-            else:
-                check_date = None
-                
-            if check_date != today:
-                await db.users.update_one(
-                    {"id": user_id},
-                    {"$set": {"video_count": 0, "last_date": datetime.combine(today, datetime.min.time())}}
-                )
-                used = 0
-    
-    # ✅ LIMIT CHECK - AGAR LIMIT CROSS HO GAYI TO PREVIOUS BHI BLOCK
-    if is_premium:
-        if used >= PREMIUM_DAILY_LIMIT:
-            await message.reply(
-                f"❌ **Premium Daily Limit Reached!**\n\n"
-                f"📊 You have used {used}/{PREMIUM_DAILY_LIMIT} videos today.\n"
-                f"🔄 Please try again tomorrow.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
-                ])
+        new_idx = current_idx - 1
+        video_id = history[new_idx]
+        
+        await query.answer("⏪ Loading previous video...", show_alert=False)
+        
+        # Update current index
+        history_data["current_index"] = new_idx
+        
+        # Delete old message
+        try:
+            await message.delete()
+        except Exception:
+            pass
+
+        # Resend video
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+
+        await send_video_with_buttons(
+            client, 
+            fake_msg, 
+            user_id, 
+            video_id,
+            is_brazzers=is_brazzers
+        )
+        return
+
+    # ---------- NEXT BUTTON ----------
+    if action == "next":
+        # Check if video exists in history first
+        if current_idx + 1 < len(history):
+            # Video already in history - just navigate
+            new_idx = current_idx + 1
+            video_id = history[new_idx]
+            
+            await query.answer("⏩ Loading next video from history...", show_alert=False)
+            
+            # Update current index
+            history_data["current_index"] = new_idx
+            
+            # Delete old message
+            try:
+                await message.delete()
+            except Exception:
+                pass
+
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+
+            await send_video_with_buttons(
+                client,
+                fake_msg,
+                user_id,
+                video_id,
+                is_brazzers=is_brazzers
             )
             return
-    else:
-        if used >= current_limit:
-            if is_verified:
-                await message.reply(
-                    f"❌ **Daily Limit Reached!**\n\n"
-                    f"📊 You have used {used}/{current_limit} videos today.\n"
-                    f"💎 Buy premium for unlimited access!",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
-                    ])
-                )
+        
+        # ---------- GET NEW VIDEO (Not in history) ----------
+        await query.answer("⏩ Loading new video...", show_alert=False)
+        
+        # Mark current as seen (only for next)
+        current_video = history[current_idx]
+        if is_brazzers:
+            await db.mark_brazzers_seen(user_id, current_video)
+        else:
+            await db.mark_seen(user_id, current_video)
+
+        # Get new video
+        if is_brazzers:
+            new_video = await db.get_unseen_brazzers(user_id)
+            if not new_video:
+                await message.reply("❌ No more unseen Brazzers videos!")
                 return
-            else:
-                if IS_VERIFY:
-                    verified = await av_x_verification(client, message)
-                    if not verified:
-                        return
-                    used = await db.get_video_count(user_id) or 0
-                    if used >= VERIFICATION_DAILY_LIMIT:
-                        await message.reply(
-                            f"❌ **Verified Limit Reached!**\n\n"
-                            f"📊 You have used {used}/{VERIFICATION_DAILY_LIMIT} videos today.\n"
-                            f"💎 Buy premium for more!",
-                            reply_markup=InlineKeyboardMarkup([
-                                [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
-                            ])
-                        )
-                        return
-                else:
-                    await message.reply(
-                        f"❌ **Daily Limit Reached!**\n\n"
-                        f"📊 You have used {used}/{current_limit} videos today.\n"
-                        f"💎 Buy premium for unlimited access!",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")]
-                        ])
-                    )
-                    return
-    
-    new_idx = current_idx - 1
-    video_id = history[new_idx]
-    
-    await query.answer("⏪ Loading previous video...", show_alert=False)
-    
-    # Update current index
-    history_data["current_index"] = new_idx
-    
-    # Delete old message
-    try:
-        await message.delete()
-    except:
-        pass
+        else:
+            new_video = await db.get_unseen_video(user_id)
+            if not new_video:
+                new_video = await db.get_random_video()
+            if not new_video:
+                await message.reply("❌ No more videos!")
+                return
 
-    # Resend video
-    fake_msg = message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = message.chat
+        # Add to history
+        history.append(new_video)
+        history_data["current_index"] = len(history) - 1
 
-    await send_video_with_buttons(
-        client, 
-        fake_msg, 
-        user_id, 
-        video_id,
-        is_brazzers=is_brazzers
-    )
-    return
+        # Delete old message
+        try:
+            await message.delete()
+        except Exception:
+            pass
+
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+
+        await send_video_with_buttons(
+            client,
+            fake_msg,
+            user_id,
+            new_video,
+            is_brazzers=is_brazzers
+        )
