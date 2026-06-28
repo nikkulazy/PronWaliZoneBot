@@ -120,7 +120,7 @@ async def handle_video_request(client, m: Message):
             return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
         else:
             if limit_data["is_verified"]:
-                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached. Buy premium!")
+                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎!")
             else:
                 if IS_VERIFY:
                     verified = await av_x_verification(client, m)
