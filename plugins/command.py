@@ -289,3 +289,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
         fake_msg.chat = message.chat
         await myplan_handler(client, fake_msg)
         return
+
+
+@Client.on_callback_query()
+async def cb_handler(client: Client, query: CallbackQuery):
+    # ✅ DEBUG: Print callback data
+    print(f"📥 Callback received: {query.data} from {query.from_user.id}")
+    
+    data = query.data
+    user_id = query.from_user.id
+    message = query.message
