@@ -88,12 +88,12 @@ NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
 # 🎯 RANDOM PICS LIST (Multiple images for random display)
 PICS = [
     START_PIC,  # Default start pic
-    "https://graph.org/file/1a2e64aee3d4d10edd930.jpg",
-    "https://graph.org/file/99eebf5dbe8a134f548e0.jpg",
-    "https://i.ibb.co/whf8xF7j/photo-2025-07-26-10-42-46-7531339305176793100.jpg",
-    "https://i.ibb.co/0jC8MSDZ/photo-2025-07-26-10-42-36-7531339283701956616.jpg",
-    "https://i.ibb.co/kWtBcgx/photo-2025-08-04-09-11-58-7534655638404595732.jpg",
-    "https://i.ibb.co/zCGSdbR/photo-2025-07-26-10-42-36-7531339283701956616.jpg",
+    "https://i.ibb.co/HfkPW3Xc/photo-2026-06-28-12-25-46-7656421521774084124.jpg",
+    "https://i.ibb.co/SDVNR24F/photo-2026-06-28-12-26-58-7656421826716762128.jpg",
+    "https://i.ibb.co/hRXPR4bh/photo-2026-06-28-12-27-56-7656422084414799876.jpg",
+    "https://i.ibb.co/VYytcFkg/photo-2026-06-28-12-29-54-7656422582631006232.jpg",
+    "https://i.ibb.co/Xn2b08M/photo-2026-06-28-12-30-38-7656422767314599952.jpg",
+    "https://i.ibb.co/v6jJqLCR/photo-2026-06-28-12-31-19-7656422951998193672.jpg",
 ]
 
 # =========================================================
