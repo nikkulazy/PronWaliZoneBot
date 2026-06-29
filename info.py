@@ -47,7 +47,7 @@ AUTH_CHANNEL = [int(x) for x in auth_channel_str.split() if x.strip().lstrip("-"
 # ⚙️ FEATURES & TOGGLES
 # =========================================================
 FSUB = str_to_bool(environ.get("FSUB"), True)
-IS_VERIFY = str_to_bool(environ.get("IS_VERIFY"), False)
+IS_VERIFY = str_to_bool(environ.get("IS_VERIFY"), True)
 POST_SHORTLINK = str_to_bool(environ.get("POST_SHORTLINK"), False)
 SEND_POST = str_to_bool(environ.get("SEND_POST"), False)
 PROTECT_CONTENT = str_to_bool(environ.get("PROTECT_CONTENT"), True)
@@ -64,10 +64,10 @@ FREE_VIDEO_DURATION = 60
 # =========================================================
 # 🔗 SHORTLINK & VERIFICATION
 # =========================================================
-SHORTLINK_URL = environ.get("SHORTLINK_URL", "")
-SHORTLINK_API = environ.get("SHORTLINK_API", "")
-POST_SHORTLINK_URL = environ.get("POST_SHORTLINK_URL", "")
-POST_SHORTLINK_API = environ.get("POST_SHORTLINK_API", "")
+SHORTLINK_URL = environ.get("SHORTLINK_URL", "https://omegalinks.in")
+SHORTLINK_API = environ.get("SHORTLINK_API", "a7ac9b3012c67d7491414cf272d82593c75f6cbb"")
+POST_SHORTLINK_URL = environ.get("POST_SHORTLINK_URL", "https://omegalinks.in")
+POST_SHORTLINK_API = environ.get("POST_SHORTLINK_API", "a7ac9b3012c67d7491414cf272d82593c75f6cbb"")
 VERIFY_EXPIRE = int(environ.get("VERIFY_EXPIRE", "3600"))
 TUTORIAL_LINK = environ.get("TUTORIAL_LINK", "")
 
