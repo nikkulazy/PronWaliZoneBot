@@ -58,8 +58,6 @@ PROTECT_CONTENT = str_to_bool(environ.get("PROTECT_CONTENT"), True)
 DAILY_LIMIT = int(environ.get("DAILY_LIMIT", "5"))
 VERIFICATION_DAILY_LIMIT = int(environ.get("VERIFICATION_DAILY_LIMIT", "20"))
 PREMIUM_DAILY_LIMIT = int(environ.get("PREMIUM_DAILY_LIMIT", "50"))
-FREE_VIDEO_DURATION = int(environ.get("FREE_VIDEO_DURATION", "60"))
-FREE_VIDEO_DURATION = 60
 
 # =========================================================
 # 🔗 SHORTLINK & VERIFICATION
@@ -70,9 +68,7 @@ POST_SHORTLINK_URL = environ.get("POST_SHORTLINK_URL", "gplinks.com")
 POST_SHORTLINK_API = environ.get("POST_SHORTLINK_API", "05f3a1bccfa105188a114bf16d09e6c3b5cb2902")
 VERIFY_EXPIRE = int(environ.get("VERIFY_EXPIRE", "3600"))
 TUTORIAL_LINK = environ.get("TUTORIAL_LINK", "")
-# ✅ Debug print
-print(f"🔗 SHORTLINK_URL: {SHORTLINK_URL}")
-print(f"🔑 SHORTLINK_API: {SHORTLINK_API[:10] if SHORTLINK_API else 'NOT SET'}")
+
 # =========================================================
 # 💳 PAYMENT SETTINGS
 # =========================================================
