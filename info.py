@@ -83,7 +83,8 @@ AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
 VERIFY_IMG = environ.get("VERIFY_IMG", "http://ibb.co/zCGSdbR")
 VERIFY_START_IMG = "https://i.ibb.co/SDVNR24F/photo-2026-06-28-12-26-58-7656421826716762128.jpg"
 NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
-
+VERIFY_START_IMG = "https://telegra.ph/file/43d8be1dc2ec0a2b68a24.jpg"
+VERIFY_COMPLETE_IMG = "https://telegra.ph/file/43d8be1dc2ec0a2b68a24.jpg"
 # 🎯 RANDOM PICS LIST (Multiple images for random display)
 PICS = [
     START_PIC,  # Default start pic
