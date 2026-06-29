@@ -7,7 +7,7 @@ from datetime import datetime
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram import enums
 from info import (
-    VERIFIED_LOG, TIMEZONE, VERIFY_IMG,
+    VERIFIED_LOG, TIMEZONE, VERIFY_IMG, VERIFY_START_IMG, VERIFY_COMPLETE_IMG,
     TUTORIAL_LINK, IS_VERIFY, OWNER_USERNAME
 )
 from database.users_db import db
@@ -43,8 +43,8 @@ async def av_x_verification(client, message):
         # Link Generation
         long_url = f"https://telegram.me/{temp.U_NAME}?start=avbotz_{user_id}_{verify_id}"
         
-        # ✅ FIX: Try shortlink, agar fail ho toh direct link use karo
-        verify_url = long_url  # Default direct link
+        # Try shortlink, agar fail ho toh direct link use karo
+        verify_url = long_url
         try:
             short_url = await get_shortlink_av(long_url)
             if short_url and short_url.startswith("http"):
@@ -57,10 +57,10 @@ async def av_x_verification(client, message):
             print(f"⚠️ Shortlink failed: {e}, using direct link")
             verify_url = long_url
         
-        # ✅ FIX: TUTORIAL_LINK valid hona chahiye
+        # TUTORIAL_LINK valid hona chahiye
         tutorial_url = TUTORIAL_LINK if TUTORIAL_LINK and TUTORIAL_LINK.startswith("http") else "https://t.me"
         
-        # ✅ FIX: Dono buttons valid URL ke saath
+        # Buttons
         buttons = [
             [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
             [InlineKeyboardButton(text="⚠️ Verify ⚠️", url=verify_url)],
@@ -74,11 +74,10 @@ async def av_x_verification(client, message):
         except:
             bin_text = f"⚠️ **Verification Required** {user_name}!\n\nPlease verify to continue."
         
-        # ✅ FIX: Send message with photo
+        # ✅ START VERIFICATION PHOTO
         try:
-            # photo start verification 
             dlt = await message.reply_photo(
-                photo=VERIFY_START_IMG,  # ✅ info.py mein define karo
+                photo=VERIFY_START_IMG,  # ✅ Start verification photo
                 caption=bin_text,
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
@@ -87,13 +86,13 @@ async def av_x_verification(client, message):
             
         except Exception as e:
             print(f"❌ Failed to send verification message: {e}")
-            # ✅ FALLBACK: Without URL buttons
+            # Fallback: Without URL buttons
             try:
                 fallback_buttons = [
                     [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
                 ]
                 await message.reply_photo(
-                    photo=VERIFY_START_IMG,  # ✅ START WALI PHOTO
+                    photo=VERIFY_START_IMG,  # ✅ Start verification photo
                     caption="⚠️ **Verification system is temporarily unavailable.**\n\nPlease contact admin for support.",
                     reply_markup=InlineKeyboardMarkup(fallback_buttons),
                     parse_mode=enums.ParseMode.HTML
@@ -165,9 +164,9 @@ async def verify_user_on_start(client, message):
             except Exception as e:
                 logger.warning(f"Failed to send log: {e}")
         
-        # ✅ Verification Complete with photo
+        # ✅ COMPLETE VERIFICATION PHOTO
         await message.reply_photo(
-            photo=VERIFY_COMPLETE_IMG,  # ✅ info.py mein define karo
+            photo=VERIFY_COMPLETE_IMG,  # ✅ Complete verification photo
             caption=txt.format(message.from_user.mention), 
             reply_markup=btn, 
             parse_mode=enums.ParseMode.HTML
