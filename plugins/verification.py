@@ -21,44 +21,46 @@ async def av_x_verification(client, message):
     try:
         user_id = message.from_user.id
         
+        # 1. Check if Verification is ON/OFF
         if IS_VERIFY:
             user_verified = await db.is_user_verified(user_id)
         else:
             user_verified = True 
         
+        # 2. Agar Verified hai to TRUE return karo
         if user_verified:
             return True
             
         file_id = None
         
-        # ✅ FIX: Command se file_id lo
+        # Safe command check
         if hasattr(message, 'command') and message.command and len(message.command) > 1:
             file_id = message.command[1]
-            print(f"🔍 [VERIFICATION] File ID from command: {file_id}")
         
         verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-        
-        # ✅ FIX: File ID save karo
         await db.create_verify_id(user_id, verify_id, file_id)
-        print(f"✅ [VERIFICATION] Saved - Verify ID: {verify_id} | File ID: {file_id}")
         
         # Link Generation
         long_url = f"https://telegram.me/{temp.U_NAME}?start=avbotz_{user_id}_{verify_id}"
         
-        verify_url = long_url
+        # ✅ FIX: Try shortlink, agar fail ho toh direct link use karo
+        verify_url = long_url  # Default direct link
         try:
             short_url = await get_shortlink_av(long_url)
             if short_url and short_url.startswith("http"):
                 verify_url = short_url
                 print(f"✅ Shortlink generated: {verify_url}")
             else:
+                print(f"⚠️ Invalid shortlink, using direct URL")
                 verify_url = long_url
         except Exception as e:
-            print(f"⚠️ Shortlink failed: {e}")
+            print(f"⚠️ Shortlink failed: {e}, using direct link")
             verify_url = long_url
         
+        # ✅ FIX: TUTORIAL_LINK valid hona chahiye
         tutorial_url = TUTORIAL_LINK if TUTORIAL_LINK and TUTORIAL_LINK.startswith("http") else "https://t.me"
         
+        # ✅ FIX: Dono buttons valid URL ke saath
         buttons = [
             [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
             [InlineKeyboardButton(text="⚠️ Verify ⚠️", url=verify_url)],
@@ -72,6 +74,7 @@ async def av_x_verification(client, message):
         except:
             bin_text = f"⚠️ **Verification Required** {user_name}!\n\nPlease verify to continue."
         
+        # ✅ FIX: Send message with try-except
         try:
             dlt = await message.reply_text(
                 text=bin_text,
@@ -82,6 +85,7 @@ async def av_x_verification(client, message):
             asyncio.create_task(auto_delete_message(message, dlt))
         except Exception as e:
             print(f"❌ Failed to send verification message: {e}")
+            # ✅ FALLBACK: Without URL buttons
             try:
                 fallback_buttons = [
                     [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
@@ -103,9 +107,10 @@ async def av_x_verification(client, message):
         traceback.print_exc()
         return False
 
-# --- VERIFICATION SUCCESS HANDLER ---
+# --- VERIFICATION SUCCESS HANDLER (Run on /start) ---
 async def verify_user_on_start(client, message):
     try:
+        # Check if command exists before splitting
         if not message.command or len(message.command) < 2:
             return False
 
@@ -127,19 +132,15 @@ async def verify_user_on_start(client, message):
         ist_timezone = pytz.timezone(TIMEZONE)     
         current_time = datetime.now(tz=ist_timezone)
         
+        # DB Update: Last Verified Time set karo
         await db.update_notcopy_user(user_id, {"last_verified": current_time})
         await db.update_verify_id_info(user_id, verify_id, {"verified": True})
         
         stored_file_id = verify_id_info.get("file_id")
-        print(f"🔍 [VERIFY COMPLETE] Stored File ID: {stored_file_id}")
-        
-        # ✅ FIX: avx- prefix add karo
         if stored_file_id:
-            file_link = f"https://t.me/{temp.U_NAME}?start=avx-{stored_file_id}"
-            print(f"🔗 [VERIFY COMPLETE] File Link: {file_link}")
+            file_link = f"https://t.me/{temp.U_NAME}?start={stored_file_id}"
         else:
             file_link = f"https://t.me/{temp.U_NAME}?start=help"
-            print(f"⚠️ [VERIFY COMPLETE] No file_id")
             
         btn = InlineKeyboardMarkup([[
             InlineKeyboardButton("📂 ɢᴇᴛ ʀᴇǫᴜᴇsᴛᴇᴅ ғɪʟᴇ 📂", url=file_link)
@@ -147,6 +148,7 @@ async def verify_user_on_start(client, message):
         
         txt = script.VERIFY_COMPLETE_TEXT
         
+        # Log Channel Message
         if VERIFIED_LOG:
             try:
                 await client.send_message(
