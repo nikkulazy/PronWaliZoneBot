@@ -81,6 +81,7 @@ QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "https://i.ibb.co/kWtBcgx/photo-202
 START_PIC = environ.get("START_PIC", "https://i.ibb.co/Xn2b08M/photo-2026-06-28-12-30-38-7656422767314599952.jpg")
 AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
 VERIFY_IMG = environ.get("VERIFY_IMG", "http://ibb.co/zCGSdbR")
+VERIFY_START_IMG = "https://i.ibb.co/SDVNR24F/photo-2026-06-28-12-26-58-7656421826716762128.jpg"
 NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
 
 # 🎯 RANDOM PICS LIST (Multiple images for random display)
