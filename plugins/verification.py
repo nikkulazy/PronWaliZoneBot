@@ -78,7 +78,7 @@ async def av_x_verification(client, message):
         try:
     # photo start verification 
             dlt = await message.reply_photo(
-    photo=VERIFY_IMG,
+    photo=VERIFY_START_IMG,
     caption=bin_text,
     reply_markup=InlineKeyboardMarkup(buttons),
     parse_mode=enums.ParseMode.HTML
