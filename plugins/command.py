@@ -51,10 +51,12 @@ async def start_command(client, message: Message):
         except Exception as e:
             print(f"Referral Error: {e}")
 
-    if argument and argument.startswith("avx-"):
-        search_id = argument.replace("avx-", "")
-        await send_requested_file(client, message, user_id, search_id)
-        return
+    # ✅ FIX: avx- prefix check with debug
+if argument and argument.startswith("avx-"):
+    search_id = argument.replace("avx-", "")
+    print(f"🔍 [START] File ID requested: {search_id}")
+    await send_requested_file(client, message, user_id, search_id)
+    return
 
     if not await db.is_user_exist(user_id):
         await db.add_user(user_id, message.from_user.first_name)
