@@ -86,19 +86,19 @@ async def av_x_verification(client, message):
             asyncio.create_task(auto_delete_message(message, dlt))
         except Exception as e:
             print(f"❌ Failed to send verification message: {e}")
-            # ✅ FALLBACK: Without URL buttons
-            try:
-                fallback_buttons = [
-                    [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
-                ]
-                await message.reply_text(
-                    text="⚠️ **Verification system is temporarily unavailable.**\n\nPlease contact admin for support.",
-                    reply_markup=InlineKeyboardMarkup(fallback_buttons),
-                    parse_mode=enums.ParseMode.HTML
-                )
-            except:
-                await message.reply_text("⚠️ Verification failed. Please contact admin.")
-            return False
+            # Fallback 2: Without URL buttons
+try:
+    fallback_buttons = [
+        [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
+    ]
+    await message.reply_photo(
+        photo=VERIFY_START_IMG,  # ✅ START WALI PHOTO
+        caption="⚠️ **Verification system is temporarily unavailable.**\n\nPlease contact admin for support.",
+        reply_markup=InlineKeyboardMarkup(fallback_buttons),
+        parse_mode=enums.ParseMode.HTML
+    )
+except:
+    await message.reply_text("⚠️ Verification failed. Please contact admin.")
         
         return False
         
