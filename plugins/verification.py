@@ -76,12 +76,13 @@ async def av_x_verification(client, message):
         
         # ✅ FIX: Send message with try-except
         try:
-            dlt = await message.reply_text(
-                text=bin_text,
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode=enums.ParseMode.HTML,
-                disable_web_page_preview=True
-            )
+    # photo start verification 
+            dlt = await message.reply_photo(
+    photo=VERIFY_IMG,
+    caption=bin_text,
+    reply_markup=InlineKeyboardMarkup(buttons),
+    parse_mode=enums.ParseMode.HTML
+)
             asyncio.create_task(auto_delete_message(message, dlt))
         except Exception as e:
             print(f"❌ Failed to send verification message: {e}")
