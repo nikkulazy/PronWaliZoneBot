@@ -64,10 +64,10 @@ FREE_VIDEO_DURATION = 60
 # =========================================================
 # 🔗 SHORTLINK & VERIFICATION
 # =========================================================
-SHORTLINK_URL = environ.get("SHORTLINK_URL", "omegalinks.in")
-SHORTLINK_API = environ.get("SHORTLINK_API", "a7ac9b3012c67d7491414cf272d82593c75f6cbb")
-POST_SHORTLINK_URL = environ.get("POST_SHORTLINK_URL", "omegalinks.in")
-POST_SHORTLINK_API = environ.get("POST_SHORTLINK_API", "a7ac9b3012c67d7491414cf272d82593c75f6cbb")
+SHORTLINK_URL = environ.get("SHORTLINK_URL", "gplinks.com")
+SHORTLINK_API = environ.get("SHORTLINK_API", "05f3a1bccfa105188a114bf16d09e6c3b5cb2902")
+POST_SHORTLINK_URL = environ.get("POST_SHORTLINK_URL", "gplinks.com")
+POST_SHORTLINK_API = environ.get("POST_SHORTLINK_API", "05f3a1bccfa105188a114bf16d09e6c3b5cb2902")
 VERIFY_EXPIRE = int(environ.get("VERIFY_EXPIRE", "3600"))
 TUTORIAL_LINK = environ.get("TUTORIAL_LINK", "")
 # ✅ Debug print
