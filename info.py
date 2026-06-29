@@ -83,9 +83,9 @@ AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
 NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
 
 # ✅ VERIFICATION IMAGES - START AUR COMPLETE ALAG
-VERIFY_IMG = environ.get("VERIFY_IMG", "https://i.ibb.co/SDVNR24F/photo-2026-06-28-12-26-58-7656421826716762128.jpg")
-VERIFY_START_IMG = environ.get("VERIFY_START_IMG", "https://i.ibb.co/SDVNR24F/photo-2026-06-28-12-26-58-7656421826716762128.jpg")
-VERIFY_COMPLETE_IMG = environ.get("VERIFY_COMPLETE_IMG", "https://i.ibb.co/KpthX4Kh/photo-2026-06-28-12-32-53-7656423377199955984.jpg")
+VERIFY_IMG = environ.get("VERIFY_IMG", "https://i.ibb.co/1fBTtNJ0/photo-2026-06-29-18-39-46-7656888998899482648.jpg")
+VERIFY_START_IMG = environ.get("VERIFY_START_IMG", "https://i.ibb.co/1fBTtNJ0/photo-2026-06-29-18-39-46-7656888998899482648.jpg")
+VERIFY_COMPLETE_IMG = environ.get("VERIFY_COMPLETE_IMG", "https://i.ibb.co/fGxPzS6X/photo-2026-06-29-18-38-58-7656888805625954308.jpg")
 
 # 🎯 RANDOM PICS LIST (Multiple images for random display)
 PICS = [
