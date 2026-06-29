@@ -70,7 +70,9 @@ POST_SHORTLINK_URL = environ.get("POST_SHORTLINK_URL", "https://omegalinks.in")
 POST_SHORTLINK_API = environ.get("POST_SHORTLINK_API", "a7ac9b3012c67d7491414cf272d82593c75f6cbb")
 VERIFY_EXPIRE = int(environ.get("VERIFY_EXPIRE", "3600"))
 TUTORIAL_LINK = environ.get("TUTORIAL_LINK", "")
-
+# ✅ Debug print
+print(f"🔗 SHORTLINK_URL: {SHORTLINK_URL}")
+print(f"🔑 SHORTLINK_API: {SHORTLINK_API[:10] if SHORTLINK_API else 'NOT SET'}")
 # =========================================================
 # 💳 PAYMENT SETTINGS
 # =========================================================
