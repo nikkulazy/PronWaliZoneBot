@@ -62,6 +62,7 @@ async def av_x_verification(client, message):
         
         # ✅ FIX: Dono buttons valid URL ke saath
         buttons = [
+            [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
             [InlineKeyboardButton(text="⚠️ Verify ⚠️", url=verify_url)],
             [InlineKeyboardButton(text="❓ How to Verify ❓", url=tutorial_url)]
         ]
