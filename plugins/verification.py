@@ -74,31 +74,32 @@ async def av_x_verification(client, message):
         except:
             bin_text = f"⚠️ **Verification Required** {user_name}!\n\nPlease verify to continue."
         
-        # ✅ FIX: Send message with try-except
+        # ✅ FIX: Send message with photo
         try:
-    # photo start verification 
+            # photo start verification 
             dlt = await message.reply_photo(
-    photo=VERIFY_START_IMG,
-    caption=bin_text,
-    reply_markup=InlineKeyboardMarkup(buttons),
-    parse_mode=enums.ParseMode.HTML
-)
+                photo=VERIFY_START_IMG,  # ✅ info.py mein define karo
+                caption=bin_text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML
+            )
             asyncio.create_task(auto_delete_message(message, dlt))
+            
         except Exception as e:
             print(f"❌ Failed to send verification message: {e}")
-            # Fallback 2: Without URL buttons
-try:
-    fallback_buttons = [
-        [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
-    ]
-    await message.reply_photo(
-        photo=VERIFY_START_IMG,  # ✅ START WALI PHOTO
-        caption="⚠️ **Verification system is temporarily unavailable.**\n\nPlease contact admin for support.",
-        reply_markup=InlineKeyboardMarkup(fallback_buttons),
-        parse_mode=enums.ParseMode.HTML
-    )
-except:
-    await message.reply_text("⚠️ Verification failed. Please contact admin.")
+            # ✅ FALLBACK: Without URL buttons
+            try:
+                fallback_buttons = [
+                    [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
+                ]
+                await message.reply_photo(
+                    photo=VERIFY_START_IMG,  # ✅ START WALI PHOTO
+                    caption="⚠️ **Verification system is temporarily unavailable.**\n\nPlease contact admin for support.",
+                    reply_markup=InlineKeyboardMarkup(fallback_buttons),
+                    parse_mode=enums.ParseMode.HTML
+                )
+            except:
+                await message.reply_text("⚠️ Verification failed. Please contact admin.")
         
         return False
         
@@ -163,9 +164,10 @@ async def verify_user_on_start(client, message):
                 )
             except Exception as e:
                 logger.warning(f"Failed to send log: {e}")
-                
+        
+        # ✅ Verification Complete with photo
         await message.reply_photo(
-            photo=VERIFY_IMG, 
+            photo=VERIFY_COMPLETE_IMG,  # ✅ info.py mein define karo
             caption=txt.format(message.from_user.mention), 
             reply_markup=btn, 
             parse_mode=enums.ParseMode.HTML
