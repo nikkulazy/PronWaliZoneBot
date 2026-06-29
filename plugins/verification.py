@@ -8,7 +8,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram import enums
 from info import (
     VERIFIED_LOG, TIMEZONE, VERIFY_IMG,
-    TUTORIAL_LINK, IS_VERIFY
+    TUTORIAL_LINK, IS_VERIFY, OWNER_USERNAME
 )
 from database.users_db import db
 from utils import temp, get_shortlink_av, auto_delete_message
@@ -18,51 +18,93 @@ logger = logging.getLogger(__name__)
 
 # --- MAIN VERIFICATION CHECKER ---
 async def av_x_verification(client, message):
-    user_id = message.from_user.id
-    
-    # 1. Check if Verification is ON/OFF
-    if IS_VERIFY:
-        user_verified = await db.is_user_verified(user_id)
-    else:
-        user_verified = True 
-    
-    # 2. Agar Verified hai to TRUE return karo
-    if user_verified:
-        return True
-        
-    file_id = None
-    
-    # 🔴 FIX: Check agar message.command None nahi hai tabhi length check karein
-    if message.command and len(message.command) > 1:
-        file_id = message.command[1]
-    
-    verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-    await db.create_verify_id(user_id, verify_id, file_id)
-    
-    # Link Generation
-    long_url = f"https://telegram.me/{temp.U_NAME}?start=avbotz_{user_id}_{verify_id}"
-    verify_url = await get_shortlink_av(long_url)
-    
-    buttons = [[
-        InlineKeyboardButton(text="⚠️ ᴠᴇʀɪғʏ ⚠️", url=verify_url), 
-        InlineKeyboardButton(text="❗ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪғʏ ❗", url=TUTORIAL_LINK)
-    ]]
-    
-    user_name = message.from_user.first_name
-    
-    # Text Format
     try:
-        bin_text = script.VERIFICATION_TEXT.format(user_name, "1/1")
-    except:
-        bin_text = script.VERIFICATION_TEXT.format(user_name)
+        user_id = message.from_user.id
         
-    dlt = await message.reply_text(
-        text=bin_text,
-        reply_markup=InlineKeyboardMarkup(buttons),
-        parse_mode=enums.ParseMode.HTML
-    )
-    asyncio.create_task(auto_delete_message(message, dlt))
-    return False
+        # 1. Check if Verification is ON/OFF
+        if IS_VERIFY:
+            user_verified = await db.is_user_verified(user_id)
+        else:
+            user_verified = True 
+        
+        # 2. Agar Verified hai to TRUE return karo
+        if user_verified:
+            return True
+            
+        file_id = None
+        
+        # Safe command check
+        if hasattr(message, 'command') and message.command and len(message.command) > 1:
+            file_id = message.command[1]
+        
+        verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
+        await db.create_verify_id(user_id, verify_id, file_id)
+        
+        # Link Generation
+        long_url = f"https://telegram.me/{temp.U_NAME}?start=avbotz_{user_id}_{verify_id}"
+        
+        # ✅ FIX: Try shortlink, agar fail ho toh direct link use karo
+        verify_url = long_url  # Default direct link
+        try:
+            short_url = await get_shortlink_av(long_url)
+            if short_url and short_url.startswith("http"):
+                verify_url = short_url
+                print(f"✅ Shortlink generated: {verify_url}")
+            else:
+                print(f"⚠️ Invalid shortlink, using direct URL")
+                verify_url = long_url
+        except Exception as e:
+            print(f"⚠️ Shortlink failed: {e}, using direct link")
+            verify_url = long_url
+        
+        # ✅ FIX: TUTORIAL_LINK valid hona chahiye
+        tutorial_url = TUTORIAL_LINK if TUTORIAL_LINK and TUTORIAL_LINK.startswith("http") else "https://t.me"
+        
+        # ✅ FIX: Dono buttons valid URL ke saath
+        buttons = [
+            [InlineKeyboardButton(text="⚠️ Verify ⚠️", url=verify_url)],
+            [InlineKeyboardButton(text="❓ How to Verify ❓", url=tutorial_url)]
+        ]
+        
+        user_name = message.from_user.first_name or "User"
+        
+        try:
+            bin_text = script.VERIFICATION_TEXT.format(user_name, "1/1")
+        except:
+            bin_text = f"⚠️ **Verification Required** {user_name}!\n\nPlease verify to continue."
+        
+        # ✅ FIX: Send message with try-except
+        try:
+            dlt = await message.reply_text(
+                text=bin_text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            asyncio.create_task(auto_delete_message(message, dlt))
+        except Exception as e:
+            print(f"❌ Failed to send verification message: {e}")
+            # ✅ FALLBACK: Without URL buttons
+            try:
+                fallback_buttons = [
+                    [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
+                ]
+                await message.reply_text(
+                    text="⚠️ **Verification system is temporarily unavailable.**\n\nPlease contact admin for support.",
+                    reply_markup=InlineKeyboardMarkup(fallback_buttons),
+                    parse_mode=enums.ParseMode.HTML
+                )
+            except:
+                await message.reply_text("⚠️ Verification failed. Please contact admin.")
+            return False
+        
+        return False
+        
+    except Exception as e:
+        print(f"❌ av_x_verification error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 # --- VERIFICATION SUCCESS HANDLER (Run on /start) ---
 async def verify_user_on_start(client, message):
@@ -131,4 +173,3 @@ async def verify_user_on_start(client, message):
     except Exception as e:
         logger.error(f"Verify Error: {e}")
         return False
-        
