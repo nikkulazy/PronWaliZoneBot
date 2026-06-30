@@ -135,6 +135,14 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
+    # 🆕 DOWNLOAD HANDLER (NEW)
+    # =============================================
+    if data.startswith("download_"):
+        from plugins.get_video import download_callback_handler
+        await download_callback_handler(client, query)
+        return
+
+    # =============================================
     # 🆕 NEXT / PREVIOUS NAVIGATION
     # =============================================
     if data.startswith("next_") or data.startswith("prev_") or data == "noop":
