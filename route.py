@@ -1,7 +1,5 @@
 from aiohttp import web
 import os
-import re
-import logging
 import tempfile
 import asyncio
 import aiofiles
@@ -17,7 +15,7 @@ routes = web.RouteTableDef()
 
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
-    return web.json_response({"status": "running", "message": "DreamxBotz"})
+    return web.json_response({"status": "running", "message": "PronWaliZoneBot"})
 
 # ============================================================
 # 📥 DIRECT DOWNLOAD ROUTE - PREMIUM USERS ONLY
@@ -46,20 +44,13 @@ async def download_handler(request):
                 status=403
             )
         
-        # ✅ Find file in database
-        file_data = await Media.find_one({"file_id": file_id})
-        if not file_data and MULTIPLE_DB:
-            file_data = await Media2.find_one({"file_id": file_id})
+        # ✅ Check file in database (videos collection)
+        file_data = await db.videos.find_one({"file_id": file_id})
+        if not file_data:
+            file_data = await db.brazzers.find_one({"file_id": file_id})
         
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
-        
-        # ✅ Get file info
-        file_info = await get_file_info(file_id)
-        if file_info:
-            file_name = file_info.get('file_name', f'video_{user_id}.mp4')
-        else:
-            file_name = f'video_{user_id}.mp4'
         
         # ✅ Download file using our custom client
         downloaded_path = await download_file(file_id)
@@ -78,6 +69,9 @@ async def download_handler(request):
         
         # ✅ Cleanup temp file
         cleanup_temp_file(downloaded_path)
+        
+        # ✅ Get file name
+        file_name = f'video_{user_id}.mp4'
         
         # ✅ Create download response
         headers = {
@@ -119,20 +113,13 @@ async def simple_download_handler(request):
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
         
-        # ✅ Find file in database
-        file_data = await Media.find_one({"file_id": file_id})
-        if not file_data and MULTIPLE_DB:
-            file_data = await Media2.find_one({"file_id": file_id})
+        # ✅ Check file in database
+        file_data = await db.videos.find_one({"file_id": file_id})
+        if not file_data:
+            file_data = await db.brazzers.find_one({"file_id": file_id})
         
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
-        
-        # ✅ Get file info
-        file_info = await get_file_info(file_id)
-        if file_info:
-            file_name = file_info.get('file_name', 'video.mp4')
-        else:
-            file_name = 'video.mp4'
         
         # ✅ Download file
         downloaded_path = await download_file(file_id)
@@ -154,7 +141,7 @@ async def simple_download_handler(request):
         
         # ✅ Create download response
         headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"',
+            'Content-Disposition': 'attachment; filename="video.mp4"',
             'Content-Type': 'video/mp4',
             'Content-Length': str(len(file_content)),
             'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -174,36 +161,6 @@ async def simple_download_handler(request):
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
 # ============================================================
-# 🔍 GET FILE INFO ROUTE
-# ============================================================
-@routes.get("/fileinfo/{file_id}")
-async def file_info_handler(request):
-    """
-    Get file information
-    URL: https://yourapp.com/fileinfo/{file_id}
-    """
-    try:
-        file_id = request.match_info.get('file_id')
-        
-        if not file_id:
-            return web.json_response({"error": "Invalid file ID!"}, status=400)
-        
-        # ✅ Get file info
-        file_info = await get_file_info(file_id)
-        
-        if not file_info:
-            return web.json_response({"error": "File not found!"}, status=404)
-        
-        return web.json_response({
-            "status": "success",
-            "data": file_info
-        })
-        
-    except Exception as e:
-        print(f"❌ File info error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
-
-# ============================================================
 # 🧪 TEST ROUTE
 # ============================================================
 @routes.get("/test")
@@ -217,7 +174,6 @@ async def test_handler(request):
         "endpoints": {
             "/d/{file_id}/{user_id}": "Download file (premium only)",
             "/download/{file_id}": "Download file (no auth, testing)",
-            "/fileinfo/{file_id}": "Get file info",
             "/ping": "Ping check"
         }
     })
@@ -233,7 +189,7 @@ async def ping_handler(request):
     return web.json_response({"status": "alive", "timestamp": "ok"})
 
 # ============================================================
-# ❌ CLOSE CLIENT ROUTE (Admin Only)
+# ❌ CLOSE CLIENT ROUTE
 # ============================================================
 @routes.get("/close")
 async def close_handler(request):
@@ -292,11 +248,9 @@ async def check_expired_premium(client):
     """
     Check expired premium users
     """
-    from database.users_db import db
     while True:
         try:
-            import pytz
-            from datetime import datetime, timedelta
+            from datetime import datetime
             
             now = datetime.utcnow()
             expired_users = await db.get_expired(now)
