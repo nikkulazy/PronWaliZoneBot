@@ -1,12 +1,12 @@
 import datetime
 import asyncio
-import random  # ← Add this
+import random
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
 from Script import script
 from database.users_db import db
-from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS  # ← Add PICS
+from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS
 from utils import temp, is_user_joined, get_shortlink
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
@@ -82,9 +82,10 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    
     await asyncio.sleep(30)
     await msg.delete()  
+
+
 # =================================================
 # HELPER HANDLERS
 # =================================================
@@ -125,19 +126,31 @@ async def send_about_text(client, message):
         disable_web_page_preview=True
     )
 
+
 # =========================================================
-# CALLBACK QUERY HANDLER - Main Handler (UPDATED WITH PREV/NEXT)
+# CALLBACK QUERY HANDLER - Main Handler (WITH DEBUGGING)
 # =========================================================
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
+    """Main callback handler with debugging for all callbacks"""
+    
+    # ---------- DEBUGGING LOGS ----------
+    print(f"\n{'='*50}")
+    print(f"🔔 CALLBACK RECEIVED")
+    print(f"📌 Data: {query.data}")
+    print(f"👤 User ID: {query.from_user.id}")
+    print(f"👤 Username: {query.from_user.username}")
+    print(f"{'='*50}\n")
+    
     data = query.data
     user_id = query.from_user.id
     message = query.message
 
     # =============================================
-    # 🆕 DOWNLOAD HANDLER (NEW)
+    # 🆕 DOWNLOAD HANDLER (dld_ - Short ID based)
     # =============================================
-    if data.startswith("download_"):
+    if data.startswith("dld_"):
+        print("✅ Download handler triggered!")
         from plugins.get_video import download_callback_handler
         await download_callback_handler(client, query)
         return
@@ -146,6 +159,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # 🆕 NEXT / PREVIOUS NAVIGATION
     # =============================================
     if data.startswith("next_") or data.startswith("prev_") or data == "noop":
+        print("✅ Navigation handler triggered!")
         from plugins.get_video import video_navigation_callback
         await video_navigation_callback(client, query)
         return
@@ -154,6 +168,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # 🆕 DELETE HANDLER
     # =============================================
     if data.startswith("delete_"):
+        print("✅ Delete handler triggered!")
         from plugins.admin import delete_callback_handler
         await delete_callback_handler(client, query)
         return
@@ -162,6 +177,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # INDEX HANDLER
     # =============================================
     if data.startswith("index"):
+        print("✅ Index handler triggered!")
         from plugins.index import index_files
         await index_files(client, query)
         return
@@ -170,6 +186,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # CLOSE BUTTON
     # =============================================
     if data == "close_data":
+        print("✅ Close handler triggered!")
         await query.message.delete()
         return
 
@@ -177,6 +194,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # GET VIDEO
     # =============================================
     if data == "get_video":
+        print("✅ Get Video handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.get_video import handle_video_request
         fake_msg = message
@@ -189,6 +207,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # GET BRAZZERS
     # =============================================
     if data == "get_brazzers":
+        print("✅ Get Brazzers handler triggered!")
         try:
             await query.answer("⏳ Processing...", show_alert=False)
             from plugins.brazzers import process_brazzers_request
@@ -197,7 +216,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             fake_msg.chat = message.chat
             await process_brazzers_request(client, fake_msg)
         except Exception as e:
-            print(f"Brazzers callback error: {e}")
+            print(f"❌ Brazzers callback error: {e}")
             await query.answer("❌ Error processing request", show_alert=True)
         return
 
@@ -205,6 +224,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # SUBSCRIPTION
     # =============================================
     if data == "get_subscription":
+        print("✅ Subscription handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
         fake_msg = message
@@ -217,6 +237,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # MY PLAN
     # =============================================
     if data == "my_plan":
+        print("✅ My Plan handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
         fake_msg = message
@@ -229,6 +250,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # REFER
     # =============================================
     if data == "refer":
+        print("✅ Refer handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
         fake_msg = message
@@ -241,6 +263,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # HELP
     # =============================================
     if data == "help":
+        print("✅ Help handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -252,6 +275,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # ABOUT
     # =============================================
     if data == "about":
+        print("✅ About handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -263,6 +287,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # GET (Subscription Buy)
     # =============================================
     if data == "get":
+        print("✅ Get (Subscription) handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
@@ -279,17 +304,20 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # PREMIUM APPROVE/REJECT
     # =============================================
     if data.startswith("add_prem_"):
+        print("✅ Premium Approve handler triggered!")
         await approve_payment(client, query)
         return
 
     if data.startswith("reject_pay_"):
+        print("✅ Premium Reject handler triggered!")
         await reject_payment(client, query)
         return
 
     # =============================================
-    # ✅ NEW: MY PLAN FROM CALLBACK (if needed)
+    # MY PLAN FROM CALLBACK
     # =============================================
     if data == "my_plan_callback":
+        print("✅ My Plan Callback handler triggered!")
         await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
         fake_msg = message
@@ -297,3 +325,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         fake_msg.chat = message.chat
         await myplan_handler(client, fake_msg)
         return
+
+    # =============================================
+    # UNKNOWN CALLBACK (Debug)
+    # =============================================
+    print(f"⚠️ UNKNOWN CALLBACK: {data}")
+    await query.answer("⚠️ Unknown command!", show_alert=True)
