@@ -5,11 +5,16 @@ from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE
 import asyncio
 import pytz
+import uuid
 from datetime import datetime
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
 
+
+# ---------- TEMP DOWNLOAD CACHE ----------
+# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers"} }
+DOWNLOAD_CACHE = {}
 
 # ---------- INITIALIZE USER HISTORY ----------
 def init_user_history(user_id, is_brazzers=False):
@@ -124,14 +129,12 @@ async def handle_video_request(client, m: Message):
                 return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎")
             else:
                 if IS_VERIFY:
-                    # ✅ Ensure command attribute exists
                     if not hasattr(m, 'command') or m.command is None:
                         m.command = []
                     
                     verified = await av_x_verification(client, m)
                     if not verified:
                         return
-                    # Recheck after verification
                     limit_data = await check_user_limit(user_id)
                     if limit_data["reached"]:
                         return await m.reply(f"❌ Verified limit reached. Buy premium!")
@@ -174,6 +177,19 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     history = temp.USER_VIDEO_HISTORY[user_id]
     current_idx = history["current_index"]
     
+    # Video type label for caption
+    video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
+    
+    # ✅ Generate UNIQUE SHORT ID for download (instead of using long file_id)
+    download_id = str(uuid.uuid4())[:8]  # 8 character unique ID
+    
+    # ✅ Store file_id in cache with this short ID
+    DOWNLOAD_CACHE[download_id] = {
+        "file_id": video_id,
+        "video_type": "brazzers" if is_brazzers else "video",
+        "user_id": user_id
+    }
+    
     # Build Buttons - Previous + Next + Download + Close
     buttons = []
     
@@ -190,9 +206,9 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row1)
     
-    # ✅ Row 2: Download Button (NEW)
+    # ✅ Row 2: Download Button (using short ID)
     row2 = [
-        InlineKeyboardButton("📥 Download", callback_data=f"download_{video_id}_{'brazzers' if is_brazzers else 'video'}")
+        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
     ]
     buttons.append(row2)
     
@@ -210,6 +226,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         video=video_id,
         protect_content=PROTECT_CONTENT,
         caption=(
+            f"**{video_label}**\n\n"
             f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
             "<blockquote>"
             "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
@@ -229,31 +246,44 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
 
 
 # ---------- DOWNLOAD CALLBACK HANDLER ----------
-@Client.on_callback_query(filters.regex(r"^download_"))
+@Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
     Handle download button clicks - Premium check + Download link generation
+    Uses short ID from cache instead of long file_id
     """
     user_id = query.from_user.id
     
     try:
-        # Parse callback data: download_fileId_videoType
-        data_parts = query.data.split("_")
-        if len(data_parts) < 3:
-            await query.answer("❌ Invalid request!", show_alert=True)
+        # Get download ID from callback
+        download_id = query.data.replace("dld_", "")
+        
+        # ✅ Get file info from cache
+        cache_data = DOWNLOAD_CACHE.get(download_id)
+        
+        if not cache_data:
+            await query.answer(
+                "❌ Download link expired! Please get a new video.",
+                show_alert=True
+            )
             return
         
-        # Extract file_id from callback data
-        # Format: download_fileId_videoType
-        # File ID can contain underscores, so we need to handle carefully
-        file_id = "_".join(data_parts[1:-1])  # Join middle parts as file_id
-        video_type = data_parts[-1]  # Last part is video type (video/brazzers)
+        # Check if this download belongs to this user
+        if cache_data["user_id"] != user_id:
+            await query.answer(
+                "❌ This download link is not for you!",
+                show_alert=True
+            )
+            return
+        
+        file_id = cache_data["file_id"]
+        video_type = cache_data["video_type"]
         
         # ✅ Check if user is premium
         is_premium = await db.has_premium_access(user_id)
         
         if not is_premium:
-            # ❌ Not premium - Only show popup alert (as requested)
+            # ❌ Not premium - Only show popup alert
             await query.answer(
                 "💎 This feature is only for premium users!",
                 show_alert=True
@@ -263,26 +293,24 @@ async def download_callback_handler(client, query: CallbackQuery):
         # ✅ User is premium - Generate download link
         await query.answer("📥 Generating download link...", show_alert=False)
         
-        # Get the file from database
-        if video_type == "brazzers":
-            file_data = await db.brazzers.find_one({"file_id": file_id})
-        else:
-            file_data = await db.videos.find_one({"file_id": file_id})
-        
-        if not file_data:
-            await query.answer("❌ File not found!", show_alert=True)
-            return
+        # Video label
+        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
         
         # Send the file as document for download
         try:
             sent_msg = await client.send_document(
                 chat_id=query.message.chat.id,
-                document=file_data["file_id"],
+                document=file_id,
                 caption=f"📥 **Your download is ready!**\n\n"
+                        f"📂 **Type:** {video_label}\n"
                         f"🔹 _File will auto-delete after 10 minutes_",
                 protect_content=True,
                 reply_to_message_id=query.message.id
             )
+            
+            # ✅ Clean up cache after download
+            if download_id in DOWNLOAD_CACHE:
+                del DOWNLOAD_CACHE[download_id]
             
             # Auto delete after 10 minutes
             asyncio.create_task(auto_delete_message(query.message, sent_msg))
@@ -328,7 +356,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
     limit_data = await check_user_limit(user_id)
     
     if limit_data["reached"]:
-        # Don't show popup, just send message
         await send_limit_message(message, limit_data)
         return
     
@@ -370,16 +397,13 @@ async def video_navigation_callback(client, query: CallbackQuery):
     if action == "next":
         # Check if video exists in history first
         if current_idx + 1 < len(history):
-            # Video already in history - just navigate
             new_idx = current_idx + 1
             video_id = history[new_idx]
             
             await query.answer("⏩ Loading...", show_alert=False)
             
-            # Update current index
             history_data["current_index"] = new_idx
             
-            # Delete old message
             try:
                 await message.delete()
             except Exception:
@@ -401,14 +425,12 @@ async def video_navigation_callback(client, query: CallbackQuery):
         # ---------- GET NEW VIDEO (Not in history) ----------
         await query.answer("⏩ Loading....", show_alert=False)
         
-        # Mark current as seen (only for next)
         current_video = history[current_idx]
         if is_brazzers:
             await db.mark_brazzers_seen(user_id, current_video)
         else:
             await db.mark_seen(user_id, current_video)
 
-        # Get new video
         if is_brazzers:
             new_video = await db.get_unseen_brazzers(user_id)
             if not new_video:
@@ -422,11 +444,9 @@ async def video_navigation_callback(client, query: CallbackQuery):
                 await message.reply("❌ No more videos!")
                 return
 
-        # Add to history
         history.append(new_video)
         history_data["current_index"] = len(history) - 1
 
-        # Delete old message
         try:
             await message.delete()
         except Exception:
