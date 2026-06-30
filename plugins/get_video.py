@@ -2,7 +2,7 @@ from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
-from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE
+from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE, WEB_APP_URL
 import asyncio
 import pytz
 import uuid
@@ -13,7 +13,7 @@ from utils import temp, auto_delete_message, is_user_joined
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
-# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers"} }
+# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
 DOWNLOAD_CACHE = {}
 
 # ---------- INITIALIZE USER HISTORY ----------
@@ -190,6 +190,8 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         "user_id": user_id
     }
     
+    print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
+    
     # Build Buttons - Previous + Next + Download + Close
     buttons = []
     
@@ -245,18 +247,22 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER ----------
+# ---------- DOWNLOAD CALLBACK HANDLER (Web Link Generator) ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
-    Handle download button clicks - Premium check + Download link generation
-    Uses short ID from cache instead of long file_id
+    Handle download button clicks - Premium check + Web Download Link Generation
     """
+    print(f"\n📥 DOWNLOAD CALLBACK RECEIVED")
+    print(f"📌 Data: {query.data}")
+    print(f"👤 User ID: {query.from_user.id}")
+    
     user_id = query.from_user.id
     
     try:
         # Get download ID from callback
         download_id = query.data.replace("dld_", "")
+        print(f"📦 Download ID: {download_id}")
         
         # ✅ Get file info from cache
         cache_data = DOWNLOAD_CACHE.get(download_id)
@@ -290,35 +296,42 @@ async def download_callback_handler(client, query: CallbackQuery):
             )
             return
         
-        # ✅ User is premium - Generate download link
+        # ✅ User is premium - Generate Web Download Link
         await query.answer("📥 Generating download link...", show_alert=False)
         
         # Video label
         video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
         
-        # Send the file as document for download
-        try:
-            sent_msg = await client.send_document(
-                chat_id=query.message.chat.id,
-                document=file_id,
-                caption=f"📥 **Your download is ready!**\n\n"
-                        f"📂 **Type:** {video_label}\n"
-                        f"🔹 _File will auto-delete after 10 minutes_",
-                protect_content=True,
-                reply_to_message_id=query.message.id
-            )
-            
-            # ✅ Clean up cache after download
-            if download_id in DOWNLOAD_CACHE:
-                del DOWNLOAD_CACHE[download_id]
-            
-            # Auto delete after 10 minutes
-            asyncio.create_task(auto_delete_message(query.message, sent_msg))
-            
-        except Exception as e:
-            await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
-            
+        # ✅ Generate Web Download URL
+        web_app_url = WEB_APP_URL.rstrip('/')
+        download_url = f"{web_app_url}/download/{file_id}/{user_id}"
+        
+        print(f"🔗 Download URL generated: {download_url}")
+        
+        # ✅ Send message with download link button
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📥 Click to Download", url=download_url)],
+            [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
+        ])
+        
+        await query.message.reply(
+            f"📥 **Your download is ready!**\n\n"
+            f"📂 **Type:** {video_label}\n"
+            f"🔹 _Click the button below to start download_\n"
+            f"🔹 _Link will expire after 10 minutes_\n\n"
+            f"⚠️ **Note:** This feature is only for premium users!",
+            reply_markup=buttons
+        )
+        
+        # ✅ Clean up cache after download link generation
+        if download_id in DOWNLOAD_CACHE:
+            del DOWNLOAD_CACHE[download_id]
+            print("🗑️ Cache entry deleted")
+        
     except Exception as e:
+        print(f"❌ Download handler error: {e}")
+        import traceback
+        traceback.print_exc()
         await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
 
 
