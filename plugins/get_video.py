@@ -296,16 +296,14 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         # ✅ Send message with download button (Har bar naya message)
         buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📥 Click to Download Video", url=download_url)],
+            [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
             [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
         ])
         
         await query.message.reply(
-            f"📥 **Your download is ready!**\n\n"
-            f"📂 **Type:** {video_label}\n"
-            f"⬇️ Click the button below to start downloading\n"
-            f"💾 File will be saved to your device\n\n"
-            f"⚠️ **Note:** This feature is only for premium users!",
+            f"✅ **Your Downloading Link Generator!**\n\n"
+            f"⬇️ Click The Button Below To Start Downloading\n"
+            f"⚠️ This Feature Is Only For Premium Users!",
             reply_markup=buttons
         )
         
