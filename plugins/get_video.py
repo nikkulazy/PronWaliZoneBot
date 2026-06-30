@@ -174,7 +174,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     history = temp.USER_VIDEO_HISTORY[user_id]
     current_idx = history["current_index"]
     
-    # Build Buttons - Previous + Next + Close
+    # Build Buttons - Previous + Next + Download + Close
     buttons = []
     
     # ✅ Row 1: Previous + Next
@@ -190,11 +190,17 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row1)
     
-    # ✅ Row 2: Close Button
+    # ✅ Row 2: Download Button (NEW)
     row2 = [
-        InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
+        InlineKeyboardButton("📥 Download", callback_data=f"download_{video_id}_{'brazzers' if is_brazzers else 'video'}")
     ]
     buttons.append(row2)
+    
+    # ✅ Row 3: Close Button
+    row3 = [
+        InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
+    ]
+    buttons.append(row3)
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -220,6 +226,72 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         await db.increase_video_count(user_id, username)
 
     asyncio.create_task(auto_delete_message(m, sent))
+
+
+# ---------- DOWNLOAD CALLBACK HANDLER ----------
+@Client.on_callback_query(filters.regex(r"^download_"))
+async def download_callback_handler(client, query: CallbackQuery):
+    """
+    Handle download button clicks - Premium check + Download link generation
+    """
+    user_id = query.from_user.id
+    
+    try:
+        # Parse callback data: download_fileId_videoType
+        data_parts = query.data.split("_")
+        if len(data_parts) < 3:
+            await query.answer("❌ Invalid request!", show_alert=True)
+            return
+        
+        # Extract file_id from callback data
+        # Format: download_fileId_videoType
+        # File ID can contain underscores, so we need to handle carefully
+        file_id = "_".join(data_parts[1:-1])  # Join middle parts as file_id
+        video_type = data_parts[-1]  # Last part is video type (video/brazzers)
+        
+        # ✅ Check if user is premium
+        is_premium = await db.has_premium_access(user_id)
+        
+        if not is_premium:
+            # ❌ Not premium - Only show popup alert (as requested)
+            await query.answer(
+                "💎 This feature is only for premium users!",
+                show_alert=True
+            )
+            return
+        
+        # ✅ User is premium - Generate download link
+        await query.answer("📥 Generating download link...", show_alert=False)
+        
+        # Get the file from database
+        if video_type == "brazzers":
+            file_data = await db.brazzers.find_one({"file_id": file_id})
+        else:
+            file_data = await db.videos.find_one({"file_id": file_id})
+        
+        if not file_data:
+            await query.answer("❌ File not found!", show_alert=True)
+            return
+        
+        # Send the file as document for download
+        try:
+            sent_msg = await client.send_document(
+                chat_id=query.message.chat.id,
+                document=file_data["file_id"],
+                caption=f"📥 **Your download is ready!**\n\n"
+                        f"🔹 _File will auto-delete after 10 minutes_",
+                protect_content=True,
+                reply_to_message_id=query.message.id
+            )
+            
+            # Auto delete after 10 minutes
+            asyncio.create_task(auto_delete_message(query.message, sent_msg))
+            
+        except Exception as e:
+            await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
+            
+    except Exception as e:
+        await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
 
 
 # ---------- CALLBACK HANDLER FOR NEXT / PREVIOUS ----------
