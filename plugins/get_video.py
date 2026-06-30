@@ -10,7 +10,7 @@ from datetime import datetime
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
-
+from info import WEB_APP_URL
 
 # ---------- TEMP DOWNLOAD CACHE ----------
 # { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
@@ -246,12 +246,11 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
 
     asyncio.create_task(auto_delete_message(m, sent))
 
-
-# ---------- DOWNLOAD CALLBACK HANDLER (Web Link Generator) ----------
+# ---------- DOWNLOAD CALLBACK HANDLER (Direct Web Download) ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
-    Handle download button clicks - Premium check + Web Download Link Generation
+    Handle download button clicks - Premium check + Direct Web Download Link
     """
     print(f"\n📥 DOWNLOAD CALLBACK RECEIVED")
     print(f"📌 Data: {query.data}")
@@ -289,36 +288,36 @@ async def download_callback_handler(client, query: CallbackQuery):
         is_premium = await db.has_premium_access(user_id)
         
         if not is_premium:
-            # ❌ Not premium - Only show popup alert
             await query.answer(
                 "💎 This feature is only for premium users!",
                 show_alert=True
             )
             return
         
-        # ✅ User is premium - Generate Web Download Link
+        # ✅ User is premium - Generate Direct Web Download URL
         await query.answer("📥 Generating download link...", show_alert=False)
         
         # Video label
         video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
         
-        # ✅ Generate Web Download URL
+        # ✅ Generate Web Download URL (Direct Download from Server)
         web_app_url = WEB_APP_URL.rstrip('/')
-        download_url = f"{web_app_url}/download/{file_id}/{user_id}"
+        download_url = f"{web_app_url}/download_stream/{file_id}/{user_id}"
+        # OR use simple download: f"{web_app_url}/download/{file_id}/{user_id}"
         
-        print(f"🔗 Download URL generated: {download_url}")
+        print(f"🔗 Direct Download URL generated: {download_url}")
         
-        # ✅ Send message with download link button
+        # ✅ Send message with direct download link
         buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📥 Click to Download", url=download_url)],
+            [InlineKeyboardButton("📥 Click to Download Video", url=download_url)],
             [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
         ])
         
         await query.message.reply(
             f"📥 **Your download is ready!**\n\n"
             f"📂 **Type:** {video_label}\n"
-            f"🔹 _Click the button below to start download_\n"
-            f"🔹 _Link will expire after 10 minutes_\n\n"
+            f"⬇️ Click the button below to start downloading\n"
+            f"💾 File will be saved to your device storage\n\n"
             f"⚠️ **Note:** This feature is only for premium users!",
             reply_markup=buttons
         )
