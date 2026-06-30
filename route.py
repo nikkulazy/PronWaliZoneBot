@@ -7,6 +7,7 @@ from aiohttp import web
 from datetime import datetime, timedelta
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import aiofiles
 
 # Import your database and config
 from database.users_db import db
@@ -27,12 +28,12 @@ async def root_route_handler(request):
     return web.json_response({"status": "running", "message": "Made with Aman Kumar"})
 
 # ============================================================
-# 📥 DOWNLOAD ROUTE - Video Download Link Generator
+# 📥 DIRECT DOWNLOAD ROUTE - File Download from Server
 # ============================================================
 @routes.get("/download/{file_id}/{user_id}")
 async def download_file_with_user_handler(request):
     """
-    Handle download requests with user verification
+    Direct file download from server
     URL format: https://your-domain.com/download/{file_id}/{user_id}
     """
     try:
@@ -61,21 +62,36 @@ async def download_file_with_user_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Generate Telegram file download URL
+        # ✅ Get file from Telegram and stream to user
         try:
-            # Get bot username
-            bot_username = temp.U_NAME
-            if not bot_username:
-                bot_username = "PronWaliZoneBot"  # Fallback
+            # Get bot client
+            from bot import Bot
+            client = Bot()
             
-            # Create download link using start parameter
-            download_url = f"https://t.me/{bot_username}?start=avx-{file_data['file_unique_id']}"
+            # Download file from Telegram to memory
+            file_path = await client.download_media(file_id, in_memory=True)
             
-            # Redirect to Telegram download
-            return web.HTTPFound(download_url)
+            if not file_path:
+                return web.Response(text="❌ Failed to download file from Telegram!", status=500)
+            
+            # Get file size
+            file_size = os.path.getsize(file_path)
+            
+            # Set headers for download
+            headers = {
+                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
+                'Content-Type': 'video/mp4',
+                'Content-Length': str(file_size)
+            }
+            
+            # Stream file to user
+            return web.FileResponse(
+                path=file_path,
+                headers=headers
+            )
             
         except Exception as e:
-            print(f"❌ Error generating download: {e}")
+            print(f"❌ Error serving file: {e}")
             return web.Response(text=f"❌ Error: {str(e)}", status=500)
         
     except Exception as e:
@@ -84,16 +100,29 @@ async def download_file_with_user_handler(request):
         traceback.print_exc()
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
-@routes.get("/download/{file_id}")
-async def download_file_handler(request):
+# ============================================================
+# 📥 ALTERNATIVE - Direct Download with Range Support
+# ============================================================
+@routes.get("/download_stream/{file_id}/{user_id}")
+async def download_file_stream_handler(request):
     """
-    Simple download handler (without user verification)
+    Stream file with range support (for large files)
     """
     try:
         file_id = request.match_info.get('file_id')
+        user_id = int(request.match_info.get('user_id'))
         
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
+        
+        # ✅ Verify user is premium
+        is_premium = await db.has_premium_access(user_id)
+        
+        if not is_premium:
+            return web.Response(
+                text="💎 This feature is only for premium users!",
+                status=403
+            )
         
         # Get file from database
         file_data = await db.videos.find_one({"file_id": file_id})
@@ -103,16 +132,66 @@ async def download_file_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # Get bot username
-        bot_username = temp.U_NAME
-        if not bot_username:
-            bot_username = "PronWaliZoneBot"
+        # Download file from Telegram
+        from bot import Bot
+        client = Bot()
+        file_path = await client.download_media(file_id, in_memory=True)
         
-        download_url = f"https://t.me/{bot_username}?start=avx-{file_data['file_unique_id']}"
-        return web.HTTPFound(download_url)
+        if not file_path:
+            return web.Response(text="❌ Failed to download file!", status=500)
+        
+        # Get file size
+        file_size = os.path.getsize(file_path)
+        
+        # Check range header
+        range_header = request.headers.get('Range')
+        
+        if range_header:
+            # Parse range
+            range_value = range_header.replace('bytes=', '').split('-')
+            start = int(range_value[0]) if range_value[0] else 0
+            end = int(range_value[1]) if range_value[1] else file_size - 1
+            
+            # Adjust range
+            if start >= file_size:
+                return web.Response(status=416)  # Range not satisfiable
+            
+            end = min(end, file_size - 1)
+            length = end - start + 1
+            
+            # Read partial file
+            with open(file_path, 'rb') as f:
+                f.seek(start)
+                data = f.read(length)
+            
+            headers = {
+                'Content-Range': f'bytes {start}-{end}/{file_size}',
+                'Content-Length': str(length),
+                'Content-Type': 'video/mp4',
+                'Accept-Ranges': 'bytes'
+            }
+            
+            return web.Response(
+                body=data,
+                status=206,
+                headers=headers
+            )
+        else:
+            # Full file
+            headers = {
+                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
+                'Content-Type': 'video/mp4',
+                'Content-Length': str(file_size),
+                'Accept-Ranges': 'bytes'
+            }
+            
+            return web.FileResponse(
+                path=file_path,
+                headers=headers
+            )
         
     except Exception as e:
-        print(f"❌ Download error: {e}")
+        print(f"❌ Stream error: {e}")
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
 async def web_server():
@@ -150,19 +229,13 @@ async def check_expired_premium(client):
         try:
             now = datetime.utcnow()
 
-            # 1. Handle Expired Users
             expired_users = await db.get_expired(now)
             for user in expired_users:
                 user_id = user["id"]
-
-                # Remove premium status
                 await db.remove_premium_access(user_id)
-
-                # Unset reminder flags in DB
                 unset_flags = {f"reminder_{label}_sent": "" for label, _ in REMINDER_TIMES}
                 await db.users.update_one({"id": user_id}, {"$unset": unset_flags})
 
-                # Notify User & Log
                 try:
                     tg_user = await client.get_users(user_id)
                     await client.send_message(
@@ -178,7 +251,6 @@ async def check_expired_premium(client):
 
                 await asyncio.sleep(0.5)
 
-            # 2. Handle Reminders (Expiring Soon)
             for label, delta in REMINDER_TIMES:
                 reminder_users = await db.get_expiring_soon(label, delta)
                 for user in reminder_users:
@@ -201,7 +273,6 @@ async def check_expired_premium(client):
         except Exception as e:
             print(f"[PREMIUM CHECK LOOP ERROR] {e}")
         
-        # Check every minute
         await asyncio.sleep(60)
 
 # --- AUTOMATIC DAILY REPORT ---
@@ -218,16 +289,13 @@ async def auto_daily_report(client):
         username = user.get("username")
         username_display = f"@{username}" if username else "N/A"
 
-        # -------- USAGE --------
         used = await db.get_video_count(user_id) or 0
         if used == 0:
             continue
 
-        # -------- STATUS CHECK --------
         is_premium = await db.has_premium_access(user_id)
         is_verified = await db.is_user_verified(user_id)
 
-        # -------- LIMIT LOGIC --------
         if is_premium:
             daily_limit = PREMIUM_DAILY_LIMIT
             subscription_type = "Paid"
@@ -239,10 +307,8 @@ async def auto_daily_report(client):
             subscription_type = "Free"
 
         remaining = max(daily_limit - used, 0)
-
         total_files_used += used
 
-        # -------- FORMAT ENTRY (same style) --------
         user_entry = (
             f"👤 User: {username_display} ({user_id})\n"
             f"╰ 💠 Plan: {subscription_type}\n"
@@ -252,7 +318,6 @@ async def auto_daily_report(client):
         report_list.append(user_entry)
         active_users_count += 1
 
-    # -------- REPORT SUMMARY --------
     today_date = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y")
 
     summary_text = (
@@ -263,7 +328,6 @@ async def auto_daily_report(client):
 
     chat_id = LOG_CHANNEL
 
-    # -------- SEND REPORT --------
     if active_users_count > 10:
         file_path = f"Daily_Report_{today_date}.txt"
 
