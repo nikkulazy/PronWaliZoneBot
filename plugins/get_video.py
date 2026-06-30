@@ -10,7 +10,7 @@ from datetime import datetime
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
-from info import WEB_APP_URL
+
 
 # ---------- TEMP DOWNLOAD CACHE ----------
 # { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
@@ -180,8 +180,8 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     # Video type label for caption
     video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
     
-    # ✅ Generate UNIQUE SHORT ID for download (instead of using long file_id)
-    download_id = str(uuid.uuid4())[:8]  # 8 character unique ID
+    # ✅ Generate UNIQUE SHORT ID for download
+    download_id = str(uuid.uuid4())[:8]
     
     # ✅ Store file_id in cache with this short ID
     DOWNLOAD_CACHE[download_id] = {
@@ -198,17 +198,15 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     # ✅ Row 1: Previous + Next
     row1 = []
     
-    # ✅ Previous button
     if current_idx > 0:
         row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
     else:
         row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
     
-    # ✅ Next button
     row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row1)
     
-    # ✅ Row 2: Download Button (using short ID)
+    # ✅ Row 2: Download Button
     row2 = [
         InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
     ]
@@ -246,23 +244,19 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
 
     asyncio.create_task(auto_delete_message(m, sent))
 
-# ---------- DOWNLOAD CALLBACK HANDLER (Direct Web Download) ----------
-# ---------- DOWNLOAD CALLBACK HANDLER ----------
+
+# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Har bar naya link) ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
-    Handle download button clicks - Premium check + Web Download Link
+    Handle download button clicks - Premium check + Download Link
+    Har bar click karne par naya link generate hoga
+    Popup alert nahi aayega (auto-delete hata diya)
     """
-    print(f"\n📥 DOWNLOAD CALLBACK RECEIVED")
-    print(f"📌 Data: {query.data}")
-    print(f"👤 User ID: {query.from_user.id}")
-    
     user_id = query.from_user.id
     
     try:
         download_id = query.data.replace("dld_", "")
-        print(f"📦 Download ID: {download_id}")
-        
         cache_data = DOWNLOAD_CACHE.get(download_id)
         
         if not cache_data:
@@ -292,18 +286,15 @@ async def download_callback_handler(client, query: CallbackQuery):
             )
             return
         
-        # ✅ User is premium - Generate Download URL
-        await query.answer("📥 Generating download link...", show_alert=False)
-        
-        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
-        
-        # ✅ Generate Web Download URL (Using /d/ for short URL)
+        # ✅ Generate NEW Download URL (Har bar naya)
         web_app_url = WEB_APP_URL.rstrip('/')
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
         
-        print(f"🔗 Download URL: {download_url}")
+        print(f"🔗 New Download URL generated: {download_url}")
         
-        # ✅ Send message with download button
+        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
+        
+        # ✅ Send message with download button (Har bar naya message)
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton("📥 Click to Download Video", url=download_url)],
             [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
@@ -318,9 +309,11 @@ async def download_callback_handler(client, query: CallbackQuery):
             reply_markup=buttons
         )
         
-        if download_id in DOWNLOAD_CACHE:
-            del DOWNLOAD_CACHE[download_id]
-            print("🗑️ Cache entry deleted")
+        # ✅ Cache delete mat karo - taaki dobara click karne par kaam kare
+        # Cache ko delete nahi karenge, taaki user dobara click kar sake
+        
+        # ✅ Popup alert nahi dikhega (show_alert=False)
+        await query.answer("✅ Download link generated!", show_alert=False)
         
     except Exception as e:
         print(f"❌ Download handler error: {e}")
