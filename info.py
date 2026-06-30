@@ -101,4 +101,4 @@ PICS = [
 # =========================================================
 # 🌐 WEB APP
 # =========================================================
-WEB_APP_URL = environ.get("WEB_APP_URL", "https://protestant-lulu-misslazy-c67202fa.koyeb.app/")
+WEB_APP_URL = environ.get("WEB_APP_URL", "protestant-lulu-misslazy-c67202fa.koyeb.app/")
