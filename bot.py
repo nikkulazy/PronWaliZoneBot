@@ -1,3 +1,4 @@
+# bot.py ke top mein add karein
 import os
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
@@ -6,6 +7,9 @@ from route import web_server, ping_server, check_expired_premium, start_schedule
 import pytz
 from datetime import date, datetime
 from utils import temp 
+
+# Global bot instance for route.py
+bot_instance = None
 
 class Bot(Client):
     def __init__(self):
@@ -21,6 +25,9 @@ class Bot(Client):
         )
 
     async def start(self):
+        global bot_instance
+        bot_instance = self
+        
         await super().start()
         me = await self.get_me()
         temp.ME = me.id
@@ -52,8 +59,6 @@ class Bot(Client):
         # --- BACKGROUND TASKS ---
         self.loop.create_task(check_expired_premium(self))
         self.loop.create_task(start_scheduler(self))
-        
-        # ✅ FIX: Removed 'self' from ping_server()
         self.loop.create_task(ping_server()) 
         
         app_instance = await web_server()
@@ -97,4 +102,3 @@ class Bot(Client):
 
 if __name__ == "__main__":
     Bot().run()
-    
