@@ -7,7 +7,6 @@ from aiohttp import web
 from datetime import datetime, timedelta
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import aiofiles
 import tempfile
 
 # Import your database and config
@@ -39,13 +38,13 @@ async def root_route_handler(request):
     return web.json_response({"status": "running", "message": "Made with Aman Kumar"})
 
 # ============================================================
-# 📥 DIRECT DOWNLOAD ROUTE - File Download from Server
+# 📥 DIRECT DOWNLOAD ROUTE - Simple Download
 # ============================================================
-@routes.get("/download/{file_id}/{user_id}")
-async def download_file_with_user_handler(request):
+@routes.get("/d/{file_id}/{user_id}")
+async def download_file_handler(request):
     """
-    Direct file download from server
-    URL format: https://your-domain.com/download/{file_id}/{user_id}
+    Simple download handler
+    URL: https://your-domain.com/d/{file_id}/{user_id}
     """
     try:
         file_id = request.match_info.get('file_id')
@@ -73,29 +72,79 @@ async def download_file_with_user_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Use the global bot client to download file
+        # ✅ Redirect to Telegram download (Simple & Fast)
+        bot_username = temp.U_NAME
+        if not bot_username:
+            bot_username = "PronWaliZoneBot"
+        
+        download_url = f"https://t.me/{bot_username}?start=avx-{file_data['file_unique_id']}"
+        
+        # ✅ Redirect user to Telegram download
+        print(f"🔄 Redirecting to: {download_url}")
+        return web.HTTPFound(download_url)
+        
+    except Exception as e:
+        print(f"❌ Download error: {e}")
+        import traceback
+        traceback.print_exc()
+        return web.Response(text=f"❌ Error: {str(e)}", status=500)
+
+# ============================================================
+# 📥 ALTERNATIVE: Direct File Download from Server
+# ============================================================
+@routes.get("/download/{file_id}/{user_id}")
+async def download_file_with_user_handler(request):
+    """
+    Direct file download from server
+    URL: https://your-domain.com/download/{file_id}/{user_id}
+    """
+    try:
+        file_id = request.match_info.get('file_id')
+        user_id = int(request.match_info.get('user_id'))
+        
+        print(f"📥 Download request: file_id={file_id[:30]}..., user_id={user_id}")
+        
+        if not file_id:
+            return web.Response(text="❌ Invalid file ID!", status=400)
+        
+        # ✅ Verify user is premium
+        is_premium = await db.has_premium_access(user_id)
+        
+        if not is_premium:
+            return web.Response(
+                text="💎 This feature is only for premium users!",
+                status=403
+            )
+        
+        # Get file from database
+        file_data = await db.videos.find_one({"file_id": file_id})
+        if not file_data:
+            file_data = await db.brazzers.find_one({"file_id": file_id})
+        
+        if not file_data:
+            return web.Response(text="❌ File not found!", status=404)
+        
+        # ✅ Get file from Telegram and serve
         global bot_client
         
         if not bot_client:
-            # Create a new bot client if not available
+            # Create temporary bot client
             from pyrogram import Client
             bot_client = Client(
                 name="download_bot",
                 api_id=API_ID,
                 api_hash=API_HASH,
-                bot_token=BOT_TOKEN
+                bot_token=BOT_TOKEN,
+                in_memory=True
             )
             await bot_client.start()
             print("✅ Bot client started for download")
         
         try:
-            # Download file to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
-                temp_path = tmp_file.name
+            # Download file to temp
+            temp_path = tempfile.mktemp(suffix='.mp4')
             
-            print(f"📥 Downloading file from Telegram to: {temp_path}")
-            
-            # Download the file
+            print(f"📥 Downloading from Telegram...")
             downloaded_path = await bot_client.download_media(
                 message=file_id,
                 file_name=temp_path
@@ -103,30 +152,28 @@ async def download_file_with_user_handler(request):
             
             if not downloaded_path or not os.path.exists(downloaded_path):
                 print("❌ Failed to download file from Telegram!")
-                return web.Response(text="❌ Failed to download file from Telegram!", status=500)
+                return web.Response(text="❌ Failed to download file!", status=500)
             
             file_size = os.path.getsize(downloaded_path)
-            print(f"✅ File downloaded successfully! Size: {file_size} bytes")
+            print(f"✅ File downloaded! Size: {file_size} bytes")
             
-            # Get file extension from file_id or default to mp4
-            file_ext = '.mp4'
-            
-            # Set headers for download
-            headers = {
-                'Content-Disposition': f'attachment; filename="video_{user_id}{file_ext}"',
-                'Content-Type': 'video/mp4',
-                'Content-Length': str(file_size)
-            }
-            
-            # Read file content
+            # Read file
             with open(downloaded_path, 'rb') as f:
                 file_content = f.read()
             
-            # Clean up temp file
+            # Clean up
             try:
                 os.remove(downloaded_path)
             except:
                 pass
+            
+            # Create response with download headers
+            headers = {
+                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
+                'Content-Type': 'video/mp4',
+                'Content-Length': str(len(file_content)),
+                'Cache-Control': 'no-cache'
+            }
             
             return web.Response(
                 body=file_content,
@@ -150,13 +197,13 @@ async def web_server():
     web_app.add_routes(routes)
     return web_app
 
-# --- SERVER PINGER (To keep bot alive) ---
+# --- SERVER PINGER ---
 async def ping_server():
     if not WEB_APP_URL:
         logging.warning("WEB_APP_URL not found. Pinger disabled.")
         return
 
-    sleep_time = 600  # Ping every 10 minutes
+    sleep_time = 600
     while True:
         await asyncio.sleep(sleep_time)
         try:
