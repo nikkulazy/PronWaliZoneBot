@@ -18,12 +18,102 @@ from info import (
     WEB_APP_URL,
     VERIFICATION_DAILY_LIMIT
 )
+from utils import temp
 
 routes = web.RouteTableDef()
 
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
-    return web.json_response("Made with Aman Kumar")
+    return web.json_response({"status": "running", "message": "Made with Aman Kumar"})
+
+# ============================================================
+# 📥 DOWNLOAD ROUTE - Video Download Link Generator
+# ============================================================
+@routes.get("/download/{file_id}/{user_id}")
+async def download_file_with_user_handler(request):
+    """
+    Handle download requests with user verification
+    URL format: https://your-domain.com/download/{file_id}/{user_id}
+    """
+    try:
+        file_id = request.match_info.get('file_id')
+        user_id = int(request.match_info.get('user_id'))
+        
+        print(f"📥 Download request: file_id={file_id[:30]}..., user_id={user_id}")
+        
+        if not file_id:
+            return web.Response(text="❌ Invalid file ID!", status=400)
+        
+        # ✅ Verify user is premium
+        is_premium = await db.has_premium_access(user_id)
+        
+        if not is_premium:
+            return web.Response(
+                text="💎 This feature is only for premium users!",
+                status=403
+            )
+        
+        # Get file from database
+        file_data = await db.videos.find_one({"file_id": file_id})
+        if not file_data:
+            file_data = await db.brazzers.find_one({"file_id": file_id})
+        
+        if not file_data:
+            return web.Response(text="❌ File not found!", status=404)
+        
+        # ✅ Generate Telegram file download URL
+        try:
+            # Get bot username
+            bot_username = temp.U_NAME
+            if not bot_username:
+                bot_username = "PronWaliZoneBot"  # Fallback
+            
+            # Create download link using start parameter
+            download_url = f"https://t.me/{bot_username}?start=avx-{file_data['file_unique_id']}"
+            
+            # Redirect to Telegram download
+            return web.HTTPFound(download_url)
+            
+        except Exception as e:
+            print(f"❌ Error generating download: {e}")
+            return web.Response(text=f"❌ Error: {str(e)}", status=500)
+        
+    except Exception as e:
+        print(f"❌ Download error: {e}")
+        import traceback
+        traceback.print_exc()
+        return web.Response(text=f"❌ Error: {str(e)}", status=500)
+
+@routes.get("/download/{file_id}")
+async def download_file_handler(request):
+    """
+    Simple download handler (without user verification)
+    """
+    try:
+        file_id = request.match_info.get('file_id')
+        
+        if not file_id:
+            return web.Response(text="❌ Invalid file ID!", status=400)
+        
+        # Get file from database
+        file_data = await db.videos.find_one({"file_id": file_id})
+        if not file_data:
+            file_data = await db.brazzers.find_one({"file_id": file_id})
+        
+        if not file_data:
+            return web.Response(text="❌ File not found!", status=404)
+        
+        # Get bot username
+        bot_username = temp.U_NAME
+        if not bot_username:
+            bot_username = "PronWaliZoneBot"
+        
+        download_url = f"https://t.me/{bot_username}?start=avx-{file_data['file_unique_id']}"
+        return web.HTTPFound(download_url)
+        
+    except Exception as e:
+        print(f"❌ Download error: {e}")
+        return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
 async def web_server():
     web_app = web.Application(client_max_size=30000000)
@@ -231,4 +321,3 @@ async def start_scheduler(client):
     )
     scheduler.start()
     print("⏰ Daily Report Scheduler Started (11:59 PM IST)")
-        
