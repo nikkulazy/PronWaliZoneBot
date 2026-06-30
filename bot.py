@@ -1,15 +1,11 @@
-# bot.py ke top mein add karein
 import os
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
 from aiohttp import web
-from route import web_server, ping_server, check_expired_premium, start_scheduler 
+from route import web_server, ping_server, check_expired_premium, start_scheduler, set_bot_client
 import pytz
 from datetime import date, datetime
 from utils import temp 
-
-# Global bot instance for route.py
-bot_instance = None
 
 class Bot(Client):
     def __init__(self):
@@ -25,9 +21,6 @@ class Bot(Client):
         )
 
     async def start(self):
-        global bot_instance
-        bot_instance = self
-        
         await super().start()
         me = await self.get_me()
         temp.ME = me.id
@@ -35,6 +28,9 @@ class Bot(Client):
         temp.B_NAME = me.first_name
         temp.B_LINK = me.mention
         self.username = '@' + me.username
+
+        # ✅ Set bot client for route.py
+        set_bot_client(self)
 
         # ----------------- PLUGINS PRINTING LOGIC -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
