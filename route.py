@@ -1,190 +1,101 @@
-import os
-import logging
-import traceback
-import asyncio
-import aiohttp
 from aiohttp import web
-from datetime import datetime, timedelta
-import pytz
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import os
+import re
+import logging
 import tempfile
+import asyncio
+import aiofiles
+from info import *
+from database.users_chats_db import db
+from database.ia_filterdb import Media, Media2
+from download_client import download_file, cleanup_temp_file, get_file_info, close_client
 
-# Import your database and config
-from database.users_db import db
-from info import (
-    PREMIUM_LOGS, 
-    LOG_CHANNEL, 
-    PREMIUM_DAILY_LIMIT, 
-    DAILY_LIMIT,
-    WEB_APP_URL,
-    VERIFICATION_DAILY_LIMIT,
-    API_ID,
-    API_HASH,
-    BOT_TOKEN
-)
-from utils import temp
-
-# Global bot instance
-bot_client = None
-
-def set_bot_client(client):
-    global bot_client
-    bot_client = client
+# ============================================================
+# ROUTES
+# ============================================================
 
 routes = web.RouteTableDef()
 
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
-    return web.json_response({"status": "running", "message": "Made with Aman Kumar"})
+    return web.json_response({"status": "running", "message": "DreamxBotz"})
 
 # ============================================================
-# 📥 DIRECT DOWNLOAD ROUTE - Simple Download
+# 📥 DIRECT DOWNLOAD ROUTE - PREMIUM USERS ONLY
 # ============================================================
 @routes.get("/d/{file_id}/{user_id}")
-async def download_file_handler(request):
-    """
-    Simple download handler
-    URL: https://your-domain.com/d/{file_id}/{user_id}
-    """
-    try:
-        file_id = request.match_info.get('file_id')
-        user_id = int(request.match_info.get('user_id'))
-        
-        print(f"📥 Download request: file_id={file_id[:30]}..., user_id={user_id}")
-        
-        if not file_id:
-            return web.Response(text="❌ Invalid file ID!", status=400)
-        
-        # ✅ Verify user is premium
-        is_premium = await db.has_premium_access(user_id)
-        
-        if not is_premium:
-            return web.Response(
-                text="💎 This feature is only for premium users!",
-                status=403
-            )
-        
-        # Get file from database
-        file_data = await db.videos.find_one({"file_id": file_id})
-        if not file_data:
-            file_data = await db.brazzers.find_one({"file_id": file_id})
-        
-        if not file_data:
-            return web.Response(text="❌ File not found!", status=404)
-        
-        # ✅ Redirect to Telegram download (Simple & Fast)
-        bot_username = temp.U_NAME
-        if not bot_username:
-            bot_username = "PronWaliZoneBot"
-        
-        download_url = f"https://t.me/{bot_username}?start=avx-{file_data['file_unique_id']}"
-        
-        # ✅ Redirect user to Telegram download
-        print(f"🔄 Redirecting to: {download_url}")
-        return web.HTTPFound(download_url)
-        
-    except Exception as e:
-        print(f"❌ Download error: {e}")
-        import traceback
-        traceback.print_exc()
-        return web.Response(text=f"❌ Error: {str(e)}", status=500)
-
-# ============================================================
-# 📥 ALTERNATIVE: Direct File Download from Server
-# ============================================================
-@routes.get("/download/{file_id}/{user_id}")
-async def download_file_with_user_handler(request):
+async def download_handler(request):
     """
     Direct file download from server
-    URL: https://your-domain.com/download/{file_id}/{user_id}
+    URL: https://yourapp.com/d/{file_id}/{user_id}
+    Only for premium users
     """
     try:
         file_id = request.match_info.get('file_id')
         user_id = int(request.match_info.get('user_id'))
         
-        print(f"📥 Download request: file_id={file_id[:30]}..., user_id={user_id}")
+        print(f"📥 Download Request: file_id={file_id[:30]}..., user_id={user_id}")
         
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
         
-        # ✅ Verify user is premium
+        # ✅ Premium Check
         is_premium = await db.has_premium_access(user_id)
-        
         if not is_premium:
             return web.Response(
                 text="💎 This feature is only for premium users!",
                 status=403
             )
         
-        # Get file from database
-        file_data = await db.videos.find_one({"file_id": file_id})
-        if not file_data:
-            file_data = await db.brazzers.find_one({"file_id": file_id})
+        # ✅ Find file in database
+        file_data = await Media.find_one({"file_id": file_id})
+        if not file_data and MULTIPLE_DB:
+            file_data = await Media2.find_one({"file_id": file_id})
         
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Get file from Telegram and serve
-        global bot_client
+        # ✅ Get file info
+        file_info = await get_file_info(file_id)
+        if file_info:
+            file_name = file_info.get('file_name', f'video_{user_id}.mp4')
+        else:
+            file_name = f'video_{user_id}.mp4'
         
-        if not bot_client:
-            # Create temporary bot client
-            from pyrogram import Client
-            bot_client = Client(
-                name="download_bot",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                bot_token=BOT_TOKEN,
-                in_memory=True
-            )
-            await bot_client.start()
-            print("✅ Bot client started for download")
+        # ✅ Download file using our custom client
+        downloaded_path = await download_file(file_id)
         
+        if not downloaded_path:
+            return web.Response(text="❌ Failed to download file from Telegram!", status=500)
+        
+        # ✅ Read file content
         try:
-            # Download file to temp
-            temp_path = tempfile.mktemp(suffix='.mp4')
-            
-            print(f"📥 Downloading from Telegram...")
-            downloaded_path = await bot_client.download_media(
-                message=file_id,
-                file_name=temp_path
-            )
-            
-            if not downloaded_path or not os.path.exists(downloaded_path):
-                print("❌ Failed to download file from Telegram!")
-                return web.Response(text="❌ Failed to download file!", status=500)
-            
-            file_size = os.path.getsize(downloaded_path)
-            print(f"✅ File downloaded! Size: {file_size} bytes")
-            
-            # Read file
-            with open(downloaded_path, 'rb') as f:
-                file_content = f.read()
-            
-            # Clean up
-            try:
-                os.remove(downloaded_path)
-            except:
-                pass
-            
-            # Create response with download headers
-            headers = {
-                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
-                'Content-Type': 'video/mp4',
-                'Content-Length': str(len(file_content)),
-                'Cache-Control': 'no-cache'
-            }
-            
-            return web.Response(
-                body=file_content,
-                headers=headers
-            )
-            
+            async with aiofiles.open(downloaded_path, 'rb') as f:
+                file_content = await f.read()
         except Exception as e:
-            print(f"❌ Error downloading file: {e}")
-            import traceback
-            traceback.print_exc()
-            return web.Response(text=f"❌ Error: {str(e)}", status=500)
+            print(f"❌ Error reading file: {e}")
+            cleanup_temp_file(downloaded_path)
+            return web.Response(text="❌ Error reading file!", status=500)
+        
+        # ✅ Cleanup temp file
+        cleanup_temp_file(downloaded_path)
+        
+        # ✅ Create download response
+        headers = {
+            'Content-Disposition': f'attachment; filename="{file_name}"',
+            'Content-Type': 'video/mp4',
+            'Content-Length': str(len(file_content)),
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+        
+        print(f"✅ Sending file... Size: {len(file_content)} bytes")
+        
+        return web.Response(
+            body=file_content,
+            headers=headers
+        )
         
     except Exception as e:
         print(f"❌ Download error: {e}")
@@ -192,194 +103,168 @@ async def download_file_with_user_handler(request):
         traceback.print_exc()
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
+# ============================================================
+# 📥 SIMPLE DOWNLOAD ROUTE (Without User ID - For Testing)
+# ============================================================
+@routes.get("/download/{file_id}")
+async def simple_download_handler(request):
+    """
+    Simple download without user verification (Testing only)
+    URL: https://yourapp.com/download/{file_id}
+    """
+    try:
+        file_id = request.match_info.get('file_id')
+        
+        print(f"📥 Simple Download Request: file_id={file_id[:30]}...")
+        
+        if not file_id:
+            return web.Response(text="❌ Invalid file ID!", status=400)
+        
+        # ✅ Find file in database
+        file_data = await Media.find_one({"file_id": file_id})
+        if not file_data and MULTIPLE_DB:
+            file_data = await Media2.find_one({"file_id": file_id})
+        
+        if not file_data:
+            return web.Response(text="❌ File not found!", status=404)
+        
+        # ✅ Get file info
+        file_info = await get_file_info(file_id)
+        if file_info:
+            file_name = file_info.get('file_name', 'video.mp4')
+        else:
+            file_name = 'video.mp4'
+        
+        # ✅ Download file
+        downloaded_path = await download_file(file_id)
+        
+        if not downloaded_path:
+            return web.Response(text="❌ Failed to download file from Telegram!", status=500)
+        
+        # ✅ Read file content
+        try:
+            async with aiofiles.open(downloaded_path, 'rb') as f:
+                file_content = await f.read()
+        except Exception as e:
+            print(f"❌ Error reading file: {e}")
+            cleanup_temp_file(downloaded_path)
+            return web.Response(text="❌ Error reading file!", status=500)
+        
+        # ✅ Cleanup temp file
+        cleanup_temp_file(downloaded_path)
+        
+        # ✅ Create download response
+        headers = {
+            'Content-Disposition': f'attachment; filename="{file_name}"',
+            'Content-Type': 'video/mp4',
+            'Content-Length': str(len(file_content)),
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+        
+        print(f"✅ Sending file... Size: {len(file_content)} bytes")
+        
+        return web.Response(
+            body=file_content,
+            headers=headers
+        )
+        
+    except Exception as e:
+        print(f"❌ Download error: {e}")
+        import traceback
+        traceback.print_exc()
+        return web.Response(text=f"❌ Error: {str(e)}", status=500)
+
+# ============================================================
+# 🔍 GET FILE INFO ROUTE
+# ============================================================
+@routes.get("/fileinfo/{file_id}")
+async def file_info_handler(request):
+    """
+    Get file information
+    URL: https://yourapp.com/fileinfo/{file_id}
+    """
+    try:
+        file_id = request.match_info.get('file_id')
+        
+        if not file_id:
+            return web.json_response({"error": "Invalid file ID!"}, status=400)
+        
+        # ✅ Get file info
+        file_info = await get_file_info(file_id)
+        
+        if not file_info:
+            return web.json_response({"error": "File not found!"}, status=404)
+        
+        return web.json_response({
+            "status": "success",
+            "data": file_info
+        })
+        
+    except Exception as e:
+        print(f"❌ File info error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+# ============================================================
+# 🧪 TEST ROUTE
+# ============================================================
+@routes.get("/test")
+async def test_handler(request):
+    """
+    Test route to check if server is working
+    """
+    return web.json_response({
+        "status": "alive",
+        "message": "Download server is running!",
+        "endpoints": {
+            "/d/{file_id}/{user_id}": "Download file (premium only)",
+            "/download/{file_id}": "Download file (no auth, testing)",
+            "/fileinfo/{file_id}": "Get file info",
+            "/ping": "Ping check"
+        }
+    })
+
+# ============================================================
+# ✅ PING ROUTE
+# ============================================================
+@routes.get("/ping")
+async def ping_handler(request):
+    """
+    Health check endpoint
+    """
+    return web.json_response({"status": "alive", "timestamp": "ok"})
+
+# ============================================================
+# ❌ CLOSE CLIENT ROUTE (Admin Only)
+# ============================================================
+@routes.get("/close")
+async def close_handler(request):
+    """
+    Close download client (for maintenance)
+    """
+    try:
+        await close_client()
+        return web.json_response({"status": "client closed"})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+# ============================================================
+# WEB SERVER FUNCTION
+# ============================================================
 async def web_server():
+    """
+    Create and return web application
+    """
     web_app = web.Application(client_max_size=30000000)
     web_app.add_routes(routes)
     return web_app
 
-# --- SERVER PINGER ---
-async def ping_server():
-    if not WEB_APP_URL:
-        logging.warning("WEB_APP_URL not found. Pinger disabled.")
-        return
-
-    sleep_time = 600
+# ============================================================
+# KEEP ALIVE FUNCTION (For compatibility)
+# ============================================================
+async def keep_alive():
+    """
+    Keep the server alive
+    """
     while True:
-        await asyncio.sleep(sleep_time)
-        try:
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as session:
-                async with session.get(WEB_APP_URL) as resp:
-                    logging.info(f"Pinged server with response: {resp.status}")
-        except Exception as e:
-            logging.warning(f"Couldn't connect to the site URL: {e}")
-
-# --- PREMIUM EXPIRY CHECKER ---
-REMINDER_TIMES = [
-    ("1d", timedelta(days=1)),
-    ("5h30m", timedelta(hours=5, minutes=30)),
-    ("10m", timedelta(minutes=10))
-]
-
-async def check_expired_premium(client):
-    while True:
-        try:
-            now = datetime.utcnow()
-
-            expired_users = await db.get_expired(now)
-            for user in expired_users:
-                user_id = user["id"]
-                await db.remove_premium_access(user_id)
-                unset_flags = {f"reminder_{label}_sent": "" for label, _ in REMINDER_TIMES}
-                await db.users.update_one({"id": user_id}, {"$unset": unset_flags})
-
-                try:
-                    tg_user = await client.get_users(user_id)
-                    await client.send_message(
-                        user_id,
-                        f"<b>ʜᴇʏ {tg_user.mention},\n\nʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇss ʜᴀs ᴇxᴘɪʀᴇᴅ.\n\nTᴀᴘ /buy ꜰᴏʀ ʀᴇɴᴇᴡᴀʟ ᴏᴘᴛɪᴏɴs.</b>"
-                    )
-                    await client.send_message(
-                        PREMIUM_LOGS,
-                        f"<b>#Premium_Expired\nUser: {tg_user.mention}\nID: <code>{user_id}</code></b>"
-                    )
-                except Exception as e:
-                    print(f"[EXPIRED NOTIFY ERROR] {e}")
-
-                await asyncio.sleep(0.5)
-
-            for label, delta in REMINDER_TIMES:
-                reminder_users = await db.get_expiring_soon(label, delta)
-                for user in reminder_users:
-                    user_id = user["id"]
-                    try:
-                        tg_user = await client.get_users(user_id)
-                        await client.send_message(
-                            user_id,
-                            f"<b>ʜᴇʏ {tg_user.mention},\n\nʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴡɪʟʟ ᴇxᴘɪʀᴇ ɪɴ {label}.\nTᴀᴘ /buy ᴛᴏ ʀᴇɴᴇᴡ ɴᴏᴡ!</b>"
-                        )
-                        await client.send_message(
-                            PREMIUM_LOGS,
-                            f"<b>#Reminder ({label})\nUser: {tg_user.mention}\nID: <code>{user_id}</code></b>"
-                        )
-                    except Exception as e:
-                        print(f"[REMINDER NOTIFY ERROR] {e}")
-
-                    await asyncio.sleep(0.5)
-
-        except Exception as e:
-            print(f"[PREMIUM CHECK LOOP ERROR] {e}")
-        
-        await asyncio.sleep(60)
-
-# --- AUTOMATIC DAILY REPORT ---
-async def auto_daily_report(client):
-    print("⏰ Sending Daily Auto Report...")
-
-    users_cursor = db.users.find({})
-    report_list = []
-    total_files_used = 0
-    active_users_count = 0
-
-    async for user in users_cursor:
-        user_id = user.get("id", "N/A")
-        username = user.get("username")
-        username_display = f"@{username}" if username else "N/A"
-
-        used = await db.get_video_count(user_id) or 0
-        if used == 0:
-            continue
-
-        is_premium = await db.has_premium_access(user_id)
-        is_verified = await db.is_user_verified(user_id)
-
-        if is_premium:
-            daily_limit = PREMIUM_DAILY_LIMIT
-            subscription_type = "Paid"
-        elif is_verified:
-            daily_limit = VERIFICATION_DAILY_LIMIT
-            subscription_type = "Verified"
-        else:
-            daily_limit = DAILY_LIMIT
-            subscription_type = "Free"
-
-        remaining = max(daily_limit - used, 0)
-        total_files_used += used
-
-        user_entry = (
-            f"👤 User: {username_display} ({user_id})\n"
-            f"╰ 💠 Plan: {subscription_type}\n"
-            f"╰ 📁 Limit: {daily_limit} | Used: {used} | Left: {remaining}"
-        )
-
-        report_list.append(user_entry)
-        active_users_count += 1
-
-    today_date = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y")
-
-    summary_text = (
-        f"📅 **Date:** {today_date}\n"
-        f"🧾 **Active Users:** `{active_users_count}`\n"
-        f"📊 **Total Files Sent:** `{total_files_used}`"
-    )
-
-    chat_id = LOG_CHANNEL
-
-    if active_users_count > 10:
-        file_path = f"Daily_Report_{today_date}.txt"
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(f"📊 DAILY USAGE REPORT - {today_date}\n")
-            f.write("=================================\n\n")
-            f.write("\n\n---------------------------------\n\n".join(report_list))
-            f.write("\n\n=================================\n")
-            f.write(f"Total Active Users: {active_users_count}\n")
-            f.write(f"Total Files Used: {total_files_used}")
-
-        try:
-            await client.send_document(
-                chat_id=chat_id,
-                document=file_path,
-                caption=f"📊 **Daily Auto Report** 🌙\n\n{summary_text}\n\nℹ️ _Full details in file._"
-            )
-        except Exception as e:
-            print(f"Failed to send auto report document: {e}")
-
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-    else:
-        if active_users_count == 0:
-            final_msg = f"📊 **Daily Report ({today_date})**\n\n❌ No active usage today."
-        else:
-            formatted_entries = []
-            for entry in report_list:
-                entry = entry.replace("User:", "**User:**").replace("Plan:", "`Plan:`")
-                formatted_entries.append(entry)
-
-            final_msg = (
-                f"📊 **Daily Report ({today_date})**\n\n"
-                + "\n\n".join(formatted_entries)
-                + "\n\n"
-                + summary_text
-            )
-
-        try:
-            await client.send_message(chat_id, final_msg)
-        except Exception as e:
-            print(f"Failed to send auto report message: {e}")
-
-# --- START SCHEDULER ---
-async def start_scheduler(client):
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        auto_daily_report, 
-        trigger="cron", 
-        hour=23, 
-        minute=59, 
-        timezone=pytz.timezone("Asia/Kolkata"), 
-        args=[client]
-    )
-    scheduler.start()
-    print("⏰ Daily Report Scheduler Started (11:59 PM IST)")
+        await asyncio.sleep(600)  # 10 minutes
+        print("🔄 Keep alive ping...")
