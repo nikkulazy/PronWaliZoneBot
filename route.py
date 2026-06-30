@@ -7,7 +7,6 @@ import asyncio
 import aiofiles
 from info import *
 from database.users_db import db
-from database.ia_filterdb import Media, Media2
 from download_client import download_file, cleanup_temp_file, get_file_info, close_client
 
 # ============================================================
