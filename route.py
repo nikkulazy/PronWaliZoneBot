@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import aiofiles
+import tempfile
 
 # Import your database and config
 from database.users_db import db
@@ -17,9 +18,19 @@ from info import (
     PREMIUM_DAILY_LIMIT, 
     DAILY_LIMIT,
     WEB_APP_URL,
-    VERIFICATION_DAILY_LIMIT
+    VERIFICATION_DAILY_LIMIT,
+    API_ID,
+    API_HASH,
+    BOT_TOKEN
 )
 from utils import temp
+
+# Global bot instance
+bot_client = None
+
+def set_bot_client(client):
+    global bot_client
+    bot_client = client
 
 routes = web.RouteTableDef()
 
@@ -62,136 +73,76 @@ async def download_file_with_user_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Get file from Telegram and stream to user
+        # ✅ Use the global bot client to download file
+        global bot_client
+        
+        if not bot_client:
+            # Create a new bot client if not available
+            from pyrogram import Client
+            bot_client = Client(
+                name="download_bot",
+                api_id=API_ID,
+                api_hash=API_HASH,
+                bot_token=BOT_TOKEN
+            )
+            await bot_client.start()
+            print("✅ Bot client started for download")
+        
         try:
-            # Get bot client
-            from bot import Bot
-            client = Bot()
+            # Download file to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
+                temp_path = tmp_file.name
             
-            # Download file from Telegram to memory
-            file_path = await client.download_media(file_id, in_memory=True)
+            print(f"📥 Downloading file from Telegram to: {temp_path}")
             
-            if not file_path:
+            # Download the file
+            downloaded_path = await bot_client.download_media(
+                message=file_id,
+                file_name=temp_path
+            )
+            
+            if not downloaded_path or not os.path.exists(downloaded_path):
+                print("❌ Failed to download file from Telegram!")
                 return web.Response(text="❌ Failed to download file from Telegram!", status=500)
             
-            # Get file size
-            file_size = os.path.getsize(file_path)
+            file_size = os.path.getsize(downloaded_path)
+            print(f"✅ File downloaded successfully! Size: {file_size} bytes")
+            
+            # Get file extension from file_id or default to mp4
+            file_ext = '.mp4'
             
             # Set headers for download
             headers = {
-                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
+                'Content-Disposition': f'attachment; filename="video_{user_id}{file_ext}"',
                 'Content-Type': 'video/mp4',
                 'Content-Length': str(file_size)
             }
             
-            # Stream file to user
-            return web.FileResponse(
-                path=file_path,
+            # Read file content
+            with open(downloaded_path, 'rb') as f:
+                file_content = f.read()
+            
+            # Clean up temp file
+            try:
+                os.remove(downloaded_path)
+            except:
+                pass
+            
+            return web.Response(
+                body=file_content,
                 headers=headers
             )
             
         except Exception as e:
-            print(f"❌ Error serving file: {e}")
+            print(f"❌ Error downloading file: {e}")
+            import traceback
+            traceback.print_exc()
             return web.Response(text=f"❌ Error: {str(e)}", status=500)
         
     except Exception as e:
         print(f"❌ Download error: {e}")
         import traceback
         traceback.print_exc()
-        return web.Response(text=f"❌ Error: {str(e)}", status=500)
-
-# ============================================================
-# 📥 ALTERNATIVE - Direct Download with Range Support
-# ============================================================
-@routes.get("/download_stream/{file_id}/{user_id}")
-async def download_file_stream_handler(request):
-    """
-    Stream file with range support (for large files)
-    """
-    try:
-        file_id = request.match_info.get('file_id')
-        user_id = int(request.match_info.get('user_id'))
-        
-        if not file_id:
-            return web.Response(text="❌ Invalid file ID!", status=400)
-        
-        # ✅ Verify user is premium
-        is_premium = await db.has_premium_access(user_id)
-        
-        if not is_premium:
-            return web.Response(
-                text="💎 This feature is only for premium users!",
-                status=403
-            )
-        
-        # Get file from database
-        file_data = await db.videos.find_one({"file_id": file_id})
-        if not file_data:
-            file_data = await db.brazzers.find_one({"file_id": file_id})
-        
-        if not file_data:
-            return web.Response(text="❌ File not found!", status=404)
-        
-        # Download file from Telegram
-        from bot import Bot
-        client = Bot()
-        file_path = await client.download_media(file_id, in_memory=True)
-        
-        if not file_path:
-            return web.Response(text="❌ Failed to download file!", status=500)
-        
-        # Get file size
-        file_size = os.path.getsize(file_path)
-        
-        # Check range header
-        range_header = request.headers.get('Range')
-        
-        if range_header:
-            # Parse range
-            range_value = range_header.replace('bytes=', '').split('-')
-            start = int(range_value[0]) if range_value[0] else 0
-            end = int(range_value[1]) if range_value[1] else file_size - 1
-            
-            # Adjust range
-            if start >= file_size:
-                return web.Response(status=416)  # Range not satisfiable
-            
-            end = min(end, file_size - 1)
-            length = end - start + 1
-            
-            # Read partial file
-            with open(file_path, 'rb') as f:
-                f.seek(start)
-                data = f.read(length)
-            
-            headers = {
-                'Content-Range': f'bytes {start}-{end}/{file_size}',
-                'Content-Length': str(length),
-                'Content-Type': 'video/mp4',
-                'Accept-Ranges': 'bytes'
-            }
-            
-            return web.Response(
-                body=data,
-                status=206,
-                headers=headers
-            )
-        else:
-            # Full file
-            headers = {
-                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
-                'Content-Type': 'video/mp4',
-                'Content-Length': str(file_size),
-                'Accept-Ranges': 'bytes'
-            }
-            
-            return web.FileResponse(
-                path=file_path,
-                headers=headers
-            )
-        
-    except Exception as e:
-        print(f"❌ Stream error: {e}")
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
 async def web_server():
