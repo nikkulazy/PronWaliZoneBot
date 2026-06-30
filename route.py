@@ -6,7 +6,7 @@ import tempfile
 import asyncio
 import aiofiles
 from info import *
-from database.users_chats_db import db
+from database.users_db import db
 from database.ia_filterdb import Media, Media2
 from download_client import download_file, cleanup_temp_file, get_file_info, close_client
 
@@ -259,7 +259,7 @@ async def web_server():
     return web_app
 
 # ============================================================
-# KEEP ALIVE FUNCTION (For compatibility)
+# KEEP ALIVE FUNCTION
 # ============================================================
 async def keep_alive():
     """
@@ -268,3 +268,94 @@ async def keep_alive():
     while True:
         await asyncio.sleep(600)  # 10 minutes
         print("🔄 Keep alive ping...")
+
+# ============================================================
+# PING SERVER FUNCTION (For compatibility with bot.py)
+# ============================================================
+async def ping_server():
+    """
+    Ping server to keep alive
+    """
+    while True:
+        await asyncio.sleep(600)
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{URL}/ping") as resp:
+                    print(f"📡 Ping response: {resp.status}")
+        except Exception as e:
+            print(f"❌ Ping error: {e}")
+
+# ============================================================
+# PREMIUM EXPIRY CHECKER (For compatibility)
+# ============================================================
+async def check_expired_premium(client):
+    """
+    Check expired premium users
+    """
+    from database.users_db import db
+    while True:
+        try:
+            import pytz
+            from datetime import datetime, timedelta
+            
+            now = datetime.utcnow()
+            expired_users = await db.get_expired(now)
+            
+            for user in expired_users:
+                user_id = user["id"]
+                await db.remove_premium_access(user_id)
+                
+                try:
+                    tg_user = await client.get_users(user_id)
+                    await client.send_message(
+                        user_id,
+                        f"<b>ʜᴇʏ {tg_user.mention},\n\nʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇss ʜᴀs ᴇxᴘɪʀᴇᴅ.\n\nTᴀᴘ /buy ꜰᴏʀ ʀᴇɴᴇᴡᴀʟ ᴏᴘᴛɪᴏɴs.</b>"
+                    )
+                except Exception as e:
+                    print(f"[EXPIRED NOTIFY ERROR] {e}")
+                
+                await asyncio.sleep(0.5)
+                
+        except Exception as e:
+            print(f"[PREMIUM CHECK LOOP ERROR] {e}")
+        
+        await asyncio.sleep(60)
+
+# ============================================================
+# START SCHEDULER (For compatibility)
+# ============================================================
+async def start_scheduler(client):
+    """
+    Start scheduler for daily reports
+    """
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    import pytz
+    
+    scheduler = AsyncIOScheduler()
+    
+    # Daily report function
+    async def auto_daily_report():
+        print("⏰ Sending Daily Auto Report...")
+        # Add your report logic here
+    
+    scheduler.add_job(
+        auto_daily_report, 
+        trigger="cron", 
+        hour=23, 
+        minute=59, 
+        timezone=pytz.timezone("Asia/Kolkata")
+    )
+    scheduler.start()
+    print("⏰ Daily Report Scheduler Started (11:59 PM IST)")
+
+# ============================================================
+# SET BOT CLIENT (For compatibility)
+# ============================================================
+def set_bot_client(client):
+    """
+    Set bot client for route.py
+    """
+    global bot_client
+    bot_client = client
+    print("✅ Bot client set in route.py")
