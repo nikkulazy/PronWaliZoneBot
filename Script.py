@@ -117,6 +117,8 @@ class script(object):
 
 💎𝙶𝚎𝚝 𝚁𝚎𝚌𝚎𝚒𝚟𝚎𝚛 𝚂𝚞𝚋𝚜𝚌𝚛𝚒𝚙𝚝𝚒𝚘𝚗 𝙵𝚘𝚛 𝚄𝚗𝚕𝚒𝚖𝚒𝚝𝚎𝚍 𝙰𝚌𝚌𝚎𝚜𝚜
 
+📌 Click Verify Button Access More Video In 1 minute
+
 👇𝗖𝗵𝗼𝗼𝘀𝗲 𝗮𝗻 𝗢𝗽𝘁𝗶𝗼𝗻 !"""
 
     VERIFY_COMPLETE_TEXT = """🎉 𝗖𝗼𝗻𝗴𝗿𝗮𝘁𝘂𝗹𝗮𝘁𝗶𝗼𝗻𝘀!
