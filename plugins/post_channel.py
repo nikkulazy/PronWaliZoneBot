@@ -1,8 +1,8 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from info import VIDEO_CHANNEL, BRAZZER_CHANNEL, NO_IMG, POST_CHANNEL, POST_SHORTLINK, SEND_POST
+from info import VIDEO_CHANNEL, BRAZZER_CHANNEL, NO_IMG, POST_CHANNEL, POST_SHORTLINK, SEND_POST, DEFAULT_THUMB  # ✅ Import DEFAULT_THUMB
 from database.users_db import db
-from utils import temp, get_shortlink, generate_weird_name, generate_thumbnail
+from utils import temp, get_shortlink, generate_weird_name
 
 # -----------------------
 # BRAZZERS INDEX
@@ -22,22 +22,21 @@ async def index_normal_videos(client, m: Message):
         file_id = m.video.file_id
         file_unique_id = m.video.file_unique_id
 
-        # 🔥 Weird random name
+        # Random name
         file_name = generate_weird_name() + ".mp4"
 
-        # DB
+        # Save to DB
         status = await db.add_video(file_unique_id, file_id)
 
         if status:
-            print(f"✅ New Video Added: {file_name} (Msg ID: {m.id})")
+            print(f"✅ New Video Added: {file_name}")
         else:
-            print(f"♻️ Duplicate Found: {file_name}")
+            print(f"♻️ Duplicate: {file_name}")
 
-        # SEND_POST check
         if not SEND_POST:
             return
 
-        # Bot username cache
+        # Bot username
         if not temp.U_NAME:
             me = await client.get_me()
             temp.U_NAME = me.username
@@ -60,54 +59,41 @@ async def index_normal_videos(client, m: Message):
         )
 
         btn = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📂 ɢᴇᴛ ᴠɪᴅᴇᴏ 📂", url=shortlink)]
+            [InlineKeyboardButton("📂 Get Video 📂", url=shortlink)]
         ])
 
         # -----------------------
-        # THUMBNAIL SYSTEM (FIXED)
+        # 🖼️ SAME THUMBNAIL FOR ALL VIDEOS (FIXED)
         # -----------------------
-        thumb_to_send = NO_IMG
-
-        try:
-            # 1️⃣ Telegram thumbnail → download → send as photo
-            if m.video.thumbs:
-                thumb_file = await client.download_media(
-                    m.video.thumbs[0].file_id
-                )
-                if thumb_file:
-                    thumb_to_send = thumb_file
-
-            else:
-                # 2️⃣ Generate from video
-                video_path = await m.download()
-                gen_thumb = await generate_thumbnail(video_path)
-
-                if gen_thumb:
-                    thumb_to_send = gen_thumb
-
-        except Exception as e:
-            print("Thumbnail handling error:", e)
+        thumb_to_send = DEFAULT_THUMB  # ✅ Directly use DEFAULT_THUMB
 
         # -----------------------
-        # SEND POST
+        # 📤 Send Video
         # -----------------------
         try:
-            await client.send_photo(
+            await client.send_video(
                 chat_id=POST_CHANNEL,
-                photo=thumb_to_send,
+                video=file_id,
                 caption=caption,
-                reply_markup=btn
+                reply_markup=btn,
+                thumb=thumb_to_send,  # 🔥 DEFAULT_THUMB will be applied here
+                supports_streaming=True,
+                width=m.video.width if m.video.width else 0,
+                height=m.video.height if m.video.height else 0,
+                duration=m.video.duration if m.video.duration else 0
             )
-            print("📸 Post sent with thumbnail")
+            print("✅ Video sent with DEFAULT_THUMB")
 
         except Exception as e:
-            print("⚠️ Thumb failed, sending NO_IMG:", e)
-            await client.send_photo(
+            print(f"❌ Error sending video: {e}")
+            # Fallback: send without thumbnail
+            await client.send_video(
                 chat_id=POST_CHANNEL,
-                photo=NO_IMG,
+                video=file_id,
                 caption=caption,
-                reply_markup=btn
+                reply_markup=btn,
+                supports_streaming=True
             )
 
     except Exception as e:
-        print(f"❌ Error in Auto Index: {e}")
+        print(f"❌ Error: {e}")
