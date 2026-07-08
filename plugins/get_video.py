@@ -242,6 +242,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     if not is_brazzers:
         await db.increase_video_count(user_id, username)
 
+    # ✅ Auto-delete video after 10 minutes
     asyncio.create_task(auto_delete_message(m, sent))
 
 
@@ -251,7 +252,7 @@ async def download_callback_handler(client, query: CallbackQuery):
     """
     Handle download button clicks - Premium check + Download Link
     Har bar click karne par naya link generate hoga
-    Popup alert nahi aayega (auto-delete hata diya)
+    Auto-delete after 120 seconds
     """
     user_id = query.from_user.id
     
@@ -300,18 +301,28 @@ async def download_callback_handler(client, query: CallbackQuery):
             [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
         ])
         
-        await query.message.reply(
+        sent_message = await query.message.reply(
             f"✅ **Your Downloading Link Generator!**\n\n"
             f"⬇️ Click The Button Below To Start Downloading\n"
             f"⚠️ This Feature Is Only For Premium Users!",
             reply_markup=buttons
         )
         
+        # ✅ Auto-delete after 120 seconds
+        async def delete_download_message():
+            await asyncio.sleep(30)
+            try:
+                await sent_message.delete()
+            except Exception:
+                pass  # Silent delete - no errors, no prints
+        
+        asyncio.create_task(delete_download_message())
+        
         # ✅ Cache delete mat karo - taaki dobara click karne par kaam kare
         # Cache ko delete nahi karenge, taaki user dobara click kar sake
         
         # ✅ Popup alert nahi dikhega (show_alert=False)
-        await query.answer("✅ Download link generated!", show_alert=False)
+        await query.answer("✅ Download link generated! Will auto-delete in 120s", show_alert=False)
         
     except Exception as e:
         print(f"❌ Download handler error: {e}")
