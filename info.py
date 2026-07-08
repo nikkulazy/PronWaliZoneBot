@@ -81,7 +81,7 @@ QR_CODE_IMAGE = environ.get("QR_CODE_IMAGE", "https://i.ibb.co/kWtBcgx/photo-202
 START_PIC = environ.get("START_PIC", "https://i.ibb.co/Xn2b08M/photo-2026-06-28-12-30-38-7656422767314599952.jpg")
 AUTH_PICS = environ.get("AUTH_PICS", "http://ibb.co/zCGSdbR")
 NO_IMG = environ.get("NO_IMG", "http://ibb.co/zCGSdbR")
-DEFAULT_THUMB = "thumbnails/default.jpg"
+DEFAULT_THUMB = "https://i.ibb.co/HfkPW3Xc/photo-2026-06-28-12-25-46-7656421521774084124.jpg"
 
 # ✅ VERIFICATION IMAGES - START AUR COMPLETE ALAG
 VERIFY_IMG = environ.get("VERIFY_IMG", "https://i.ibb.co/1fBTtNJ0/photo-2026-06-29-18-39-46-7656888998899482648.jpg")
