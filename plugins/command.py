@@ -84,7 +84,7 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    await asyncio.sleep(30)
+    await asyncio.sleep(300)
     await msg.delete()  
 
 
