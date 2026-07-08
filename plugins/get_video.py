@@ -191,7 +191,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     
     print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
     
-    # ✅ Build Buttons - Video ke NICHE
+    # ✅ Build Buttons - Saare Buttons
     buttons = []
     
     # Row 1: Download Button
@@ -275,34 +275,16 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         print(f"🔗 Download URL: {download_url}")
         
-        # ✅ Video ke NICHE buttons update - Fast Download + Back
+        # ✅ SIRF 2 BUTTONS - Fast Download + Back
         buttons = []
         
-        # Row 1: Fast Download + Back to Video
+        # Row 1: Sirf Fast Download + Back
         buttons.append([
             InlineKeyboardButton("⚡Fast Download ⚡", url=download_url),
             InlineKeyboardButton("🔙 Back", callback_data=f"back_{download_id}")
         ])
         
-        # Row 2: Previous + Next
-        history_data = temp.USER_VIDEO_HISTORY.get(user_id)
-        current_idx = history_data["current_index"] if history_data else -1
-        
-        row2 = []
-        if current_idx > 0:
-            row2.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
-        else:
-            row2.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
-        
-        row2.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
-        buttons.append(row2)
-        
-        # Row 3: Close Button
-        buttons.append([
-            InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
-        ])
-        
-        # ✅ Video message ke buttons UPDATE karo
+        # ✅ Video message ke buttons UPDATE karo (Sirf 2 buttons)
         await query.message.edit_reply_markup(
             reply_markup=InlineKeyboardMarkup(buttons)
         )
@@ -351,7 +333,7 @@ async def back_to_video_handler(client, query: CallbackQuery):
             "user_id": user_id
         }
         
-        # ✅ Wapas ORIGINAL buttons - Download + Previous + Next + Close
+        # ✅ Wapas SAARE BUTTONS - Download + Previous + Next + Close
         buttons = []
         
         # Row 1: Download Button
@@ -377,7 +359,7 @@ async def back_to_video_handler(client, query: CallbackQuery):
             InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
         ])
         
-        # ✅ Video message ke buttons UPDATE karo (wapas original)
+        # ✅ Video message ke buttons UPDATE karo (wapas saare buttons)
         await query.message.edit_reply_markup(
             reply_markup=InlineKeyboardMarkup(buttons)
         )
