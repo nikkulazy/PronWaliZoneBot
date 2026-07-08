@@ -101,7 +101,7 @@ async def send_limit_message(message, limit_data):
         [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
         [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ])
-)
+    )
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -246,13 +246,13 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Har bar naya link) ----------
+# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Back button support) ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
     Handle download button clicks - Premium check + Download Link
-    Har bar click karne par naya link generate hoga
-    Auto-delete after 120 seconds
+    Video aur caption same rahega, sirf buttons change honge
+    Back button se purane buttons wapas aa jayenge
     """
     user_id = query.from_user.id
     
@@ -276,6 +276,7 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         file_id = cache_data["file_id"]
         video_type = cache_data["video_type"]
+        is_brazzers = video_type == "brazzers"
         
         # ✅ Check if user is premium
         is_premium = await db.has_premium_access(user_id)
@@ -287,42 +288,49 @@ async def download_callback_handler(client, query: CallbackQuery):
             )
             return
         
-        # ✅ Generate NEW Download URL (Har bar naya)
+        # ✅ Generate NEW Download URL
         web_app_url = WEB_APP_URL.rstrip('/')
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
         
         print(f"🔗 New Download URL generated: {download_url}")
         
-        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
-        
-        # ✅ Send message with download button (Har bar naya message)
-        buttons = InlineKeyboardMarkup([
+        # ✅ Naye buttons - Fast Download + Back + Close
+        new_buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-            [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
+            [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
         ])
         
-        sent_message = await query.message.reply(
-            f"✅ **Your Downloading Link Generator!**\n\n"
-            f"⬇️ Click The Button Below To Start Downloading\n\n"
-            f"⚠️ This Feature Is Only For Premium Users!\n\n",
-            reply_markup=buttons
-        )
-        
-        # ✅ Auto-delete after 120 seconds
-        async def delete_download_message():
-            await asyncio.sleep(10)
-            try:
-                await sent_message.delete()
-            except Exception:
-                pass  # Silent delete - no errors, no prints
-        
-        asyncio.create_task(delete_download_message())
-        
-        # ✅ Cache delete mat karo - taaki dobara click karne par kaam kare
-        # Cache ko delete nahi karenge, taaki user dobara click kar sake
-        
-        # ✅ Popup alert nahi dikhega (show_alert=False)
-        await query.answer("✅ Download link generated! Will auto-delete in 120s", show_alert=False)
+        # ✅ Existing video message ke buttons change karenge
+        try:
+            await query.message.edit_reply_markup(
+                reply_markup=new_buttons
+            )
+            
+            await query.answer("✅ Download link generated!", show_alert=False)
+            
+        except Exception as edit_error:
+            print(f"⚠️ Edit error: {edit_error}")
+            # Fallback
+            fallback_buttons = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
+                [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
+            ])
+            
+            sent_message = await query.message.reply(
+                f"✅ **Download Link Generated!**\n\n"
+                f"⬇️ Click below to download\n\n",
+                reply_markup=fallback_buttons
+            )
+            
+            async def delete_download_message():
+                await asyncio.sleep(120)
+                try:
+                    await sent_message.delete()
+                except Exception:
+                    pass
+            
+            asyncio.create_task(delete_download_message())
+            await query.answer("✅ Download link generated!", show_alert=False)
         
     except Exception as e:
         print(f"❌ Download handler error: {e}")
