@@ -491,6 +491,90 @@ class Database:
             print(f"Error resetting user limit: {e}")
             return False
 
+    # ---------- RATING FUNCTIONS ----------
+
+async def add_rating(self, video_id, user_id, rating_type):
+    """Add or update rating for a video (like/dislike)"""
+    collection = self.videos
+    
+    # Remove existing rating from this user if any
+    await collection.update_one(
+        {"file_id": video_id},
+        {"$pull": {"ratings": {"user_id": user_id}}}
+    )
+    
+    # Add new rating
+    await collection.update_one(
+        {"file_id": video_id},
+        {"$push": {"ratings": {"user_id": user_id, "rating": rating_type}}}
+    )
+    
+    # Update like/dislike counts
+    if rating_type == "like":
+        await collection.update_one(
+            {"file_id": video_id},
+            {"$inc": {"likes": 1}}
+        )
+    else:
+        await collection.update_one(
+            {"file_id": video_id},
+            {"$inc": {"dislikes": 1}}
+        )
+
+async def remove_rating(self, video_id, user_id):
+    """Remove user's rating from a video"""
+    # Get user's current rating
+    video = await self.videos.find_one({
+        "file_id": video_id,
+        "ratings.user_id": user_id
+    })
+    
+    if video and "ratings" in video:
+        for r in video["ratings"]:
+            if r["user_id"] == user_id:
+                rating_type = r["rating"]
+                
+                # Decrease count
+                if rating_type == "like":
+                    await self.videos.update_one(
+                        {"file_id": video_id},
+                        {"$inc": {"likes": -1}}
+                    )
+                else:
+                    await self.videos.update_one(
+                        {"file_id": video_id},
+                        {"$inc": {"dislikes": -1}}
+                    )
+                
+                # Remove rating
+                await self.videos.update_one(
+                    {"file_id": video_id},
+                    {"$pull": {"ratings": {"user_id": user_id}}}
+                )
+                break
+
+async def get_rating(self, video_id):
+    """Get rating counts for a video"""
+    video = await self.videos.find_one({"file_id": video_id})
+    if video:
+        return {
+            "likes": video.get("likes", 0),
+            "dislikes": video.get("dislikes", 0)
+        }
+    return {"likes": 0, "dislikes": 0}
+
+async def get_user_rating(self, video_id, user_id):
+    """Get user's rating for a video"""
+    video = await self.videos.find_one({
+        "file_id": video_id,
+        "ratings.user_id": user_id
+    })
+    if video and "ratings" in video:
+        for r in video["ratings"]:
+            if r["user_id"] == user_id:
+                return r["rating"]
+    return None
+
     # ---------- VERIFICATION ID ----------
     async def create_verify_id(self, user_id: int, hash, file_id=None):
         res = {"user_id": user_id, "hash": hash, "verified": False, "file_id": file_id}
