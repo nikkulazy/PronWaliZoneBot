@@ -13,7 +13,7 @@ from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
-from plugins.get_video import DOWNLOAD_CACHE
+from plugins.get_video import DOWNLOAD_CACHE, send_video_with_buttons
 
 # =================================================
 # START COMMAND
@@ -141,6 +141,69 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
+    # 🆕 RATING HANDLER - Like/Dislike/Remove
+    # =============================================
+    if data.startswith("rate_"):
+        try:
+            parts = data.split("_")
+            action = parts[1]  # "like", "dislike", or "remove"
+            video_id = parts[2] if len(parts) > 2 else None
+            
+            if action == "remove":
+                # Remove existing rating
+                await db.remove_rating(video_id, user_id)
+                await query.answer("✅ Rating removed!", show_alert=False)
+            else:
+                # Add new rating
+                await db.add_rating(video_id, user_id, action)
+                emoji = "👍" if action == "like" else "👎"
+                await query.answer(f"{emoji} Rated {action}!", show_alert=False)
+            
+            # Refresh video with updated ratings
+            history_data = temp.USER_VIDEO_HISTORY.get(user_id)
+            if history_data and history_data["history"]:
+                current_idx = history_data["current_index"]
+                if current_idx >= 0 and current_idx < len(history_data["history"]):
+                    video_id = history_data["history"][current_idx]
+                    is_brazzers = history_data.get("is_brazzers", False)
+                    
+                    # Create fake message
+                    fake_msg = query.message
+                    fake_msg.from_user = query.from_user
+                    fake_msg.chat = query.message.chat
+                    
+                    # Delete old message and send new one with updated ratings
+                    try:
+                        await query.message.delete()
+                    except Exception:
+                        pass
+                    
+                    await send_video_with_buttons(
+                        client,
+                        fake_msg,
+                        user_id,
+                        video_id,
+                        is_brazzers=is_brazzers
+                    )
+            else:
+                # If no history, just edit buttons
+                try:
+                    await query.message.edit_reply_markup(
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("🔄 Refresh", callback_data="noop")]
+                        ])
+                    )
+                except Exception:
+                    pass
+            
+        except Exception as e:
+            print(f"❌ Rating error: {e}")
+            import traceback
+            traceback.print_exc()
+            await query.answer(f"❌ Error: {str(e)[:30]}", show_alert=True)
+        return
+
+    # =============================================
     # 🆕 BACK BUTTON HANDLER - Purane buttons wapas laane ke liye
     # =============================================
     if data.startswith("back_"):
@@ -161,44 +224,22 @@ async def cb_handler(client: Client, query: CallbackQuery):
             
             video_id = history_data["history"][current_idx]
             
-            # Purane buttons rebuild karein
-            buttons = []
+            # Delete old message and send new one with original buttons (including ratings)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
             
-            # Row 1: Previous + Next
-            row1 = []
-            if current_idx > 0:
-                row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{video_type}"))
-            else:
-                row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+            fake_msg = query.message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = query.message.chat
             
-            row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{video_type}"))
-            buttons.append(row1)
-            
-            # Row 2: Download Button
-            # Naya download ID generate karein
-            download_id = str(uuid.uuid4())[:8]
-            DOWNLOAD_CACHE[download_id] = {
-                "file_id": video_id,
-                "video_type": video_type,
-                "user_id": user_id
-            }
-            
-            row2 = [
-                InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
-            ]
-            buttons.append(row2)
-            
-            # Row 3: Close Button
-            row3 = [
-                InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
-            ]
-            buttons.append(row3)
-            
-            original_buttons = InlineKeyboardMarkup(buttons)
-            
-            # ✅ Purane buttons wapas set karein
-            await query.message.edit_reply_markup(
-                reply_markup=original_buttons
+            await send_video_with_buttons(
+                client,
+                fake_msg,
+                user_id,
+                video_id,
+                is_brazzers=is_brazzers
             )
             
             await query.answer("🔙 Back to original buttons", show_alert=False)
