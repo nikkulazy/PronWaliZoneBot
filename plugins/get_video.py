@@ -190,6 +190,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     }
     
     print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
+    print(f"📦 Total Cache Keys: {list(DOWNLOAD_CACHE.keys())}")
     
     # ✅ Build Buttons - Saare Buttons
     buttons = []
@@ -248,14 +249,23 @@ async def download_callback_handler(client, query: CallbackQuery):
     user_id = query.from_user.id
     
     try:
+        print(f"🔍 DOWNLOAD: Callback triggered")
+        print(f"📝 Query Data: {query.data}")
+        print(f"👤 User ID: {user_id}")
+        print(f"📦 All Cache Keys: {list(DOWNLOAD_CACHE.keys())}")
+        
         download_id = query.data.replace("dld_", "")
+        print(f"📝 Extracted download_id: {download_id}")
+        
         cache_data = DOWNLOAD_CACHE.get(download_id)
         
         if not cache_data:
+            print(f"❌ Cache NOT FOUND for: {download_id}")
             await query.answer("❌ Download link expired!", show_alert=True)
             return
         
         if cache_data["user_id"] != user_id:
+            print(f"❌ User mismatch: cache={cache_data['user_id']}, current={user_id}")
             await query.answer("❌ Not for you!", show_alert=True)
             return
         
@@ -263,9 +273,12 @@ async def download_callback_handler(client, query: CallbackQuery):
         video_type = cache_data["video_type"]
         is_brazzers = video_type == "brazzers"
         
+        print(f"✅ Cache found! file_id={file_id[:20]}...")
+        
         # ✅ Premium check
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
+            print(f"❌ User {user_id} is not premium")
             await query.answer("💎 Only for premium users!", show_alert=True)
             return
         
@@ -276,19 +289,19 @@ async def download_callback_handler(client, query: CallbackQuery):
         print(f"🔗 Download URL: {download_url}")
         
         # ✅ SIRF 2 BUTTONS - Fast Download + Back
-        buttons = []
-        
-        # Row 1: Sirf Fast Download + Back
-        buttons.append([
-            InlineKeyboardButton("⚡Fast Download ⚡", url=download_url),
-            InlineKeyboardButton("🔙 Back", callback_data=f"back_{download_id}")
+        buttons = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("⚡Fast Download ⚡", url=download_url),
+                InlineKeyboardButton("🔙 Back", callback_data=f"back_{download_id}")
+            ]
         ])
         
-        # ✅ Video message ke buttons UPDATE karo (Sirf 2 buttons)
-        await query.message.edit_reply_markup(
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        print(f"✅ Back callback set: back_{download_id}")
         
+        # ✅ Update buttons
+        await query.message.edit_reply_markup(reply_markup=buttons)
+        
+        print(f"✅ Buttons updated successfully!")
         await query.answer("✅ Download link generated!", show_alert=False)
         
     except Exception as e:
@@ -304,18 +317,25 @@ async def back_to_video_handler(client, query: CallbackQuery):
     user_id = query.from_user.id
     
     try:
-        # ✅ Extract download_id from callback data
+        print(f"🔙🔙🔙 BACK BUTTON TRIGGERED!")
+        print(f"📝 Query Data: {query.data}")
+        print(f"👤 User ID: {user_id}")
+        print(f"📦 All Cache Keys: {list(DOWNLOAD_CACHE.keys())}")
+        
+        # ✅ Extract download_id
         download_id = query.data.replace("back_", "")
-        print(f"🔙 Back button clicked for: {download_id}")
+        print(f"📝 Extracted download_id: {download_id}")
         
         # ✅ Get cache data
         cache_data = DOWNLOAD_CACHE.get(download_id)
         
         if not cache_data:
+            print(f"❌ Cache NOT FOUND for: {download_id}")
             await query.answer("❌ Video expired! Please get a new video.", show_alert=True)
             return
         
         if cache_data["user_id"] != user_id:
+            print(f"❌ User mismatch: cache={cache_data['user_id']}, current={user_id}")
             await query.answer("❌ This is not for you!", show_alert=True)
             return
         
@@ -323,7 +343,7 @@ async def back_to_video_handler(client, query: CallbackQuery):
         video_type = cache_data["video_type"]
         is_brazzers = video_type == "brazzers"
         
-        print(f"🔙 Back: file_id={file_id[:20]}...")
+        print(f"✅ Cache found! file_id={file_id[:20]}...")
         
         # ✅ Generate new download ID (for next download)
         new_download_id = str(uuid.uuid4())[:8]
@@ -332,6 +352,8 @@ async def back_to_video_handler(client, query: CallbackQuery):
             "video_type": video_type,
             "user_id": user_id
         }
+        
+        print(f"✅ New download_id created: {new_download_id}")
         
         # ✅ Wapas SAARE BUTTONS - Download + Previous + Next + Close
         buttons = []
@@ -359,10 +381,14 @@ async def back_to_video_handler(client, query: CallbackQuery):
             InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
         ])
         
+        print(f"✅ Restoring original buttons...")
+        
         # ✅ Video message ke buttons UPDATE karo (wapas saare buttons)
         await query.message.edit_reply_markup(
             reply_markup=InlineKeyboardMarkup(buttons)
         )
+        
+        print(f"✅ Back button success! Buttons restored.")
         
         await query.answer("🔙 Back to video!", show_alert=False)
         
@@ -377,6 +403,7 @@ async def back_to_video_handler(client, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("^close_data$"))
 async def close_callback(client, query: CallbackQuery):
     try:
+        print(f"🗑️ Close button clicked by user {query.from_user.id}")
         await query.message.delete()
         await query.answer("🗑️ Message deleted!", show_alert=False)
     except Exception as e:
@@ -390,6 +417,8 @@ async def video_navigation_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
     data = query.data
     message = query.message
+    
+    print(f"🔍 NAVIGATION: {data} by user {user_id}")
     
     # Handle noop (disabled button click)
     if data == "noop":
