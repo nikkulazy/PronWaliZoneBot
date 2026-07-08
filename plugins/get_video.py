@@ -314,8 +314,7 @@ async def download_callback_handler(client, query: CallbackQuery):
             # Fallback
             fallback_buttons = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-                [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}"), 
-                 InlineKeyboardButton("✖️ Close", callback_data="close_data")]
+                [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")
             ])
             
             sent_message = await query.message.reply(
