@@ -13,7 +13,6 @@ from utils import temp, auto_delete_message, is_user_joined
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
-# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
 DOWNLOAD_CACHE = {}
 
 # ---------- INITIALIZE USER HISTORY ----------
@@ -246,7 +245,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Har bar naya link) ----------
+# ---------- DOWNLOAD CALLBACK HANDLER ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
@@ -287,45 +286,149 @@ async def download_callback_handler(client, query: CallbackQuery):
             )
             return
         
-        # ✅ Generate NEW Download URL (Har bar naya)
+        # ✅ Generate NEW Download URL
         web_app_url = WEB_APP_URL.rstrip('/')
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
         
         print(f"🔗 New Download URL generated: {download_url}")
         
-        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
-        
-        # ✅ Send message with download button (Har bar naya message)
+        # ✅ Send message with download button + Back button
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-            [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
+            [InlineKeyboardButton("🔙 Back to Video", callback_data=f"back_{download_id}")]
         ])
         
         sent_message = await query.message.reply(
             f"✅ **Your Downloading Link Generator!**\n\n"
             f"⬇️ Click The Button Below To Start Downloading\n"
-            f"⚠️ This Feature Is Only For Premium Users!",
+            f"⚠️ This Feature Is Only For Premium Users!\n\n"
+            f"⏰ This message will auto-delete in 120 seconds",
             reply_markup=buttons
         )
         
         # ✅ Auto-delete after 120 seconds
         async def delete_download_message():
-            await asyncio.sleep(30)
+            await asyncio.sleep(120)
             try:
                 await sent_message.delete()
             except Exception:
-                pass  # Silent delete - no errors, no prints
+                pass
         
         asyncio.create_task(delete_download_message())
         
-        # ✅ Cache delete mat karo - taaki dobara click karne par kaam kare
-        # Cache ko delete nahi karenge, taaki user dobara click kar sake
-        
-        # ✅ Popup alert nahi dikhega (show_alert=False)
+        # ✅ Popup alert
         await query.answer("✅ Download link generated! Will auto-delete in 120s", show_alert=False)
         
     except Exception as e:
         print(f"❌ Download handler error: {e}")
+        import traceback
+        traceback.print_exc()
+        await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
+
+
+# ---------- BACK BUTTON HANDLER ----------
+@Client.on_callback_query(filters.regex(r"^back_"))
+async def back_to_video_handler(client, query: CallbackQuery):
+    """
+    Handle Back button click - Wapas video par le jaaye
+    """
+    user_id = query.from_user.id
+    
+    try:
+        download_id = query.data.replace("back_", "")
+        cache_data = DOWNLOAD_CACHE.get(download_id)
+        
+        if not cache_data:
+            await query.answer(
+                "❌ Video expired! Please get a new video.",
+                show_alert=True
+            )
+            return
+        
+        if cache_data["user_id"] != user_id:
+            await query.answer(
+                "❌ This is not for you!",
+                show_alert=True
+            )
+            return
+        
+        file_id = cache_data["file_id"]
+        video_type = cache_data["video_type"]
+        is_brazzers = video_type == "brazzers"
+        
+        # ✅ Delete the download message
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        
+        # ✅ Generate new download ID
+        new_download_id = str(uuid.uuid4())[:8]
+        
+        # Update cache with new ID
+        DOWNLOAD_CACHE[new_download_id] = {
+            "file_id": file_id,
+            "video_type": video_type,
+            "user_id": user_id
+        }
+        
+        # ✅ Build video buttons - Previous + Next + Download + Close
+        video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
+        
+        # Get user history for navigation
+        history_data = temp.USER_VIDEO_HISTORY.get(user_id)
+        current_idx = history_data["current_index"] if history_data else -1
+        
+        buttons = []
+        
+        # Row 1: Previous + Next
+        row1 = []
+        if current_idx > 0:
+            row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+        else:
+            row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+        
+        row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+        buttons.append(row1)
+        
+        # Row 2: Download Button
+        row2 = [
+            InlineKeyboardButton("📥 Download", callback_data=f"dld_{new_download_id}")
+        ]
+        buttons.append(row2)
+        
+        # Row 3: Close Button
+        row3 = [
+            InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
+        ]
+        buttons.append(row3)
+        
+        reply_markup = InlineKeyboardMarkup(buttons)
+        
+        # ✅ Send video again
+        sent = await client.send_video(
+            chat_id=query.message.chat.id,
+            video=file_id,
+            protect_content=PROTECT_CONTENT,
+            caption=(
+                f"**{video_label}**\n\n"
+                f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+                "<blockquote>"
+                "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+                "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+                "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+                "</blockquote>"
+            ),
+            reply_markup=reply_markup
+        )
+        
+        # ✅ Auto-delete video after 10 minutes
+        asyncio.create_task(auto_delete_message(query.message, sent))
+        
+        await query.answer("🔙 Back to video!", show_alert=False)
+        
+    except Exception as e:
+        print(f"❌ Back handler error: {e}")
         import traceback
         traceback.print_exc()
         await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
