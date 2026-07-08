@@ -275,7 +275,7 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         print(f"🔗 Download URL: {download_url}")
         
-        # ✅ Video ke NICHE buttons update - Fast Download + Back (Close ki jagah Back)
+        # ✅ Video ke NICHE buttons update - Fast Download + Back
         buttons = []
         
         # Row 1: Fast Download + Back to Video
@@ -303,22 +303,9 @@ async def download_callback_handler(client, query: CallbackQuery):
         ])
         
         # ✅ Video message ke buttons UPDATE karo
-        try:
-            await query.message.edit_reply_markup(
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-        except Exception as e:
-            print(f"Edit error: {e}")
-            # Agar edit nahi ho paata toh naya message bhejo
-            await query.message.reply(
-                f"✅ **Download Link Generated!**\n\n"
-                f"⬇️ Click below to download\n"
-                f"⚠️ This feature is only for premium users",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-                    [InlineKeyboardButton("🔙 Back to Video", callback_data=f"back_{download_id}")]
-                ])
-            )
+        await query.message.edit_reply_markup(
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
         
         await query.answer("✅ Download link generated!", show_alert=False)
         
@@ -335,20 +322,26 @@ async def back_to_video_handler(client, query: CallbackQuery):
     user_id = query.from_user.id
     
     try:
+        # ✅ Extract download_id from callback data
         download_id = query.data.replace("back_", "")
+        print(f"🔙 Back button clicked for: {download_id}")
+        
+        # ✅ Get cache data
         cache_data = DOWNLOAD_CACHE.get(download_id)
         
         if not cache_data:
-            await query.answer("❌ Video expired!", show_alert=True)
+            await query.answer("❌ Video expired! Please get a new video.", show_alert=True)
             return
         
         if cache_data["user_id"] != user_id:
-            await query.answer("❌ Not for you!", show_alert=True)
+            await query.answer("❌ This is not for you!", show_alert=True)
             return
         
         file_id = cache_data["file_id"]
         video_type = cache_data["video_type"]
         is_brazzers = video_type == "brazzers"
+        
+        print(f"🔙 Back: file_id={file_id[:20]}...")
         
         # ✅ Generate new download ID (for next download)
         new_download_id = str(uuid.uuid4())[:8]
@@ -385,30 +378,9 @@ async def back_to_video_handler(client, query: CallbackQuery):
         ])
         
         # ✅ Video message ke buttons UPDATE karo (wapas original)
-        try:
-            await query.message.edit_reply_markup(
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-        except Exception as e:
-            print(f"Edit error: {e}")
-            # Agar edit nahi ho paata toh naya video bhejo
-            video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
-            sent = await client.send_video(
-                chat_id=query.message.chat.id,
-                video=file_id,
-                protect_content=PROTECT_CONTENT,
-                caption=(
-                    f"**{video_label}**\n\n"
-                    f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-                    "<blockquote>"
-                    "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-                    "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
-                    "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
-                    "</blockquote>"
-                ),
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-            asyncio.create_task(auto_delete_message(query.message, sent))
+        await query.message.edit_reply_markup(
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
         
         await query.answer("🔙 Back to video!", show_alert=False)
         
