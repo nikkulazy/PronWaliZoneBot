@@ -13,7 +13,6 @@ from utils import temp, auto_delete_message, is_user_joined
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
-# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
 DOWNLOAD_CACHE = {}
 
 # ---------- INITIALIZE USER HISTORY ----------
@@ -101,7 +100,7 @@ async def send_limit_message(message, limit_data):
         [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
         [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ])
-)
+    )
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -166,7 +165,7 @@ async def handle_video_request(client, m: Message):
     await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
 
 
-# ---------- SEND VIDEO FUNCTION ----------
+# ---------- SEND VIDEO FUNCTION WITH RATING BUTTONS ON TOP ----------
 async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
@@ -192,29 +191,44 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     
     print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
     
-    # Build Buttons - Previous + Next + Download + Close
+    # ✅ Get rating counts
+    rating_data = await db.get_rating(video_id)
+    user_rating = await db.get_user_rating(video_id, user_id)
+    
+    # Build Buttons - Rating on TOP
     buttons = []
     
-    # ✅ Row 1: Previous + Next
+    # ✅ Row 1: Rating Buttons (TOP)
     row1 = []
     
-    if current_idx > 0:
-        row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+    # Like Button
+    if user_rating == "like":
+        row1.append(InlineKeyboardButton(f"👍 {rating_data['likes']} ✅", callback_data=f"rate_remove_{video_id}"))
     else:
-        row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+        row1.append(InlineKeyboardButton(f"👍 {rating_data['likes']}", callback_data=f"rate_like_{video_id}"))
     
-    row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+    # Dislike Button
+    if user_rating == "dislike":
+        row1.append(InlineKeyboardButton(f"👎 {rating_data['dislikes']} ✅", callback_data=f"rate_remove_{video_id}"))
+    else:
+        row1.append(InlineKeyboardButton(f"👎 {rating_data['dislikes']}", callback_data=f"rate_dislike_{video_id}"))
+    
     buttons.append(row1)
     
-    # ✅ Row 2: Download Button
-    row2 = [
-        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
-    ]
+    # ✅ Row 2: Previous + Next
+    row2 = []
+    
+    if current_idx > 0:
+        row2.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+    else:
+        row2.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+    
+    row2.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row2)
     
-    # ✅ Row 3: Close Button
+    # ✅ Row 3: Download Button
     row3 = [
-        InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
+        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
     ]
     buttons.append(row3)
 
@@ -246,13 +260,11 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Back button support) ----------
+# ---------- DOWNLOAD CALLBACK HANDLER ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
     Handle download button clicks - Premium check + Download Link
-    Video aur caption same rahega, sirf buttons change honge
-    Back button se purane buttons wapas aa jayenge
     """
     user_id = query.from_user.id
     
@@ -294,7 +306,7 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         print(f"🔗 New Download URL generated: {download_url}")
         
-        # ✅ Naye buttons - Fast Download + Back + Close
+        # ✅ Naye buttons - Fast Download + Back
         new_buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
             [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
