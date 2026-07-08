@@ -13,6 +13,7 @@ from utils import temp, auto_delete_message, is_user_joined
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
+# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
 DOWNLOAD_CACHE = {}
 
 # ---------- INITIALIZE USER HISTORY ----------
@@ -100,7 +101,7 @@ async def send_limit_message(message, limit_data):
         [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
         [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ])
-    )
+)
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -165,7 +166,7 @@ async def handle_video_request(client, m: Message):
     await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
 
 
-# ---------- SEND VIDEO FUNCTION WITH RATING BUTTONS ON TOP ----------
+# ---------- SEND VIDEO FUNCTION ----------
 async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
@@ -191,44 +192,29 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     
     print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
     
-    # ✅ Get rating counts
-    rating_data = await db.get_rating(video_id)
-    user_rating = await db.get_user_rating(video_id, user_id)
-    
-    # Build Buttons - Rating on TOP
+    # Build Buttons - Previous + Next + Download + Close
     buttons = []
     
-    # ✅ Row 1: Rating Buttons (TOP)
+    # ✅ Row 1: Previous + Next
     row1 = []
     
-    # Like Button
-    if user_rating == "like":
-        row1.append(InlineKeyboardButton(f"👍 {rating_data['likes']} ✅", callback_data=f"rate_remove_{video_id}"))
+    if current_idx > 0:
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
     else:
-        row1.append(InlineKeyboardButton(f"👍 {rating_data['likes']}", callback_data=f"rate_like_{video_id}"))
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
     
-    # Dislike Button
-    if user_rating == "dislike":
-        row1.append(InlineKeyboardButton(f"👎 {rating_data['dislikes']} ✅", callback_data=f"rate_remove_{video_id}"))
-    else:
-        row1.append(InlineKeyboardButton(f"👎 {rating_data['dislikes']}", callback_data=f"rate_dislike_{video_id}"))
-    
+    row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
     buttons.append(row1)
     
-    # ✅ Row 2: Previous + Next
-    row2 = []
-    
-    if current_idx > 0:
-        row2.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
-    else:
-        row2.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
-    
-    row2.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+    # ✅ Row 2: Download Button
+    row2 = [
+        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
+    ]
     buttons.append(row2)
     
-    # ✅ Row 3: Download Button
+    # ✅ Row 3: Close Button
     row3 = [
-        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
+        InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
     ]
     buttons.append(row3)
 
@@ -260,11 +246,13 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER ----------
+# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Har bar naya link) ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
     Handle download button clicks - Premium check + Download Link
+    Har bar click karne par naya link generate hoga
+    Auto-delete after 120 seconds
     """
     user_id = query.from_user.id
     
@@ -288,7 +276,6 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         file_id = cache_data["file_id"]
         video_type = cache_data["video_type"]
-        is_brazzers = video_type == "brazzers"
         
         # ✅ Check if user is premium
         is_premium = await db.has_premium_access(user_id)
@@ -300,49 +287,42 @@ async def download_callback_handler(client, query: CallbackQuery):
             )
             return
         
-        # ✅ Generate NEW Download URL
+        # ✅ Generate NEW Download URL (Har bar naya)
         web_app_url = WEB_APP_URL.rstrip('/')
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
         
         print(f"🔗 New Download URL generated: {download_url}")
         
-        # ✅ Naye buttons - Fast Download + Back
-        new_buttons = InlineKeyboardMarkup([
+        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
+        
+        # ✅ Send message with download button (Har bar naya message)
+        buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-            [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
+            [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
         ])
         
-        # ✅ Existing video message ke buttons change karenge
-        try:
-            await query.message.edit_reply_markup(
-                reply_markup=new_buttons
-            )
-            
-            await query.answer("✅ Download link generated!", show_alert=False)
-            
-        except Exception as edit_error:
-            print(f"⚠️ Edit error: {edit_error}")
-            # Fallback
-            fallback_buttons = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-                [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
-            ])
-            
-            sent_message = await query.message.reply(
-                f"✅ **Download Link Generated!**\n\n"
-                f"⬇️ Click below to download\n\n",
-                reply_markup=fallback_buttons
-            )
-            
-            async def delete_download_message():
-                await asyncio.sleep(120)
-                try:
-                    await sent_message.delete()
-                except Exception:
-                    pass
-            
-            asyncio.create_task(delete_download_message())
-            await query.answer("✅ Download link generated!", show_alert=False)
+        sent_message = await query.message.reply(
+            f"✅ **Your Downloading Link Generator!**\n\n"
+            f"⬇️ Click The Button Below To Start Downloading\n\n"
+            f"⚠️ This Feature Is Only For Premium Users!\n\n",
+            reply_markup=buttons
+        )
+        
+        # ✅ Auto-delete after 120 seconds
+        async def delete_download_message():
+            await asyncio.sleep(10)
+            try:
+                await sent_message.delete()
+            except Exception:
+                pass  # Silent delete - no errors, no prints
+        
+        asyncio.create_task(delete_download_message())
+        
+        # ✅ Cache delete mat karo - taaki dobara click karne par kaam kare
+        # Cache ko delete nahi karenge, taaki user dobara click kar sake
+        
+        # ✅ Popup alert nahi dikhega (show_alert=False)
+        await query.answer("✅ Download link generated! Will auto-delete in 120s", show_alert=False)
         
     except Exception as e:
         print(f"❌ Download handler error: {e}")

@@ -1,7 +1,6 @@
 import datetime
 import asyncio
 import random
-import uuid
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
@@ -13,7 +12,6 @@ from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
-from plugins.get_video import DOWNLOAD_CACHE, send_video_with_buttons
 
 # =================================================
 # START COMMAND
@@ -84,7 +82,7 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    await asyncio.sleep(300)
+    await asyncio.sleep(30)
     await msg.delete()  
 
 
@@ -139,115 +137,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
-
-    # =============================================
-    # 🆕 RATING HANDLER - Like/Dislike/Remove
-    # =============================================
-    if data.startswith("rate_"):
-        try:
-            parts = data.split("_")
-            action = parts[1]  # "like", "dislike", or "remove"
-            video_id = parts[2] if len(parts) > 2 else None
-            
-            if action == "remove":
-                # Remove existing rating
-                await db.remove_rating(video_id, user_id)
-                await query.answer("✅ Rating removed!", show_alert=False)
-            else:
-                # Add new rating
-                await db.add_rating(video_id, user_id, action)
-                emoji = "👍" if action == "like" else "👎"
-                await query.answer(f"{emoji} Rated {action}!", show_alert=False)
-            
-            # Refresh video with updated ratings
-            history_data = temp.USER_VIDEO_HISTORY.get(user_id)
-            if history_data and history_data["history"]:
-                current_idx = history_data["current_index"]
-                if current_idx >= 0 and current_idx < len(history_data["history"]):
-                    video_id = history_data["history"][current_idx]
-                    is_brazzers = history_data.get("is_brazzers", False)
-                    
-                    # Create fake message
-                    fake_msg = query.message
-                    fake_msg.from_user = query.from_user
-                    fake_msg.chat = query.message.chat
-                    
-                    # Delete old message and send new one with updated ratings
-                    try:
-                        await query.message.delete()
-                    except Exception:
-                        pass
-                    
-                    await send_video_with_buttons(
-                        client,
-                        fake_msg,
-                        user_id,
-                        video_id,
-                        is_brazzers=is_brazzers
-                    )
-            else:
-                # If no history, just edit buttons
-                try:
-                    await query.message.edit_reply_markup(
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("🔄 Refresh", callback_data="noop")]
-                        ])
-                    )
-                except Exception:
-                    pass
-            
-        except Exception as e:
-            print(f"❌ Rating error: {e}")
-            import traceback
-            traceback.print_exc()
-            await query.answer(f"❌ Error: {str(e)[:30]}", show_alert=True)
-        return
-
-    # =============================================
-    # 🆕 BACK BUTTON HANDLER - Purane buttons wapas laane ke liye
-    # =============================================
-    if data.startswith("back_"):
-        try:
-            video_type = data.replace("back_", "")  # "video" ya "brazzers"
-            is_brazzers = video_type == "brazzers"
-            
-            # User history se current video nikaalo
-            history_data = temp.USER_VIDEO_HISTORY.get(user_id)
-            if not history_data or not history_data["history"]:
-                await query.answer("❌ No history found!", show_alert=True)
-                return
-            
-            current_idx = history_data["current_index"]
-            if current_idx < 0 or current_idx >= len(history_data["history"]):
-                await query.answer("❌ Invalid video!", show_alert=True)
-                return
-            
-            video_id = history_data["history"][current_idx]
-            
-            # Delete old message and send new one with original buttons (including ratings)
-            try:
-                await query.message.delete()
-            except Exception:
-                pass
-            
-            fake_msg = query.message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = query.message.chat
-            
-            await send_video_with_buttons(
-                client,
-                fake_msg,
-                user_id,
-                video_id,
-                is_brazzers=is_brazzers
-            )
-            
-            await query.answer("🔙 Back to original buttons", show_alert=False)
-            
-        except Exception as e:
-            print(f"❌ Back button error: {e}")
-            await query.answer("❌ Error loading previous buttons", show_alert=True)
-        return
 
     # =============================================
     # 🆕 DOWNLOAD HANDLER (dld_ - Short ID based)
