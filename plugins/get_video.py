@@ -13,13 +13,8 @@ from utils import temp, auto_delete_message, is_user_joined
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
+# { unique_id: {"file_id": "xxx", "video_type": "video/brazzers", "user_id": 123} }
 DOWNLOAD_CACHE = {}
-
-# ---------- AUTO DELETE TIMINGS ----------
-VIDEO_DELETE_TIME = 600  # 10 minutes (in seconds)
-DOWNLOAD_DELETE_TIME = 600  # 10 minutes (in seconds)
-# DOWNLOAD_DELETE_TIME = 120  # Agar 2 minute karna ho toh yeh use karein
-
 
 # ---------- INITIALIZE USER HISTORY ----------
 def init_user_history(user_id, is_brazzers=False):
@@ -107,17 +102,6 @@ async def send_limit_message(message, limit_data):
         [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ])
 )
-
-
-# ---------- AUTO DELETE FUNCTION (Alag se) ----------
-async def delete_message_after_delay(message, delay_seconds, log_name="Message"):
-    """Generic function to delete message after delay"""
-    await asyncio.sleep(delay_seconds)
-    try:
-        await message.delete()
-        print(f"🗑️ {log_name} auto-deleted after {delay_seconds}s")
-    except Exception as e:
-        print(f"❌ Failed to delete {log_name}: {e}")
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -208,28 +192,31 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     
     print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
     
-    # ✅ Build Buttons - Saare Buttons
+    # Build Buttons - Previous + Next + Download + Close
     buttons = []
     
-    # Row 1: Download Button
-    buttons.append([
-        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
-    ])
+    # ✅ Row 1: Previous + Next
+    row1 = []
     
-    # Row 2: Previous + Next
-    row2 = []
     if current_idx > 0:
-        row2.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
     else:
-        row2.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+        row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
     
-    row2.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+    row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+    buttons.append(row1)
+    
+    # ✅ Row 2: Download Button
+    row2 = [
+        InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
+    ]
     buttons.append(row2)
     
-    # Row 3: Close Button
-    buttons.append([
+    # ✅ Row 3: Close Button
+    row3 = [
         InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
-    ])
+    ]
+    buttons.append(row3)
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -255,212 +242,108 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     if not is_brazzers:
         await db.increase_video_count(user_id, username)
 
-    # ✅ AUTO DELETE VIDEO - 10 minutes
-    asyncio.create_task(delete_message_after_delay(sent, VIDEO_DELETE_TIME, "Video"))
-    
-    # ✅ AUTO DELETE ORIGINAL COMMAND MESSAGE - 10 minutes
-    asyncio.create_task(delete_message_after_delay(m, VIDEO_DELETE_TIME, "Command message"))
+    # ✅ Auto-delete video after 10 minutes
+    asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ======================================================================
-# ✅ DOWNLOAD CALLBACK HANDLER
-# ======================================================================
+# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Har bar naya link) ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
+    """
+    Handle download button clicks - Premium check + Download Link
+    Har bar click karne par naya link generate hoga
+    Auto-delete after 120 seconds
+    """
     user_id = query.from_user.id
     
     try:
-        print(f"🔍 DOWNLOAD: Callback triggered")
-        print(f"📝 Query Data: {query.data}")
-        
         download_id = query.data.replace("dld_", "")
-        print(f"📝 Extracted download_id: {download_id}")
-        
         cache_data = DOWNLOAD_CACHE.get(download_id)
         
         if not cache_data:
-            print(f"❌ Cache NOT FOUND for: {download_id}")
-            await query.answer("❌ Download link expired!", show_alert=True)
+            await query.answer(
+                "❌ Download link expired! Please get a new video.",
+                show_alert=True
+            )
             return
         
         if cache_data["user_id"] != user_id:
-            await query.answer("❌ Not for you!", show_alert=True)
+            await query.answer(
+                "❌ This download link is not for you!",
+                show_alert=True
+            )
             return
         
         file_id = cache_data["file_id"]
         video_type = cache_data["video_type"]
         
-        # ✅ Premium check
+        # ✅ Check if user is premium
         is_premium = await db.has_premium_access(user_id)
+        
         if not is_premium:
-            await query.answer("💎 Only for premium users!", show_alert=True)
+            await query.answer(
+                "💎 This feature is only for premium users!",
+                show_alert=True
+            )
             return
         
-        # ✅ Generate download URL
+        # ✅ Generate NEW Download URL (Har bar naya)
         web_app_url = WEB_APP_URL.rstrip('/')
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
         
-        print(f"🔗 Download URL: {download_url}")
+        print(f"🔗 New Download URL generated: {download_url}")
         
-        # ✅ SIRF 2 BUTTONS - Fast Download + Back
+        video_label = "🔞 Brazzers" if video_type == "brazzers" else "🎬 Video"
+        
+        # ✅ Send message with download button (Har bar naya message)
         buttons = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("⚡Fast Download ⚡", url=download_url),
-                InlineKeyboardButton("🔙 Back", callback_data=f"back_{download_id}")
-            ]
+            [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
+            [InlineKeyboardButton("✖️ Close", callback_data="close_data")]
         ])
         
-        # ✅ Send DOWNLOAD LINK MESSAGE (Alag se message)
-        download_msg = await query.message.reply(
-            f"✅ **Download Link Generated!**\n\n"
-            f"⬇️ Click below to start downloading\n"
-            f"⚠️ This feature is only for premium users\n\n"
-            f"⏰ This message will auto-delete in 10 minutes",
+        sent_message = await query.message.reply(
+            f"✅ **Your Downloading Link Generator!**\n\n"
+            f"⬇️ Click The Button Below To Start Downloading\n\n"
+            f"⚠️ This Feature Is Only For Premium Users!\n\n",
             reply_markup=buttons
         )
         
-        # ✅ AUTO DELETE DOWNLOAD MESSAGE - 10 minutes (Alag se)
-        asyncio.create_task(delete_message_after_delay(download_msg, DOWNLOAD_DELETE_TIME, "Download message"))
+        # ✅ Auto-delete after 120 seconds
+        async def delete_download_message():
+            await asyncio.sleep(10)
+            try:
+                await sent_message.delete()
+            except Exception:
+                pass  # Silent delete - no errors, no prints
         
-        print(f"✅ Download message sent with auto-delete in {DOWNLOAD_DELETE_TIME}s")
-        await query.answer("✅ Download link generated!", show_alert=False)
+        asyncio.create_task(delete_download_message())
+        
+        # ✅ Cache delete mat karo - taaki dobara click karne par kaam kare
+        # Cache ko delete nahi karenge, taaki user dobara click kar sake
+        
+        # ✅ Popup alert nahi dikhega (show_alert=False)
+        await query.answer("✅ Download link generated! Will auto-delete in 120s", show_alert=False)
         
     except Exception as e:
-        print(f"❌ Download error: {e}")
+        print(f"❌ Download handler error: {e}")
         import traceback
         traceback.print_exc()
         await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
 
 
-# ======================================================================
-# ✅ BACK BUTTON HANDLER
-# ======================================================================
-@Client.on_callback_query(filters.regex(r"^back_"))
-async def back_to_video_handler(client, query: CallbackQuery):
-    user_id = query.from_user.id
-    
-    try:
-        print(f"🔙🔙🔙 BACK BUTTON TRIGGERED!")
-        print(f"📝 Query Data: {query.data}")
-        
-        download_id = query.data.replace("back_", "")
-        print(f"📝 Extracted download_id: {download_id}")
-        
-        cache_data = DOWNLOAD_CACHE.get(download_id)
-        
-        if not cache_data:
-            await query.answer("❌ Video expired! Please get a new video.", show_alert=True)
-            return
-        
-        if cache_data["user_id"] != user_id:
-            await query.answer("❌ This is not for you!", show_alert=True)
-            return
-        
-        file_id = cache_data["file_id"]
-        video_type = cache_data["video_type"]
-        is_brazzers = video_type == "brazzers"
-        
-        # ✅ Delete the download message first
-        try:
-            await query.message.delete()
-            print(f"🗑️ Download message deleted on Back click")
-        except Exception as e:
-            print(f"⚠️ Could not delete download message: {e}")
-        
-        # ✅ Generate new download ID (for next download)
-        new_download_id = str(uuid.uuid4())[:8]
-        DOWNLOAD_CACHE[new_download_id] = {
-            "file_id": file_id,
-            "video_type": video_type,
-            "user_id": user_id
-        }
-        
-        print(f"✅ New download_id created: {new_download_id}")
-        
-        # ✅ Wapas SAARE BUTTONS - Download + Previous + Next + Close
-        buttons = []
-        
-        # Row 1: Download Button
-        buttons.append([
-            InlineKeyboardButton("📥 Download", callback_data=f"dld_{new_download_id}")
-        ])
-        
-        # Row 2: Previous + Next
-        history_data = temp.USER_VIDEO_HISTORY.get(user_id)
-        current_idx = history_data["current_index"] if history_data else -1
-        
-        row2 = []
-        if current_idx > 0:
-            row2.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
-        else:
-            row2.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
-        
-        row2.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
-        buttons.append(row2)
-        
-        # Row 3: Close
-        buttons.append([
-            InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
-        ])
-        
-        # ✅ Send VIDEO AGAIN with original buttons (kyunki pehle video delete ho chuki hogi)
-        video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
-        sent = await client.send_video(
-            chat_id=query.message.chat.id,
-            video=file_id,
-            protect_content=PROTECT_CONTENT,
-            caption=(
-                f"**{video_label}**\n\n"
-                f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-                "<blockquote>"
-                "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-                "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
-                "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
-                "</blockquote>"
-            ),
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-        
-        # ✅ AUTO DELETE VIDEO - 10 minutes (Alag se)
-        asyncio.create_task(delete_message_after_delay(sent, VIDEO_DELETE_TIME, "Video (Back)"))
-        
-        print(f"✅ Back button success! Video resent with original buttons.")
-        await query.answer("🔙 Back to video!", show_alert=False)
-        
-    except Exception as e:
-        print(f"❌ Back error: {e}")
-        import traceback
-        traceback.print_exc()
-        await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
-
-
-# ======================================================================
-# ✅ CLOSE BUTTON HANDLER
-# ======================================================================
-@Client.on_callback_query(filters.regex("^close_data$"))
-async def close_callback(client, query: CallbackQuery):
-    try:
-        await query.message.delete()
-        await query.answer("🗑️ Message deleted!", show_alert=False)
-    except Exception as e:
-        print(f"❌ Close error: {e}")
-        await query.answer("❌ Error deleting message!", show_alert=True)
-
-
-# ======================================================================
-# ✅ NEXT/PREVIOUS NAVIGATION HANDLER
-# ======================================================================
+# ---------- CALLBACK HANDLER FOR NEXT / PREVIOUS ----------
 @Client.on_callback_query(filters.regex(r"^(next_|prev_|noop)"))
 async def video_navigation_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
     data = query.data
     message = query.message
     
-    # Handle noop
+    # Handle noop (disabled button click)
     if data == "noop":
         await query.answer("⚠️ This is the first video!", show_alert=True)
         return
     
+    # Parse callback data: next_video, prev_video, next_brazzers, prev_brazzers
     try:
         action, video_type = data.split("_")
     except ValueError:
@@ -469,6 +352,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
     
     is_brazzers = video_type == "brazzers"
 
+    # Get user history
     history_data = temp.USER_VIDEO_HISTORY.get(user_id)
     if not history_data or not history_data["history"]:
         await query.answer("❌ No history found. Try /getvideo!", show_alert=True)
@@ -477,13 +361,14 @@ async def video_navigation_callback(client, query: CallbackQuery):
     history = history_data["history"]
     current_idx = history_data["current_index"]
     
-    # Check limit
+    # ---------- CHECK LIMIT FIRST (for both Next and Previous) ----------
     limit_data = await check_user_limit(user_id)
+    
     if limit_data["reached"]:
         await send_limit_message(message, limit_data)
         return
     
-    # PREVIOUS
+    # ---------- PREVIOUS BUTTON ----------
     if action == "prev":
         if current_idx <= 0:
             await query.answer("⚠️ This is the first video!", show_alert=True)
@@ -493,27 +378,39 @@ async def video_navigation_callback(client, query: CallbackQuery):
         video_id = history[new_idx]
         
         await query.answer("⏪ Loading previous video...", show_alert=False)
+        
+        # Update current index
         history_data["current_index"] = new_idx
         
+        # Delete old message
         try:
             await message.delete()
         except Exception:
             pass
 
+        # Resend video
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
-        await send_video_with_buttons(client, fake_msg, user_id, video_id, is_brazzers=is_brazzers)
+        await send_video_with_buttons(
+            client, 
+            fake_msg, 
+            user_id, 
+            video_id,
+            is_brazzers=is_brazzers
+        )
         return
 
-    # NEXT
+    # ---------- NEXT BUTTON ----------
     if action == "next":
+        # Check if video exists in history first
         if current_idx + 1 < len(history):
             new_idx = current_idx + 1
             video_id = history[new_idx]
             
             await query.answer("⏩ Loading...", show_alert=False)
+            
             history_data["current_index"] = new_idx
             
             try:
@@ -525,10 +422,16 @@ async def video_navigation_callback(client, query: CallbackQuery):
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
 
-            await send_video_with_buttons(client, fake_msg, user_id, video_id, is_brazzers=is_brazzers)
+            await send_video_with_buttons(
+                client,
+                fake_msg,
+                user_id,
+                video_id,
+                is_brazzers=is_brazzers
+            )
             return
         
-        # GET NEW VIDEO
+        # ---------- GET NEW VIDEO (Not in history) ----------
         await query.answer("⏩ Loading....", show_alert=False)
         
         current_video = history[current_idx]
@@ -562,4 +465,10 @@ async def video_navigation_callback(client, query: CallbackQuery):
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
-        await send_video_with_buttons(client, fake_msg, user_id, new_video, is_brazzers=is_brazzers)
+        await send_video_with_buttons(
+            client,
+            fake_msg,
+            user_id,
+            new_video,
+            is_brazzers=is_brazzers
+        )
