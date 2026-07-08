@@ -1,6 +1,7 @@
 import datetime
 import asyncio
 import random
+import uuid
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
@@ -12,6 +13,7 @@ from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
+from plugins.get_video import DOWNLOAD_CACHE
 
 # =================================================
 # START COMMAND
@@ -82,7 +84,7 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    await asyncio.sleep(30)
+    await asyncio.sleep(300)
     await msg.delete()  
 
 
@@ -137,6 +139,74 @@ async def cb_handler(client: Client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
     message = query.message
+
+    # =============================================
+    # 🆕 BACK BUTTON HANDLER - Purane buttons wapas laane ke liye
+    # =============================================
+    if data.startswith("back_"):
+        try:
+            video_type = data.replace("back_", "")  # "video" ya "brazzers"
+            is_brazzers = video_type == "brazzers"
+            
+            # User history se current video nikaalo
+            history_data = temp.USER_VIDEO_HISTORY.get(user_id)
+            if not history_data or not history_data["history"]:
+                await query.answer("❌ No history found!", show_alert=True)
+                return
+            
+            current_idx = history_data["current_index"]
+            if current_idx < 0 or current_idx >= len(history_data["history"]):
+                await query.answer("❌ Invalid video!", show_alert=True)
+                return
+            
+            video_id = history_data["history"][current_idx]
+            
+            # Purane buttons rebuild karein
+            buttons = []
+            
+            # Row 1: Previous + Next
+            row1 = []
+            if current_idx > 0:
+                row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{video_type}"))
+            else:
+                row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+            
+            row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{video_type}"))
+            buttons.append(row1)
+            
+            # Row 2: Download Button
+            # Naya download ID generate karein
+            download_id = str(uuid.uuid4())[:8]
+            DOWNLOAD_CACHE[download_id] = {
+                "file_id": video_id,
+                "video_type": video_type,
+                "user_id": user_id
+            }
+            
+            row2 = [
+                InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")
+            ]
+            buttons.append(row2)
+            
+            # Row 3: Close Button
+            row3 = [
+                InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
+            ]
+            buttons.append(row3)
+            
+            original_buttons = InlineKeyboardMarkup(buttons)
+            
+            # ✅ Purane buttons wapas set karein
+            await query.message.edit_reply_markup(
+                reply_markup=original_buttons
+            )
+            
+            await query.answer("🔙 Back to original buttons", show_alert=False)
+            
+        except Exception as e:
+            print(f"❌ Back button error: {e}")
+            await query.answer("❌ Error loading previous buttons", show_alert=True)
+        return
 
     # =============================================
     # 🆕 DOWNLOAD HANDLER (dld_ - Short ID based)
