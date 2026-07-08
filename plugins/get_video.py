@@ -15,6 +15,12 @@ from utils import temp, auto_delete_message, is_user_joined
 # ---------- TEMP DOWNLOAD CACHE ----------
 DOWNLOAD_CACHE = {}
 
+# ---------- AUTO DELETE TIMINGS ----------
+VIDEO_DELETE_TIME = 600  # 10 minutes (in seconds)
+DOWNLOAD_DELETE_TIME = 600  # 10 minutes (in seconds)
+# DOWNLOAD_DELETE_TIME = 120  # Agar 2 minute karna ho toh yeh use karein
+
+
 # ---------- INITIALIZE USER HISTORY ----------
 def init_user_history(user_id, is_brazzers=False):
     if user_id not in temp.USER_VIDEO_HISTORY:
@@ -101,6 +107,17 @@ async def send_limit_message(message, limit_data):
         [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ])
 )
+
+
+# ---------- AUTO DELETE FUNCTION (Alag se) ----------
+async def delete_message_after_delay(message, delay_seconds, log_name="Message"):
+    """Generic function to delete message after delay"""
+    await asyncio.sleep(delay_seconds)
+    try:
+        await message.delete()
+        print(f"🗑️ {log_name} auto-deleted after {delay_seconds}s")
+    except Exception as e:
+        print(f"❌ Failed to delete {log_name}: {e}")
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -190,7 +207,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     }
     
     print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
-    print(f"📦 Total Cache Keys: {list(DOWNLOAD_CACHE.keys())}")
     
     # ✅ Build Buttons - Saare Buttons
     buttons = []
@@ -239,11 +255,16 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     if not is_brazzers:
         await db.increase_video_count(user_id, username)
 
-    # ✅ Auto-delete video after 10 minutes
-    asyncio.create_task(auto_delete_message(m, sent))
+    # ✅ AUTO DELETE VIDEO - 10 minutes
+    asyncio.create_task(delete_message_after_delay(sent, VIDEO_DELETE_TIME, "Video"))
+    
+    # ✅ AUTO DELETE ORIGINAL COMMAND MESSAGE - 10 minutes
+    asyncio.create_task(delete_message_after_delay(m, VIDEO_DELETE_TIME, "Command message"))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER ----------
+# ======================================================================
+# ✅ DOWNLOAD CALLBACK HANDLER
+# ======================================================================
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -251,8 +272,6 @@ async def download_callback_handler(client, query: CallbackQuery):
     try:
         print(f"🔍 DOWNLOAD: Callback triggered")
         print(f"📝 Query Data: {query.data}")
-        print(f"👤 User ID: {user_id}")
-        print(f"📦 All Cache Keys: {list(DOWNLOAD_CACHE.keys())}")
         
         download_id = query.data.replace("dld_", "")
         print(f"📝 Extracted download_id: {download_id}")
@@ -265,20 +284,15 @@ async def download_callback_handler(client, query: CallbackQuery):
             return
         
         if cache_data["user_id"] != user_id:
-            print(f"❌ User mismatch: cache={cache_data['user_id']}, current={user_id}")
             await query.answer("❌ Not for you!", show_alert=True)
             return
         
         file_id = cache_data["file_id"]
         video_type = cache_data["video_type"]
-        is_brazzers = video_type == "brazzers"
-        
-        print(f"✅ Cache found! file_id={file_id[:20]}...")
         
         # ✅ Premium check
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
-            print(f"❌ User {user_id} is not premium")
             await query.answer("💎 Only for premium users!", show_alert=True)
             return
         
@@ -296,12 +310,19 @@ async def download_callback_handler(client, query: CallbackQuery):
             ]
         ])
         
-        print(f"✅ Back callback set: back_{download_id}")
+        # ✅ Send DOWNLOAD LINK MESSAGE (Alag se message)
+        download_msg = await query.message.reply(
+            f"✅ **Download Link Generated!**\n\n"
+            f"⬇️ Click below to start downloading\n"
+            f"⚠️ This feature is only for premium users\n\n"
+            f"⏰ This message will auto-delete in 10 minutes",
+            reply_markup=buttons
+        )
         
-        # ✅ Update buttons
-        await query.message.edit_reply_markup(reply_markup=buttons)
+        # ✅ AUTO DELETE DOWNLOAD MESSAGE - 10 minutes (Alag se)
+        asyncio.create_task(delete_message_after_delay(download_msg, DOWNLOAD_DELETE_TIME, "Download message"))
         
-        print(f"✅ Buttons updated successfully!")
+        print(f"✅ Download message sent with auto-delete in {DOWNLOAD_DELETE_TIME}s")
         await query.answer("✅ Download link generated!", show_alert=False)
         
     except Exception as e:
@@ -311,7 +332,9 @@ async def download_callback_handler(client, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
 
 
-# ---------- BACK BUTTON HANDLER ----------
+# ======================================================================
+# ✅ BACK BUTTON HANDLER
+# ======================================================================
 @Client.on_callback_query(filters.regex(r"^back_"))
 async def back_to_video_handler(client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -319,23 +342,17 @@ async def back_to_video_handler(client, query: CallbackQuery):
     try:
         print(f"🔙🔙🔙 BACK BUTTON TRIGGERED!")
         print(f"📝 Query Data: {query.data}")
-        print(f"👤 User ID: {user_id}")
-        print(f"📦 All Cache Keys: {list(DOWNLOAD_CACHE.keys())}")
         
-        # ✅ Extract download_id
         download_id = query.data.replace("back_", "")
         print(f"📝 Extracted download_id: {download_id}")
         
-        # ✅ Get cache data
         cache_data = DOWNLOAD_CACHE.get(download_id)
         
         if not cache_data:
-            print(f"❌ Cache NOT FOUND for: {download_id}")
             await query.answer("❌ Video expired! Please get a new video.", show_alert=True)
             return
         
         if cache_data["user_id"] != user_id:
-            print(f"❌ User mismatch: cache={cache_data['user_id']}, current={user_id}")
             await query.answer("❌ This is not for you!", show_alert=True)
             return
         
@@ -343,7 +360,12 @@ async def back_to_video_handler(client, query: CallbackQuery):
         video_type = cache_data["video_type"]
         is_brazzers = video_type == "brazzers"
         
-        print(f"✅ Cache found! file_id={file_id[:20]}...")
+        # ✅ Delete the download message first
+        try:
+            await query.message.delete()
+            print(f"🗑️ Download message deleted on Back click")
+        except Exception as e:
+            print(f"⚠️ Could not delete download message: {e}")
         
         # ✅ Generate new download ID (for next download)
         new_download_id = str(uuid.uuid4())[:8]
@@ -381,15 +403,28 @@ async def back_to_video_handler(client, query: CallbackQuery):
             InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
         ])
         
-        print(f"✅ Restoring original buttons...")
-        
-        # ✅ Video message ke buttons UPDATE karo (wapas saare buttons)
-        await query.message.edit_reply_markup(
+        # ✅ Send VIDEO AGAIN with original buttons (kyunki pehle video delete ho chuki hogi)
+        video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
+        sent = await client.send_video(
+            chat_id=query.message.chat.id,
+            video=file_id,
+            protect_content=PROTECT_CONTENT,
+            caption=(
+                f"**{video_label}**\n\n"
+                f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+                "<blockquote>"
+                "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+                "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+                "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+                "</blockquote>"
+            ),
             reply_markup=InlineKeyboardMarkup(buttons)
         )
         
-        print(f"✅ Back button success! Buttons restored.")
+        # ✅ AUTO DELETE VIDEO - 10 minutes (Alag se)
+        asyncio.create_task(delete_message_after_delay(sent, VIDEO_DELETE_TIME, "Video (Back)"))
         
+        print(f"✅ Back button success! Video resent with original buttons.")
         await query.answer("🔙 Back to video!", show_alert=False)
         
     except Exception as e:
@@ -399,11 +434,12 @@ async def back_to_video_handler(client, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)[:50]}...", show_alert=True)
 
 
-# ---------- CLOSE BUTTON HANDLER ----------
+# ======================================================================
+# ✅ CLOSE BUTTON HANDLER
+# ======================================================================
 @Client.on_callback_query(filters.regex("^close_data$"))
 async def close_callback(client, query: CallbackQuery):
     try:
-        print(f"🗑️ Close button clicked by user {query.from_user.id}")
         await query.message.delete()
         await query.answer("🗑️ Message deleted!", show_alert=False)
     except Exception as e:
@@ -411,21 +447,20 @@ async def close_callback(client, query: CallbackQuery):
         await query.answer("❌ Error deleting message!", show_alert=True)
 
 
-# ---------- NEXT/PREVIOUS NAVIGATION HANDLER ----------
+# ======================================================================
+# ✅ NEXT/PREVIOUS NAVIGATION HANDLER
+# ======================================================================
 @Client.on_callback_query(filters.regex(r"^(next_|prev_|noop)"))
 async def video_navigation_callback(client, query: CallbackQuery):
     user_id = query.from_user.id
     data = query.data
     message = query.message
     
-    print(f"🔍 NAVIGATION: {data} by user {user_id}")
-    
-    # Handle noop (disabled button click)
+    # Handle noop
     if data == "noop":
         await query.answer("⚠️ This is the first video!", show_alert=True)
         return
     
-    # Parse callback data: next_video, prev_video, next_brazzers, prev_brazzers
     try:
         action, video_type = data.split("_")
     except ValueError:
@@ -434,7 +469,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
     
     is_brazzers = video_type == "brazzers"
 
-    # Get user history
     history_data = temp.USER_VIDEO_HISTORY.get(user_id)
     if not history_data or not history_data["history"]:
         await query.answer("❌ No history found. Try /getvideo!", show_alert=True)
@@ -443,14 +477,13 @@ async def video_navigation_callback(client, query: CallbackQuery):
     history = history_data["history"]
     current_idx = history_data["current_index"]
     
-    # ---------- CHECK LIMIT FIRST ----------
+    # Check limit
     limit_data = await check_user_limit(user_id)
-    
     if limit_data["reached"]:
         await send_limit_message(message, limit_data)
         return
     
-    # ---------- PREVIOUS BUTTON ----------
+    # PREVIOUS
     if action == "prev":
         if current_idx <= 0:
             await query.answer("⚠️ This is the first video!", show_alert=True)
@@ -460,39 +493,27 @@ async def video_navigation_callback(client, query: CallbackQuery):
         video_id = history[new_idx]
         
         await query.answer("⏪ Loading previous video...", show_alert=False)
-        
-        # Update current index
         history_data["current_index"] = new_idx
         
-        # Delete old message
         try:
             await message.delete()
         except Exception:
             pass
 
-        # Resend video
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
-        await send_video_with_buttons(
-            client, 
-            fake_msg, 
-            user_id, 
-            video_id,
-            is_brazzers=is_brazzers
-        )
+        await send_video_with_buttons(client, fake_msg, user_id, video_id, is_brazzers=is_brazzers)
         return
 
-    # ---------- NEXT BUTTON ----------
+    # NEXT
     if action == "next":
-        # Check if video exists in history first
         if current_idx + 1 < len(history):
             new_idx = current_idx + 1
             video_id = history[new_idx]
             
             await query.answer("⏩ Loading...", show_alert=False)
-            
             history_data["current_index"] = new_idx
             
             try:
@@ -504,16 +525,10 @@ async def video_navigation_callback(client, query: CallbackQuery):
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
 
-            await send_video_with_buttons(
-                client,
-                fake_msg,
-                user_id,
-                video_id,
-                is_brazzers=is_brazzers
-            )
+            await send_video_with_buttons(client, fake_msg, user_id, video_id, is_brazzers=is_brazzers)
             return
         
-        # ---------- GET NEW VIDEO ----------
+        # GET NEW VIDEO
         await query.answer("⏩ Loading....", show_alert=False)
         
         current_video = history[current_idx]
@@ -547,10 +562,4 @@ async def video_navigation_callback(client, query: CallbackQuery):
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
-        await send_video_with_buttons(
-            client,
-            fake_msg,
-            user_id,
-            new_video,
-            is_brazzers=is_brazzers
-        )
+        await send_video_with_buttons(client, fake_msg, user_id, new_video, is_brazzers=is_brazzers)
