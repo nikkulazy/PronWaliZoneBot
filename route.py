@@ -1,5 +1,4 @@
 from aiohttp import web
-from info import URL
 import os
 import tempfile
 import asyncio
@@ -313,3 +312,5 @@ def set_bot_client(client):
     global bot_client
     bot_client = client
     print("✅ Bot client set in route.py")
+
+URL = "https://protestant-lulu-misslazy-c67202fa.koyeb.app"
