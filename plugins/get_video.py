@@ -2,7 +2,7 @@ from os import environ
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
-from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE, WEB_APP_URL
+from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE, WEB_APP_URL, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
 import asyncio
 import pytz
 import uuid
@@ -150,7 +150,7 @@ async def handle_video_request(client, m: Message):
     # ---------- GET NEW VIDEO ----------
     video_id = await db.get_unseen_video(user_id)
     if not video_id:
-        video_id = await db.get_random_video()
+        video_id = await db.get_random_video(user_id)
     if not video_id:
         return await m.reply("❌ No videos found.")
 
@@ -166,7 +166,7 @@ async def handle_video_request(client, m: Message):
     await send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False)
 
 
-# ---------- SEND VIDEO FUNCTION ----------
+# ---------- SEND VIDEO FUNCTION (MODIFIED) ----------
 async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=False):
     username = m.from_user.username or m.from_user.first_name or "Unknown"
     
@@ -179,6 +179,37 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     
     # Video type label for caption
     video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
+    
+    # ✅ NEW: Check video duration
+    try:
+        # Get video info from database
+        video_data = await db.videos.find_one({"file_id": video_id})
+        if video_data:
+            duration = video_data.get("duration", 0)
+            is_premium_video = video_data.get("is_premium", False)
+        else:
+            # If not in database, get from message
+            video_msg = await client.get_messages(chat_id="me", message_ids=video_id)
+            if video_msg and video_msg.video:
+                duration = video_msg.video.duration or 0
+                is_premium_video = duration > FREE_VIDEO_DURATION
+            else:
+                duration = 0
+                is_premium_video = False
+        
+        # Format duration
+        if duration > 0:
+            minutes = duration // 60
+            seconds = duration % 60
+            duration_text = f"⏱️ Duration: {minutes}m {seconds}s"
+            if is_premium_video:
+                duration_text += " 💎"
+        else:
+            duration_text = ""
+            
+    except Exception as e:
+        print(f"❌ Duration fetch error: {e}")
+        duration_text = ""
     
     # ✅ Generate UNIQUE SHORT ID for download
     download_id = str(uuid.uuid4())[:8]
@@ -220,20 +251,25 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
+    # ✅ Build caption with duration
+    caption = f"**{video_label}**\n\n"
+    if duration_text:
+        caption += f"{duration_text}\n\n"
+    caption += (
+        f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+        "<blockquote>"
+        "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+        "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+        "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+        "</blockquote>"
+    )
+
     # Send video
     sent = await client.send_video(
         chat_id=m.chat.id,
         video=video_id,
         protect_content=PROTECT_CONTENT,
-        caption=(
-            f"**{video_label}**\n\n"
-            f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-            "<blockquote>"
-            "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-            "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
-            "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
-            "</blockquote>"
-        ),
+        caption=caption,
         reply_to_message_id=m.id,
         reply_markup=reply_markup
     )
@@ -246,13 +282,11 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
     asyncio.create_task(auto_delete_message(m, sent))
 
 
-# ---------- DOWNLOAD CALLBACK HANDLER (Updated - Back button support) ----------
+# ---------- DOWNLOAD CALLBACK HANDLER ----------
 @Client.on_callback_query(filters.regex(r"^dld_"))
 async def download_callback_handler(client, query: CallbackQuery):
     """
     Handle download button clicks - Premium check + Download Link
-    Video aur caption same rahega, sirf buttons change honge
-    Back button se purane buttons wapas aa jayenge
     """
     user_id = query.from_user.id
     
@@ -456,7 +490,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
         else:
             new_video = await db.get_unseen_video(user_id)
             if not new_video:
-                new_video = await db.get_random_video()
+                new_video = await db.get_random_video(user_id)
             if not new_video:
                 await message.reply("❌ No more videos!")
                 return
