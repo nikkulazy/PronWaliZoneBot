@@ -58,6 +58,7 @@ PROTECT_CONTENT = str_to_bool(environ.get("PROTECT_CONTENT"), True)
 DAILY_LIMIT = int(environ.get("DAILY_LIMIT", "5"))
 VERIFICATION_DAILY_LIMIT = int(environ.get("VERIFICATION_DAILY_LIMIT", "20"))
 PREMIUM_DAILY_LIMIT = int(environ.get("PREMIUM_DAILY_LIMIT", "50"))
+FREE_VIDEO_DURATION = int(environ.get("FREE_VIDEO_DURATION", "180"))  # 240 seconds = 4 minutes
 
 # =========================================================
 # 🔗 SHORTLINK & VERIFICATION
