@@ -1,12 +1,12 @@
-from os import environ
+import asyncio
+import pytz
+import uuid
+import random
+from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
 from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE, WEB_APP_URL, FREE_VIDEO_DURATION
-import asyncio
-import pytz
-import uuid
-from datetime import datetime
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
@@ -107,11 +107,11 @@ async def send_limit_message(message, limit_data):
         text = f"❌ **Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for unlimited access!"
     
     await message.reply(
-    text,
-    reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-        [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-    ])
+        text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
+            [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
+        ])
     )
 
 
@@ -192,92 +192,99 @@ async def handle_video_request(client, m: Message):
     await send_video_with_buttons(client, m, user_id, video_id, duration, is_brazzers=False)
 
 
-# ---------- SEND VIDEO WITH SPOILER ----------
+# ---------- SEND VIDEO WITH SPOILER (COMPLETE FUNCTION) ----------
 async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_brazzers=False):
-    username = m.from_user.username or m.from_user.first_name or "Unknown"
-    
-    init_user_history(user_id, is_brazzers)
-    
-    history = temp.USER_VIDEO_HISTORY[user_id]
-    current_idx = history["current_index"]
-    
-    video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
-    
-    video_data = await db.videos.find_one({"file_id": video_id})
-    is_premium_video = video_data.get("is_premium", False) if video_data else False
-    
-    if duration > 0:
-        minutes = duration // 60
-        seconds = duration % 60
-        duration_text = f"⏱️ Duration: {minutes}m {seconds}s"
-        if is_premium_video:
-            duration_text += " 💎"
-    else:
-        duration_text = ""
-    
-    download_id = str(uuid.uuid4())[:8]
-    
-    DOWNLOAD_CACHE[download_id] = {
-        "file_id": video_id,
-        "video_type": "brazzers" if is_brazzers else "video",
-        "user_id": user_id
-    }
-    
-    print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
-    
-    # Build Buttons
-    buttons = []
-    
-    # Row 1: Previous + Next
-    row1 = []
-    if current_idx > 0:
-        row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
-    else:
-        row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
-    
-    row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
-    buttons.append(row1)
-    
-    # Row 2: Download Button
-    row2 = [InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")]
-    buttons.append(row2)
-    
-    # Row 3: Close Button
-    row3 = [InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")]
-    buttons.append(row3)
+    try:
+        username = m.from_user.username or m.from_user.first_name or "Unknown"
+        
+        init_user_history(user_id, is_brazzers)
+        
+        history = temp.USER_VIDEO_HISTORY[user_id]
+        current_idx = history["current_index"]
+        
+        video_label = "🔞 Brazzers" if is_brazzers else "🎬 Video"
+        
+        video_data = await db.videos.find_one({"file_id": video_id})
+        is_premium_video = video_data.get("is_premium", False) if video_data else False
+        
+        if duration > 0:
+            minutes = duration // 60
+            seconds = duration % 60
+            duration_text = f"⏱️ Duration: {minutes}m {seconds}s"
+            if is_premium_video:
+                duration_text += " 💎"
+        else:
+            duration_text = ""
+        
+        download_id = str(uuid.uuid4())[:8]
+        
+        DOWNLOAD_CACHE[download_id] = {
+            "file_id": video_id,
+            "video_type": "brazzers" if is_brazzers else "video",
+            "user_id": user_id
+        }
+        
+        print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
+        
+        # Build Buttons
+        buttons = []
+        
+        # Row 1: Previous + Next
+        row1 = []
+        if current_idx > 0:
+            row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{'brazzers' if is_brazzers else 'video'}"))
+        else:
+            row1.append(InlineKeyboardButton("⏪ Previous", callback_data="noop"))
+        
+        row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{'brazzers' if is_brazzers else 'video'}"))
+        buttons.append(row1)
+        
+        # Row 2: Download Button
+        row2 = [InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")]
+        buttons.append(row2)
+        
+        # Row 3: Close Button
+        row3 = [InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")]
+        buttons.append(row3)
 
-    reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = InlineKeyboardMarkup(buttons)
 
-    # Build caption
-    caption = f"**{video_label}**\n\n"
-    if duration_text:
-        caption += f"{duration_text}\n\n"
-    caption += (
-        f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-        "<blockquote>"
-        "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-        "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
-        "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
-        "</blockquote>"
-    )
+        # Build caption
+        caption = f"**{video_label}**\n\n"
+        if duration_text:
+            caption += f"{duration_text}\n\n"
+        caption += (
+            f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+            "<blockquote>"
+            "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+            "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+            "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+            "</blockquote>"
+        )
 
-    # ✅ Send video WITH SPOILER
-    sent = await client.send_video(
-        chat_id=m.chat.id,
-        video=video_id,
-        protect_content=PROTECT_CONTENT,
-        caption=caption,
-        reply_to_message_id=m.id,
-        reply_markup=reply_markup,
-        has_spoiler=True  # ✅ SPOILER ENABLED
-    )
+        # ✅ Send video WITH SPOILER
+        sent = await client.send_video(
+            chat_id=m.chat.id,
+            video=video_id,
+            protect_content=PROTECT_CONTENT,
+            caption=caption,
+            reply_to_message_id=m.id,
+            reply_markup=reply_markup,
+            has_spoiler=True  # ✅ SPOILER ENABLED
+        )
 
-    # Increase count only for new videos (not for navigation)
-    if not is_brazzers:
-        await db.increase_video_count(user_id, username)
+        # Increase count only for new videos (not for navigation)
+        if not is_brazzers:
+            await db.increase_video_count(user_id, username)
 
-    # Auto-delete video after 10 minutes
-    asyncio.create_task(auto_delete_message(m, sent))
+        # Auto-delete video after 10 minutes
+        asyncio.create_task(auto_delete_message(m, sent))
+        
+    except Exception as e:
+        print(f"❌ send_video_with_buttons error: {e}")
+        import traceback
+        traceback.print_exc()
+        await m.reply("❌ Failed to send video. Please try again later!")
 
 
 # ---------- DOWNLOAD CALLBACK HANDLER ----------
@@ -462,7 +469,11 @@ async def video_navigation_callback(client, query: CallbackQuery):
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
-        await send_video_with_buttons(client, fake_msg, user_id, video_id, 0, is_brazzers=is_brazzers)
+        # Get duration
+        video_data = await db.videos.find_one({"file_id": video_id})
+        duration = video_data.get("duration", 0) if video_data else 0
+
+        await send_video_with_buttons(client, fake_msg, user_id, video_id, duration, is_brazzers=is_brazzers)
         return
 
     if action == "next":
@@ -482,7 +493,11 @@ async def video_navigation_callback(client, query: CallbackQuery):
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
 
-            await send_video_with_buttons(client, fake_msg, user_id, video_id, 0, is_brazzers=is_brazzers)
+            # Get duration
+            video_data = await db.videos.find_one({"file_id": video_id})
+            duration = video_data.get("duration", 0) if video_data else 0
+
+            await send_video_with_buttons(client, fake_msg, user_id, video_id, duration, is_brazzers=is_brazzers)
             return
         
         await query.answer("⏩ Loading....", show_alert=False)
@@ -498,6 +513,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
             if not new_video:
                 await message.reply("❌ No more unseen Brazzers videos!")
                 return
+            duration = 0
         else:
             new_video, duration = await db.get_unseen_video(user_id)
             if not new_video:
