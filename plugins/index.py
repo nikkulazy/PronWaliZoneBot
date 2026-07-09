@@ -3,7 +3,7 @@ import time
 from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait, ChannelInvalid, ChatAdminRequired
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from info import ADMINS, VIDEO_CHANNEL
+from info import ADMINS, VIDEO_CHANNEL, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
 from database.users_db import db  
 from utils import temp, get_progress_bar, get_readable_time
 
@@ -151,7 +151,7 @@ async def send_for_index(bot, message):
     )
 
 # =================================================
-# ⚙️ MAIN INDEXING LOGIC (Same as before)
+# ⚙️ MAIN INDEXING LOGIC - UPDATED WITH DURATION
 # =================================================
 async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
     start_time = time.time()
@@ -215,13 +215,22 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                         file_id = media.file_id
                         file_unique_id = media.file_unique_id
                         
+                        # ✅ NEW: Get video duration
+                        duration = 0
+                        if hasattr(media, 'duration'):
+                            duration = media.duration or 0
+                        
+                        # ✅ NEW: Check if video is premium based on duration
+                        is_premium_video = duration > FREE_VIDEO_DURATION if duration > 0 else False
+                        
                         # --- DB SELECTION LOGIC ---
                         if target_db == "brazzers":
                             is_new = await db.add_brazzers_video(file_unique_id, file_id)
                             # Handle None return if your DB function doesn't return bool
                             if is_new is None: is_new = True 
                         else:
-                            is_new = await db.add_video(file_unique_id, file_id)
+                            # ✅ MODIFIED: Pass duration and premium status
+                            is_new = await db.add_video(file_unique_id, file_id, duration, is_premium_video)
                         
                         if is_new:
                             total_files += 1
@@ -279,4 +288,3 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
 
         except Exception as e:
             await msg.edit(f"❌ Critical Error: {e}")
-    
