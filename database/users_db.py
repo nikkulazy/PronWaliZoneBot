@@ -3,7 +3,7 @@ import random
 import logging
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
-from info import DB_URL, DB_NAME, TIMEZONE, VERIFY_EXPIRE
+from info import DB_URL, DB_NAME, TIMEZONE, VERIFY_EXPIRE, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
 
 # Logger Setup
 logger = logging.getLogger(__name__)
@@ -241,13 +241,16 @@ class Database:
         stats = await mydb.command("dbstats")
         return stats.get("dataSize", 0)
 
-    # ---------- VIDEOS SYSTEM ----------
-    async def add_video(self, file_unique_id, file_id):
+    # ---------- VIDEOS SYSTEM (MODIFIED) ----------
+    async def add_video(self, file_unique_id, file_id, duration=0, is_premium=False):
+        """Add video with duration and premium status"""
         exists = await self.videos.find_one({"file_unique_id": file_unique_id})
         if not exists:
             await self.videos.insert_one({
                 "file_unique_id": file_unique_id,
                 "file_id": file_id,
+                "duration": duration,  # ✅ NEW: Save duration
+                "is_premium": is_premium,  # ✅ NEW: Save premium status
                 "added_at": datetime.now(timezone.utc)
             })
             return True
@@ -334,12 +337,26 @@ class Database:
                 if check_date == today:
                     return user.get("video_count", 0)
         return 0
-        
+
+    # ---------- GET UNSEEN VIDEO (MODIFIED - Free users filter) ----------
     async def get_unseen_video(self, user_id):
+        """Get unseen video for user - free users get only non-premium videos"""
         seen = await self.historys.find_one({"user_id": user_id})
         seen_ids = seen.get("seen", []) if seen else []
 
-        cursor = self.videos.find({"file_id": {"$nin": seen_ids}}, {"file_id": 1}).limit(500)
+        # ✅ NEW: Check if user is premium
+        is_premium_user = await self.has_premium_access(user_id)
+        
+        if is_premium_user:
+            # Premium users can see all videos
+            cursor = self.videos.find({"file_id": {"$nin": seen_ids}}, {"file_id": 1}).limit(500)
+        else:
+            # Free users only see non-premium videos
+            cursor = self.videos.find(
+                {"file_id": {"$nin": seen_ids}, "is_premium": {"$ne": True}}, 
+                {"file_id": 1}
+            ).limit(500)
+        
         unseen_videos = await cursor.to_list(length=500)
 
         if not unseen_videos:
@@ -349,9 +366,23 @@ class Database:
         await self.mark_seen(user_id, video["file_id"])
         return video["file_id"]
 
-    async def get_random_video(self):
+    # ---------- GET RANDOM VIDEO (MODIFIED) ----------
+    async def get_random_video(self, user_id=None):
+        """Get random video - free users get only non-premium"""
         try:
-            pipeline = [{"$sample": {"size": 1}}]
+            # Check if user is premium
+            if user_id:
+                is_premium_user = await self.has_premium_access(user_id)
+            else:
+                is_premium_user = False
+            
+            # Build filter
+            filter_query = {}
+            if not is_premium_user:
+                filter_query["is_premium"] = {"$ne": True}  # Exclude premium videos
+            
+            # Get random video
+            pipeline = [{"$match": filter_query}, {"$sample": {"size": 1}}]
             cursor = self.videos.aggregate(pipeline)
             result = await cursor.to_list(length=1)
             
