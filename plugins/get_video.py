@@ -158,9 +158,24 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ---------- GET NEW VIDEO ----------
-    video_id, duration = await db.get_unseen_video(user_id)
+    # ✅ FIX: Always expect 2 values
+    result = await db.get_unseen_video(user_id)
+    if result and isinstance(result, tuple) and len(result) == 2:
+        video_id, duration = result
+    else:
+        # Fallback: agar function 1 value return kare
+        video_id = result
+        duration = 0
+    
     if not video_id:
-        video_id, duration = await db.get_random_video(user_id)
+        # ✅ FIX: get_random_video bhi 2 values return kare
+        random_result = await db.get_random_video(user_id)
+        if random_result and isinstance(random_result, tuple) and len(random_result) == 2:
+            video_id, duration = random_result
+        else:
+            video_id = random_result
+            duration = 0
+            
     if not video_id:
         return await m.reply("❌ No videos found.")
     
@@ -192,7 +207,7 @@ async def handle_video_request(client, m: Message):
     await send_video_with_buttons(client, m, user_id, video_id, duration, is_brazzers=False)
 
 
-# ---------- SEND VIDEO WITH SPOILER (COMPLETE FUNCTION) ----------
+# ---------- SEND VIDEO WITH SPOILER ----------
 async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_brazzers=False):
     try:
         username = m.from_user.username or m.from_user.first_name or "Unknown"
@@ -515,9 +530,22 @@ async def video_navigation_callback(client, query: CallbackQuery):
                 return
             duration = 0
         else:
-            new_video, duration = await db.get_unseen_video(user_id)
+            # ✅ FIX: Always handle tuple return
+            result = await db.get_unseen_video(user_id)
+            if result and isinstance(result, tuple) and len(result) == 2:
+                new_video, duration = result
+            else:
+                new_video = result
+                duration = 0
+                
             if not new_video:
-                new_video, duration = await db.get_random_video(user_id)
+                random_result = await db.get_random_video(user_id)
+                if random_result and isinstance(random_result, tuple) and len(random_result) == 2:
+                    new_video, duration = random_result
+                else:
+                    new_video = random_result
+                    duration = 0
+                    
             if not new_video:
                 await message.reply("❌ No more videos!")
                 return
