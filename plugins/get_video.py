@@ -272,6 +272,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, is_brazzers=Fals
         caption=caption,
         reply_to_message_id=m.id,
         reply_markup=reply_markup
+        has_spoiler=True
     )
 
     # Increase count only for new videos (not for navigation)
