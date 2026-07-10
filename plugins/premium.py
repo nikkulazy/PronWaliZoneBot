@@ -2,20 +2,9 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from Script import script
 from database.users_db import db
-from info import (
-    VERIFICATION_DAILY_LIMIT, 
-    DAILY_LIMIT, 
-    PREMIUM_DAILY_LIMIT, 
-    ADMINS, 
-    LOG_CHANNEL, 
-    PREMIUM_LOGS, 
-    OWNER_USERNAME, 
-    UPI_ID, 
-    QR_CODE_IMAGE, 
-    FREE_VIDEO_DURATION
-)
+from info import VERIFICATION_DAILY_LIMIT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, ADMINS, LOG_CHANNEL, PREMIUM_LOGS, OWNER_USERNAME, UPI_ID, QR_CODE_IMAGE, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
 from datetime import timedelta
-import pytz, datetime
+import pytz, datetime, time, asyncio
 from pyrogram.errors.exceptions.bad_request_400 import MessageTooLong
 from utils import temp, get_seconds
 
@@ -25,7 +14,7 @@ from utils import temp, get_seconds
 @Client.on_message(filters.command("premium_user") & filters.user(ADMINS))
 async def premium_user(client, message):
     aa = await message.reply_text("Fetching ...")  
-    users = db.get_all_users()
+    users = await db.get_all_users()
     users_list = []
     async for user in users:
         users_list.append(user)    
@@ -36,9 +25,6 @@ async def premium_user(client, message):
         data = user_data.get(user_id)
         expiry = data.get("expiry_time") if data else None        
         if expiry:
-            # Check if expiry is timezone aware
-            if expiry.tzinfo is None:
-                expiry = pytz.utc.localize(expiry)
             expiry_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata"))
             expiry_str_in_ist = expiry_ist.strftime("%d-%m-%Y %I:%M:%S %p")          
             current_time = datetime.datetime.now(pytz.timezone("Asia/Kolkata"))
@@ -55,11 +41,6 @@ async def premium_user(client, message):
                 f"Expiry Time: {time_left_str}\n\n"
             )
             new_users.append(user_str)
-    
-    if not new_users:
-        await aa.edit_text("No premium users found.")
-        return
-        
     new = "Paid Users - \n\n" + "\n".join(new_users)   
     try:
         await aa.edit_text(new)
@@ -88,14 +69,12 @@ async def buy_handler(client, message: Message):
         await client.send_message(PREMIUM_LOGS, log_text)
     except Exception as e:
         print(f"Failed to send log to PREMIUM_LOGS: {e}")
-        
     if is_premium:
-        await message.reply_text("✅ You already have Premium Subscription! Enjoy your benefits.", quote=True)
+        await message.reply_text("✅ 𝖸𝗈𝗎 �𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝗋𝖼𝗁𝖺𝗌𝖾𝖽 �𝖮𝗎𝗋 𝖲𝗎𝖻𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇! 𝖤𝗇𝗃𝗈𝗒 𝖸𝗈𝗎𝗋 𝖡𝖾𝗇𝖾𝖿𝗂𝗍.", quote=True)
         return
-        
     text = script.SEENBUY_TXT.format(DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID)
     btn = [
-        [InlineKeyboardButton('✖️ Close ✖️', callback_data='close_data')]
+        [InlineKeyboardButton('✖️ ᴄʟᴏsᴇ ✖️', callback_data='close_data')]
     ]
     if QR_CODE_IMAGE:
         await message.reply_photo(
@@ -117,8 +96,7 @@ async def payment_screenshot_handler(client, message: Message):
     user_id = message.from_user.id
     user_name = message.from_user.mention
     user_note = message.caption if message.caption else "No caption provided"
-    msg = await message.reply_text("🔄 Sending payment screenshot to Admins... Please wait.")
-    
+    msg = await message.reply_text("🔄 𝘚𝘦𝘯𝘥𝘪𝘯𝘨 𝘱𝘢𝘺𝘮𝘦𝘯𝘵 𝘴𝘤𝘳𝘦𝘦𝘯𝘴𝘩𝘰𝘵 𝘵𝘰 𝘈𝘥𝘮𝘪𝘯𝘴... 𝘗𝘭𝘦𝘢𝘴𝘦 𝘸𝘢𝘪𝘵.")
     admin_btns = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Approve (1 Day)", callback_data=f"add_prem_{user_id}_1"),
@@ -139,7 +117,7 @@ async def payment_screenshot_handler(client, message: Message):
             caption=f"🧾 **New Payment Screenshot**\n\n👤 <b>User:</b> {user_name}\n🆔 <b>ID:</b> <code>{user_id}</code>\n📝 <b>Note:</b> {user_note}",
             reply_markup=admin_btns
         )
-        await msg.edit_text("✅ Screenshot sent!\nAdmin will verify and activate your plan shortly.")
+        await msg.edit_text("✅ 𝘚𝘤𝘳𝘦𝘦𝘯𝘴𝘩𝘰𝘵 𝘴𝘦𝘯𝘵!\n𝘈𝘥𝘮𝘪𝘯 𝘸𝘪𝘭𝘭 𝘷𝘦𝘳𝘪𝘧𝘺 𝘢𝘯𝘥 𝘢𝘤𝘵𝘪𝘷𝘢𝘵𝘦 𝘺𝘰𝘶𝘳 𝘱𝘭𝘢𝘯 𝘴𝘩𝘰𝘳𝘵𝘭𝘺.")
     except Exception as e:
         await msg.edit_text(f"❌ Error sending to admin: {e}")
 
@@ -148,58 +126,39 @@ async def payment_screenshot_handler(client, message: Message):
 # -------------------------------------------------------------------------
 @Client.on_callback_query(filters.regex(r"^add_prem_"))
 async def approve_payment(client, callback_query: CallbackQuery):
-    try:
-        _, _, user_id, days = callback_query.data.split("_")
-        user_id = int(user_id)
-        days = int(days)
-    except ValueError:
-        await callback_query.answer("Invalid data format!", show_alert=True)
-        return
-    
+    _, _, user_id, days = callback_query.data.split("_")
+    user_id = int(user_id)
+    days = int(days)
     new_expiry = await db.add_premium_access(user_id, days)
-    
-    # Ensure expiry is timezone aware
-    if new_expiry.tzinfo is None:
-        new_expiry = pytz.utc.localize(new_expiry)
     expiry_ist = new_expiry.astimezone(pytz.timezone("Asia/Kolkata"))
     expiry_str = expiry_ist.strftime("%d-%m-%Y %I:%M %p")
-    
     try:
         await client.send_message(
             user_id,
-            f"🎉 <b>Payment Approved!</b>\n\n💎 <b>Premium Activated</b> for {days} Days.\n🗓 <b>Expiry:</b> {expiry_str}\n\n<i>Enjoy Unlimited Access!</i>"
+            f"🎉 <b>𝘗𝘢𝘺𝘮𝘦𝘯𝘵 𝘈𝘱𝘱𝘳𝘰𝘷𝘦𝘥!</b>\n\n💎 <b>𝘗𝘳𝘦𝘮𝘪𝘶𝘮 𝘈𝘤𝘵𝘪𝘷𝘢𝘵𝘦𝘥</b> 𝘧𝘰𝘳 {days} 𝘋𝘢𝘺𝘴 .\n🗓 <b>𝘌𝘹𝘱𝘪𝘳𝘺:</b> {expiry_str}\n\n<i>𝘌𝘯𝘫𝘰𝘺 𝘜𝘯𝘭𝘪𝘮𝘪𝘵𝘦𝘥 𝘈𝘤𝘤𝘦𝘴𝘴!</i>"
         )
-    except Exception as e:
-        print(f"Failed to send approval message to user: {e}")
-        
+    except:
+        pass 
     await callback_query.message.edit_caption(
         caption=f"✅ <b>Approved by {callback_query.from_user.mention}</b>\n\n🆔 User: <code>{user_id}</code>\n⏳ Added: {days} Days"
     )
-    await callback_query.answer("Premium access granted!", show_alert=True)
 
 # -------------------------------------------------------------------------
 # ❌ REJECT PAYMENT CALLBACK
 # -------------------------------------------------------------------------
 @Client.on_callback_query(filters.regex(r"^reject_pay_"))
 async def reject_payment(client, callback_query: CallbackQuery):
-    try:
-        user_id = int(callback_query.data.split("_")[2])
-    except (IndexError, ValueError):
-        await callback_query.answer("Invalid data format!", show_alert=True)
-        return
-        
+    user_id = int(callback_query.data.split("_")[2])
     try:
         await client.send_message(
             user_id,
-            f"❌ <b>Payment Rejected.</b>\n\n<i>Possible reasons:</i>\n- Invalid Screenshot\n- Payment not received\n- Wrong Amount\n\n<i>Contact Admin for support. @{OWNER_USERNAME}</i>"
+            f"❌ <b>𝘗𝘢𝘺𝘮𝘦𝘯𝘵 𝘙𝘦𝘫𝘦𝘤𝘵𝘦𝘥.</b>\n\n<i>𝘗𝘰𝘴𝘴𝘪𝘣𝘭𝘦 𝘳𝘦𝘢𝘴𝘰𝘯𝘴:</i>\n- 𝘐𝘯𝘷𝘢𝘭𝘪𝘥 𝘚𝘤𝘳𝘦𝘦𝘯𝘴𝘩𝘰𝘵\n- 𝘗𝘢𝘺𝘮𝘦𝘯𝘵 𝘯𝘰𝘵 𝘳𝘦𝘤𝘦𝘪𝘷𝘦𝘥\n- 𝘞𝘳𝘰𝘯𝘨 𝘈𝘮𝘰𝘶𝘯𝘵 \n\n<i>𝘊𝘰𝘯𝘵𝘢𝘤𝘵 𝘈𝘥𝘮𝘪𝘯 𝘧𝘰𝘳 𝘴𝘶𝘱𝘱𝘰𝘳𝘵. @{OWNER_USERNAME}</i>"
         )
-    except Exception as e:
-        print(f"Failed to send rejection message to user: {e}")
-        
+    except:
+        pass
     await callback_query.message.edit_caption(
         caption=f"❌ <b>Rejected by {callback_query.from_user.mention}</b>\n\n🆔 User: <code>{user_id}</code>"
     )
-    await callback_query.answer("Payment rejected!", show_alert=True)
 
 # -------------------------------------------------------------------------
 # 👤 MY PLAN COMMAND (MODIFIED - WITH DURATION LIMIT)
@@ -217,15 +176,15 @@ async def myplan_handler(_, m: Message):
     if is_premium:
         daily_limit = PREMIUM_DAILY_LIMIT
         subscription_type = "💎 Premium"
-        duration_limit = "Unlimited"
+        duration_limit = "Unlimited"  # ✅ Premium users get unlimited duration
     elif is_verified:
         daily_limit = VERIFICATION_DAILY_LIMIT
         subscription_type = "✅ Verified"
-        duration_limit = f"{FREE_VIDEO_DURATION//60}m"
+        duration_limit = f"{FREE_VIDEO_DURATION//60}m"  # ✅ Verified users have limit
     else:
         daily_limit = DAILY_LIMIT
         subscription_type = "🆓 Free"
-        duration_limit = f"{FREE_VIDEO_DURATION//60}m"
+        duration_limit = f"{FREE_VIDEO_DURATION//60}m"  # ✅ Free users have limit
 
     remaining = max(daily_limit - used, 0)
 
@@ -241,7 +200,7 @@ async def myplan_handler(_, m: Message):
 ⏱️ <b>Max Duration:</b> {duration_limit}
 📉 <b>Used:</b> {used} | <b>Left:</b> {remaining}
 
-✨ Upgrade to Premium for Unlimited Access & Ad-Free Experience! 💎"""
+✨ 𝖴𝗉𝗀𝗋𝖺𝖽𝖾 𝗍𝗈 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖿𝗈𝗋 𝖴𝗇𝗅𝗂𝗆𝗂𝗍𝖾𝖽 𝖠𝖼𝖼𝖾𝗌𝗌 & 𝖠𝖽-𝖥𝗋𝖾𝖾 𝖤𝗑𝗉𝖾𝗋𝗂𝖾𝗇𝖼𝖾! 💎"""
 
     # -------- PREMIUM EXPIRY --------
     if is_premium and premium_details and premium_details.get('expiry_time'):
@@ -258,7 +217,7 @@ async def myplan_handler(_, m: Message):
 
     await m.reply(text, reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
-        [InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")]
+        [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
     ]))
 
 # -------------------------------------------------------------------------
@@ -268,70 +227,47 @@ async def myplan_handler(_, m: Message):
 async def give_premium_cmd_handler(client, message):
     if len(message.command) == 4:
         time_zone = datetime.datetime.now(pytz.timezone("Asia/Kolkata"))
-        current_time = time_zone.strftime("%d-%m-%Y\n⏱️ Joining Time: %I:%M:%S %p") 
+        current_time = time_zone.strftime("%d-%m-%Y\n⏱️ ᴊᴏɪɴɪɴɢ ᴛɪᴍᴇ : %I:%M:%S %p") 
         user_id = int(message.command[1])  
-        
         try:
             user = await client.get_users(user_id)
-        except Exception:
-            await message.reply_text("❌ Invalid user ID")
+        except:
+            await message.reply_text("Invalid user ID")
             return
         
-        # Combine duration parts
+        # Renamed variable from 'time' to 'duration' to avoid conflict with import time
         duration = message.command[2] + " " + message.command[3]
         seconds = await get_seconds(duration)
         
         if seconds > 0:
-            expiry_time = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=seconds)
-            user_data = {"id": user_id, "expiry_time": expiry_time, "is_premium": True}  
+            expiry_time = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
+            user_data = {"id": user_id, "expiry_time": expiry_time}  
             await db.update_user(user_data) 
-            
             data = await db.get_user(user_id)
             expiry = data.get("expiry_time")   
             
-            # Ensure expiry is timezone aware
+            # Ensure expiry is timezone aware if necessary, or assume naive from DB
             if expiry.tzinfo is None:
-                expiry = pytz.utc.localize(expiry)
+                 expiry = pytz.utc.localize(expiry) # Assuming stored as UTC or Naive
 
-            expiry_str_in_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y\n⏱️ Expiry Time: %I:%M:%S %p")
-            expiry_str_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y At: %I:%M:%S %p")         
+            expiry_str_in_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y\n⏱️ ᴇxᴘɪʀʏ ᴛɪᴍᴇ : %I:%M:%S %p")
+            expiry_str_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y 𝘈𝘵 : %I:%M:%S %p")         
             
-            await message.reply_text(
-                f"✅ Premium added successfully!\n\n"
-                f"👤 User: {user.mention}\n"
-                f"⚡ User ID: <code>{user_id}</code>\n"
-                f"⏰ Premium Access: <code>{duration}</code>\n\n"
-                f"⏳ Joining Date: {current_time}\n\n"
-                f"⌛️ Expiry Date: {expiry_str_in_ist}",
-                disable_web_page_preview=True
-            )
-            
+            await message.reply_text(f"ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ✅\n\n👤 ᴜꜱᴇʀ : {user.mention}\n⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{duration}</code>\n\n⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}", disable_web_page_preview=True)
             try:
                 await client.send_message(
                     chat_id=user_id,
-                    text=f"🎉 Congratulations! You've got Premium Access!\n\n"
-                         f"⏳ Duration: {duration}\n"
-                         f"📅 Expiry: {expiry_str_ist}\n\n"
-                         f"✨ Enjoy your premium benefits!",
-                    disable_web_page_preview=True             
+                    text=f"🎉 𝘊𝘰𝘯𝘨𝘳𝘢𝘵𝘶𝘭𝘢𝘵𝘪𝘰𝘯𝘴! 𝘠𝘰𝘶'𝘷𝘦 𝘨𝘰𝘵 𝘗𝘳𝘦𝘮𝘪𝘶𝘮 𝘈𝘤𝘤𝘦𝘴𝘴!\n\n⏳ 𝘋𝘶𝘳𝘢𝘵𝘪𝘰𝘯 : {duration}\n📅 𝘌𝘹𝘱𝘪𝘳𝘺 : {expiry_str_ist}\n\n✨ 𝘌𝘯𝘫𝘰𝘺 𝘺𝘰𝘶𝘳 𝘱𝘳𝘦𝘮𝘪𝘶𝘮 𝘣𝘦𝘯𝘦𝘧𝘪𝘵𝘴!", disable_web_page_preview=True             
                 )    
-            except Exception as e:
-                print(f"Failed to send premium notification to user: {e}")
+            except:
+                pass
                 
-            await client.send_message(
-                PREMIUM_LOGS, 
-                text=f"#Added_Premium\n\n"
-                     f"👤 User: {user.mention}\n"
-                     f"⚡ User ID: <code>{user_id}</code>\n"
-                     f"⏰ Premium Access: <code>{duration}</code>\n\n"
-                     f"⏳ Joining Date: {current_time}\n\n"
-                     f"⌛️ Expiry Date: {expiry_str_in_ist}", 
-                disable_web_page_preview=True
-            )
+            await client.send_message(PREMIUM_LOGS, text=f"#Added_Premium\n\n👤 ᴜꜱᴇʀ : {user.mention}\n⚡ ᴜꜱᴇʀ ɪᴅ : <code>{user_id}</code>\n⏰ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ : <code>{duration}</code>\n\n⏳ ᴊᴏɪɴɪɴɢ ᴅᴀᴛᴇ : {current_time}\n\n⌛️ ᴇxᴘɪʀʏ ᴅᴀᴛᴇ : {expiry_str_in_ist}", disable_web_page_preview=True)
+                    
         else:
-            await message.reply_text("❌ Invalid time format. Please use '1 day', '1 hour', '1 min', '1 month', or '1 year'")
+            await message.reply_text("Invalid time format. Please use '1 day', '1 hour', '1 min', '1 month', or '1 year'")
     else:
-        await message.reply_text("Usage: /add_premium user_id time (e.g., '1 day', '1 hour', '1 min', '1 month', or '1 year')")
+        await message.reply_text("Usage : /add_premium user_id time (e.g., '1 day', '1 hour', '1 min', '1 month', or '1 year')")
 
 # -------------------------------------------------------------------------
 # 🛠 ADMIN COMMAND: REMOVE PREMIUM
@@ -339,45 +275,23 @@ async def give_premium_cmd_handler(client, message):
 @Client.on_message(filters.command("remove_premium") & filters.user(ADMINS))
 async def remove_premium(client, message):
     if len(message.command) == 2:
-        try:
-            user_id = int(message.command[1])
-        except ValueError:
-            await message.reply_text("❌ Invalid user ID format")
-            return
-            
+        user_id = int(message.command[1])
         try:
             user = await client.get_users(user_id)
-        except Exception:
-            await message.reply_text("❌ Invalid user ID")
+        except:
+            await message.reply_text("Invalid user ID")
             return
             
         if await db.remove_premium_access(user_id):
-            await message.reply_text("✅ User removed successfully!")
+            await message.reply_text("ᴜꜱᴇʀ ʀᴇᴍᴏᴠᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ !")
             try:
                 await client.send_message(
                     chat_id=user_id,
-                    text=f"<b>Hey {user.mention},\n\nYour Premium Access has been removed.</b>"
+                    text=f"<b>ʜᴇʏ {user.mention},\n\n𝖸𝗈𝗎𝗋 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖠𝖼𝖼𝖾𝗌𝗌 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗋𝖾𝗆𝗈𝗏𝖾𝖽.</b>"
                 )
-            except Exception as e:
-                print(f"Failed to send removal notification: {e}")
+            except:
+                pass
         else:
-            await message.reply_text("❌ Unable to remove user!\nAre you sure it was a premium user?")
+            await message.reply_text("ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜꜱᴇʀ !\nᴀʀᴇ ʏᴏᴜ ꜱᴜʀᴇ, ɪᴛ ᴡᴀꜱ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀ ɪᴅ ?")
     else:
-        await message.reply_text("Usage: /remove_premium user_id")
-
-# -------------------------------------------------------------------------
-# 🆘 HELP: CLOSE BUTTON CALLBACK
-# -------------------------------------------------------------------------
-@Client.on_callback_query(filters.regex("close_data"))
-async def close_callback(client, callback_query: CallbackQuery):
-    await callback_query.message.delete()
-    await callback_query.answer()
-
-# -------------------------------------------------------------------------
-# 🆘 HELP: GET SUBSCRIPTION CALLBACK
-# -------------------------------------------------------------------------
-@Client.on_callback_query(filters.regex("get_subscription"))
-async def get_subscription_callback(client, callback_query: CallbackQuery):
-    await callback_query.answer()
-    # This will trigger the buy command functionality
-    await buy_handler(client, callback_query.message)
+        await message.reply_text("ᴜꜱᴀɢᴇ : /remove_premium user_id")
