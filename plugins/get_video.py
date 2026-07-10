@@ -30,21 +30,6 @@ def get_ist_today():
     return datetime.now(pytz.timezone(TIMEZONE)).date()
 
 
-# ---------- CHECK USER DURATION LIMIT ----------
-async def check_user_duration_limit(user_id, video_duration):
-    if await db.has_premium_access(user_id):
-        return True, "Unlimited", None
-    
-    user = await db.get_user(user_id)
-    user_duration_limit = user.get("duration_limit", FREE_VIDEO_DURATION)
-    
-    if video_duration <= user_duration_limit:
-        remaining = user_duration_limit - video_duration
-        return True, remaining, user_duration_limit
-    
-    return False, user_duration_limit, user_duration_limit
-
-
 # ---------- CHECK LIMIT FUNCTION ----------
 async def check_user_limit(user_id):
     is_premium = await db.has_premium_access(user_id)
@@ -158,17 +143,14 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ---------- GET NEW VIDEO ----------
-    # ✅ FIX: Always expect 2 values
     result = await db.get_unseen_video(user_id)
     if result and isinstance(result, tuple) and len(result) == 2:
         video_id, duration = result
     else:
-        # Fallback: agar function 1 value return kare
         video_id = result
         duration = 0
     
     if not video_id:
-        # ✅ FIX: get_random_video bhi 2 values return kare
         random_result = await db.get_random_video(user_id)
         if random_result and isinstance(random_result, tuple) and len(random_result) == 2:
             video_id, duration = random_result
@@ -179,22 +161,7 @@ async def handle_video_request(client, m: Message):
     if not video_id:
         return await m.reply("❌ No videos found.")
     
-    # DURATION LIMIT CHECK
-    is_allowed, remaining, limit_value = await check_user_duration_limit(user_id, duration)
-    
-    if not is_allowed:
-        await m.reply(
-            f"❌ **Video Duration Limit Exceeded!**\n\n"
-            f"⏱️ Video Duration: `{duration}s` ({duration//60}m {duration%60}s)\n"
-            f"📊 Your Limit: `{limit_value}s` ({limit_value//60}m {limit_value%60}s)\n\n"
-            f"💎 Upgrade to Premium for Unlimited Duration!\n"
-            f"🔄 Contact admin to reset your limit using `/resetlimit`.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-                [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-            ])
-        )
-        return
+    # ❌ REMOVED: Duration limit check - ab file size based filter kaam karega
 
     # ---------- INITIALIZE HISTORY ----------
     init_user_history(user_id, is_brazzers=False)
@@ -277,7 +244,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             "</blockquote>"
         )
 
-        # ✅ Send video WITH SPOILER
         sent = await client.send_video(
             chat_id=m.chat.id,
             video=video_id,
@@ -285,14 +251,12 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             caption=caption,
             reply_to_message_id=m.id,
             reply_markup=reply_markup,
-            has_spoiler=True  # ✅ SPOILER ENABLED
+            has_spoiler=True
         )
 
-        # Increase count only for new videos (not for navigation)
         if not is_brazzers:
             await db.increase_video_count(user_id, username)
 
-        # Auto-delete video after 10 minutes
         asyncio.create_task(auto_delete_message(m, sent))
         
     except Exception as e:
@@ -392,11 +356,9 @@ async def back_callback_handler(client, query: CallbackQuery):
         
         video_id = history_data["history"][current_idx]
         
-        # Get video duration
         video_data = await db.videos.find_one({"file_id": video_id})
         duration = video_data.get("duration", 0) if video_data else 0
         
-        # Get download_id
         download_id = str(uuid.uuid4())[:8]
         DOWNLOAD_CACHE[download_id] = {
             "file_id": video_id,
@@ -404,7 +366,6 @@ async def back_callback_handler(client, query: CallbackQuery):
             "user_id": user_id
         }
         
-        # Build buttons
         buttons = []
         
         row1 = []
@@ -484,7 +445,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
 
-        # Get duration
         video_data = await db.videos.find_one({"file_id": video_id})
         duration = video_data.get("duration", 0) if video_data else 0
 
@@ -508,7 +468,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
             fake_msg.from_user = query.from_user
             fake_msg.chat = message.chat
 
-            # Get duration
             video_data = await db.videos.find_one({"file_id": video_id})
             duration = video_data.get("duration", 0) if video_data else 0
 
@@ -530,7 +489,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
                 return
             duration = 0
         else:
-            # ✅ FIX: Always handle tuple return
             result = await db.get_unseen_video(user_id)
             if result and isinstance(result, tuple) and len(result) == 2:
                 new_video, duration = result
