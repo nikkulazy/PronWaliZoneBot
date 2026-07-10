@@ -3,43 +3,14 @@ import random
 import logging
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
-from info import DB_URL, DB_NAME, TIMEZONE, VERIFY_EXPIRE, FREE_VIDEO_DURATION
+from info import DB_URL, DB_NAME, TIMEZONE, VERIFY_EXPIRE, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
 
 # Logger Setup
 logger = logging.getLogger(__name__)
 
-# =====================================================
-# 🆕 FIX: MongoDB Connection with Timeout Settings
-# =====================================================
-print("🔄 Connecting to MongoDB...")
-
-try:
-    client = AsyncIOMotorClient(
-        DB_URL,
-        serverSelectionTimeoutMS=60000,      # 60 seconds (default 30s)
-        connectTimeoutMS=60000,              # 60 seconds
-        socketTimeoutMS=60000,               # 60 seconds
-        maxPoolSize=50,                      # Connection pool size
-        minPoolSize=10,                      # Minimum connections
-        maxIdleTimeMS=60000,                 # 60 seconds idle timeout
-        retryWrites=True,
-        retryReads=True
-    )
-    # Test connection
-    client.admin.command('ping')
-    print("✅ MongoDB Connected Successfully!")
-except Exception as e:
-    print(f"❌ MongoDB Connection Failed: {e}")
-    # Fallback: Try without extra options
-    try:
-        client = AsyncIOMotorClient(DB_URL)
-        client.admin.command('ping')
-        print("✅ MongoDB Connected (Fallback) Successfully!")
-    except Exception as e2:
-        print(f"❌ MongoDB Connection Failed (Fallback): {e2}")
-        client = None
-
-mydb = client[DB_NAME] if client else None
+# Database Connection
+client = AsyncIOMotorClient(DB_URL)
+mydb = client[DB_NAME]
 
 # ⏰ IST Timezone Helper (Using pytz for accuracy)
 def get_ist_now():
@@ -51,8 +22,6 @@ def get_ist_today():
 # -------------------- DATABASE CLASS --------------------
 class Database:
     def __init__(self):
-        if mydb is None:
-            raise Exception("❌ Database not initialized! Check your MongoDB connection.")
         self.users = mydb.users
         self.codes = mydb.codes
         self.misc = mydb.misc
@@ -272,17 +241,16 @@ class Database:
         stats = await mydb.command("dbstats")
         return stats.get("dataSize", 0)
 
-    # ---------- VIDEOS SYSTEM (MODIFIED - with file_size) ----------
-    async def add_video(self, file_unique_id, file_id, duration=0, is_premium=False, file_size=0):
-        """Add video with duration, premium status, and file size"""
+    # ---------- VIDEOS SYSTEM (MODIFIED) ----------
+    async def add_video(self, file_unique_id, file_id, duration=0, is_premium=False):
+        """Add video with duration and premium status"""
         exists = await self.videos.find_one({"file_unique_id": file_unique_id})
         if not exists:
             await self.videos.insert_one({
                 "file_unique_id": file_unique_id,
                 "file_id": file_id,
-                "duration": duration,
-                "is_premium": is_premium,
-                "file_size": file_size,
+                "duration": duration,  # ✅ NEW: Save duration
+                "is_premium": is_premium,  # ✅ NEW: Save premium status
                 "added_at": datetime.now(timezone.utc)
             })
             return True
@@ -292,7 +260,7 @@ class Database:
         return await self.videos.count_documents({})
 
     # =============================================
-    # 🗑️ DELETE FUNCTIONS
+    # 🆕 DELETE FUNCTIONS - UPDATED/FIXED
     # =============================================
     async def delete_main_data(self):
         """Delete all main videos and their history"""
@@ -370,68 +338,50 @@ class Database:
                     return user.get("video_count", 0)
         return 0
 
-    # ---------- GET UNSEEN VIDEO (MODIFIED - 10MB limit for free users) ----------
+    # ---------- GET UNSEEN VIDEO (MODIFIED - Free users filter) ----------
     async def get_unseen_video(self, user_id):
-        """Get unseen video - FREE users get only <= 10MB files"""
+        """Get unseen video for user - free users get only non-premium videos"""
         seen = await self.historys.find_one({"user_id": user_id})
         seen_ids = seen.get("seen", []) if seen else []
 
+        # ✅ NEW: Check if user is premium
         is_premium_user = await self.has_premium_access(user_id)
         
-        # 10MB in bytes
-        MAX_FREE_SIZE = 10485760
-        
         if is_premium_user:
-            # Premium users: All videos
-            cursor = self.videos.find(
-                {"file_id": {"$nin": seen_ids}}, 
-                {"file_id": 1, "file_size": 1}
-            ).limit(500)
+            # Premium users can see all videos
+            cursor = self.videos.find({"file_id": {"$nin": seen_ids}}, {"file_id": 1}).limit(500)
         else:
-            # FREE users: Only videos <= 10MB
+            # Free users only see non-premium videos
             cursor = self.videos.find(
-                {
-                    "file_id": {"$nin": seen_ids},
-                    "file_size": {"$lte": MAX_FREE_SIZE}
-                }, 
-                {"file_id": 1, "file_size": 1}
+                {"file_id": {"$nin": seen_ids}, "is_premium": {"$ne": True}}, 
+                {"file_id": 1}
             ).limit(500)
         
         unseen_videos = await cursor.to_list(length=500)
 
         if not unseen_videos:
-            # Try again with any small video
-            if not is_premium_user:
-                cursor = self.videos.find(
-                    {"file_size": {"$lte": MAX_FREE_SIZE}},
-                    {"file_id": 1}
-                ).limit(500)
-                unseen_videos = await cursor.to_list(length=500)
-                if not unseen_videos:
-                    return None
-            else:
-                return None
+            return None
 
         video = random.choice(unseen_videos)
         await self.mark_seen(user_id, video["file_id"])
         return video["file_id"]
 
-    # ---------- GET RANDOM VIDEO (MODIFIED - 10MB limit for free users) ----------
+    # ---------- GET RANDOM VIDEO (MODIFIED) ----------
     async def get_random_video(self, user_id=None):
-        """Get random video - FREE users get only <= 10MB files"""
+        """Get random video - free users get only non-premium"""
         try:
+            # Check if user is premium
             if user_id:
                 is_premium_user = await self.has_premium_access(user_id)
             else:
                 is_premium_user = False
             
-            MAX_FREE_SIZE = 10485760
-            
             # Build filter
             filter_query = {}
             if not is_premium_user:
-                filter_query["file_size"] = {"$lte": MAX_FREE_SIZE}
+                filter_query["is_premium"] = {"$ne": True}  # Exclude premium videos
             
+            # Get random video
             pipeline = [{"$match": filter_query}, {"$sample": {"size": 1}}]
             cursor = self.videos.aggregate(pipeline)
             result = await cursor.to_list(length=1)
@@ -536,7 +486,7 @@ class Database:
         return False
 
     # =================================================
-    # RESET USER LIMIT FUNCTION
+    # RESET USER LIMIT FUNCTION (CLASS METHOD) - FIXED
     # =================================================
     
     async def reset_user_video_limit(self, user_id: int):
