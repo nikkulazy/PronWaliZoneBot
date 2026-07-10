@@ -8,9 +8,38 @@ from info import DB_URL, DB_NAME, TIMEZONE, VERIFY_EXPIRE, FREE_VIDEO_DURATION
 # Logger Setup
 logger = logging.getLogger(__name__)
 
-# Database Connection
-client = AsyncIOMotorClient(DB_URL)
-mydb = client[DB_NAME]
+# =====================================================
+# 🆕 FIX: MongoDB Connection with Timeout Settings
+# =====================================================
+print("🔄 Connecting to MongoDB...")
+
+try:
+    client = AsyncIOMotorClient(
+        DB_URL,
+        serverSelectionTimeoutMS=60000,      # 60 seconds (default 30s)
+        connectTimeoutMS=60000,              # 60 seconds
+        socketTimeoutMS=60000,               # 60 seconds
+        maxPoolSize=50,                      # Connection pool size
+        minPoolSize=10,                      # Minimum connections
+        maxIdleTimeMS=60000,                 # 60 seconds idle timeout
+        retryWrites=True,
+        retryReads=True
+    )
+    # Test connection
+    client.admin.command('ping')
+    print("✅ MongoDB Connected Successfully!")
+except Exception as e:
+    print(f"❌ MongoDB Connection Failed: {e}")
+    # Fallback: Try without extra options
+    try:
+        client = AsyncIOMotorClient(DB_URL)
+        client.admin.command('ping')
+        print("✅ MongoDB Connected (Fallback) Successfully!")
+    except Exception as e2:
+        print(f"❌ MongoDB Connection Failed (Fallback): {e2}")
+        client = None
+
+mydb = client[DB_NAME] if client else None
 
 # ⏰ IST Timezone Helper (Using pytz for accuracy)
 def get_ist_now():
@@ -22,6 +51,8 @@ def get_ist_today():
 # -------------------- DATABASE CLASS --------------------
 class Database:
     def __init__(self):
+        if mydb is None:
+            raise Exception("❌ Database not initialized! Check your MongoDB connection.")
         self.users = mydb.users
         self.codes = mydb.codes
         self.misc = mydb.misc
