@@ -23,7 +23,7 @@ OWNER_USERNAME = environ.get("OWNER_USERNAME", "WOLVERIN_P")
 # =========================================================
 # 💾 DATABASE CONFIGURATION
 # =========================================================
-DB_URL = environ.get("DATABASE_URI", "mongodb+srv://mastitime:mastitime@cluster0.tohbael.mongodb.net/?appName=Cluster0")
+DB_URL = environ.get("DATABASE_URI", "")
 DB_NAME = environ.get("DATABASE_NAME", "avbotz")
 
 # =========================================================
@@ -102,4 +102,4 @@ PICS = [
 # =========================================================
 # 🌐 WEB APP
 # =========================================================
-WEB_APP_URL = environ.get("WEB_APP_URL", "https://protestant-lulu-misslazy-c67202fa.koyeb.app/")
+WEB_APP_URL = environ.get("WEB_APP_URL", "https://casual-cristin-misslazy-9a60a509.koyeb.app/")
