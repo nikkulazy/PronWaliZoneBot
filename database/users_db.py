@@ -1,5 +1,4 @@
 import pytz
-import asyncio
 import random
 import logging
 from datetime import datetime, timezone, timedelta
