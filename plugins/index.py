@@ -1,51 +1,43 @@
 import asyncio
 import time
 from pyrogram import Client, filters, enums
-from pyrogram.errors import FloodWait, ChannelInvalid, ChatAdminRequired
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from info import ADMINS, VIDEO_CHANNEL, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
+from pyrogram.errors import FloodWait
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from info import ADMINS, FREE_VIDEO_DURATION
 from database.users_db import db  
 from utils import temp, get_progress_bar, get_readable_time
 
 lock = asyncio.Lock()
-
-# Temporary Storage for Index Data
 INDEX_CACHE = {}
 
 # =================================================
-# 📥 CALLBACK QUERY HANDLER (Fixed)
+# 📥 CALLBACK QUERY HANDLER
 # =================================================
 @Client.on_callback_query(filters.regex(r'^index'))
 async def index_files(bot, query):
-    action = query.data.split("#")[1] # yes, start_main, start_brazzers, cancel
+    action = query.data.split("#")[1]
     user_id = query.from_user.id
 
-    # Cancel Action
     if action == 'cancel':
         temp.CANCEL = True
-        # Clear cache if exists
         if user_id in INDEX_CACHE:
             del INDEX_CACHE[user_id]
         await query.message.edit("🛑 Indexing Cancelled.")
         return
 
-    # Check if data exists in cache
     if user_id not in INDEX_CACHE:
         await query.answer("⚠️ Session Expired. Please use /index again.", show_alert=True)
         await query.message.delete()
         return
 
-    # Fetch Data from Cache
     data = INDEX_CACHE[user_id]
     chat = data['chat']
     lst_msg_id = data['lst_msg_id']
     skip = data['skip']
 
-    # Step 1: Selection Menu show karo
     if action == 'yes':
         buttons = [
             [
-                # Ab hume data pass karne ki jarurat nahi, data already cache me hai
                 InlineKeyboardButton('🎬 Video Index', callback_data=f'index#start_main'),
                 InlineKeyboardButton('🔞 Brazzers Index', callback_data=f'index#start_brazzers')
             ],
@@ -53,22 +45,16 @@ async def index_files(bot, query):
                 InlineKeyboardButton('❌ No Index', callback_data='index#cancel')
             ]
         ]
-        
         await query.message.edit(
             text="<b>📂 Select Database to Save Files:</b>",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
     elif action.startswith('start_'):
-        target_db = action.replace('start_', '') # 'main' or 'brazzers'
+        target_db = action.replace('start_', '')
         db_name = "Brazzers" if target_db == "brazzers" else "Main Video"
-        
         await query.message.edit(f"<b>🚀 {db_name} Indexing started from ID: {skip}...</b>")
-        
-        # Start Indexing
         await index_files_to_db(lst_msg_id, chat, query.message, bot, skip, target_db)
-        
-        # Cleanup Cache after finish
         if user_id in INDEX_CACHE:
             del INDEX_CACHE[user_id]
 
@@ -125,9 +111,6 @@ async def send_for_index(bot, message):
         return await message.reply("❌ Invalid Number.")
     await s.delete()
 
-    # ----------------------------------------------------
-    # FIX: Store Data in Dictionary instead of Callback Data
-    # ----------------------------------------------------
     INDEX_CACHE[message.from_user.id] = {
         'chat': chat.id,
         'lst_msg_id': last_msg_id,
@@ -135,7 +118,6 @@ async def send_for_index(bot, message):
     }
 
     buttons = [[
-        # Sirf 'yes' bhejeinge, baki data cache se lenge
         InlineKeyboardButton('YES', callback_data='index#yes')
     ],[
         InlineKeyboardButton('CLOSE', callback_data='close_data'),
@@ -151,7 +133,7 @@ async def send_for_index(bot, message):
     )
 
 # =================================================
-# ⚙️ MAIN INDEXING LOGIC - UPDATED WITH DURATION
+# ⚙️ MAIN INDEXING LOGIC - ONLY DURATION
 # =================================================
 async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
     start_time = time.time()
@@ -215,22 +197,24 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                         file_id = media.file_id
                         file_unique_id = media.file_unique_id
                         
-                        # ✅ NEW: Get video duration
+                        # ✅ Get video duration
                         duration = 0
                         if hasattr(media, 'duration'):
                             duration = media.duration or 0
                         
-                        # ✅ NEW: Check if video is premium based on duration
-                        is_premium_video = duration > FREE_VIDEO_DURATION if duration > 0 else False
+                        # ⭐ Skip if duration is 0 (invalid video)
+                        if duration == 0:
+                            print(f"⏭️ Skipping video with 0 duration (Msg ID: {message.id})")
+                            unsupported += 1
+                            continue
                         
                         # --- DB SELECTION LOGIC ---
                         if target_db == "brazzers":
                             is_new = await db.add_brazzers_video(file_unique_id, file_id)
-                            # Handle None return if your DB function doesn't return bool
                             if is_new is None: is_new = True 
                         else:
-                            # ✅ MODIFIED: Pass duration and premium status
-                            is_new = await db.add_video(file_unique_id, file_id, duration, is_premium_video)
+                            # ✅ Pass only duration
+                            is_new = await db.add_video(file_unique_id, file_id, duration)
                         
                         if is_new:
                             total_files += 1
