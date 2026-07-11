@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from info import VIDEO_CHANNEL, BRAZZER_CHANNEL, NO_IMG, POST_CHANNEL, POST_SHORTLINK, SEND_POST
+from info import VIDEO_CHANNEL, BRAZZER_CHANNEL, NO_IMG, POST_CHANNEL, POST_SHORTLINK, SEND_POST, FREE_VIDEO_DURATION
 from database.users_db import db
 from utils import temp, get_shortlink, generate_weird_name, generate_thumbnail
 
@@ -14,7 +14,7 @@ async def index_brazzers_videos(_, m: Message):
     await db.add_brazzers_video(file_unique_id, file_id)
 
 # -----------------------
-# NORMAL VIDEO INDEX
+# NORMAL VIDEO INDEX - FIXED WITH DURATION
 # -----------------------
 @Client.on_message(filters.video & filters.chat(VIDEO_CHANNEL))
 async def index_normal_videos(client, m: Message):
@@ -25,11 +25,19 @@ async def index_normal_videos(client, m: Message):
         # 🔥 Weird random name
         file_name = generate_weird_name() + ".mp4"
 
-        # DB
-        status = await db.add_video(file_unique_id, file_id)
+        # ✅ Get video duration
+        duration = 0
+        if hasattr(m.video, 'duration'):
+            duration = m.video.duration or 0
+
+        # ✅ FIX: Only mark premium if duration > 0 AND duration > FREE_VIDEO_DURATION
+        is_premium_video = duration > 0 and duration > FREE_VIDEO_DURATION
+
+        # Add to DB with duration and premium status
+        status = await db.add_video(file_unique_id, file_id, duration, is_premium_video)
 
         if status:
-            print(f"✅ New Video Added: {file_name} (Msg ID: {m.id})")
+            print(f"✅ New Video Added: {file_name} (Duration: {duration}s, Premium: {is_premium_video}) (Msg ID: {m.id})")
         else:
             print(f"♻️ Duplicate Found: {file_name}")
 
@@ -54,8 +62,19 @@ async def index_normal_videos(client, m: Message):
         else:
             shortlink = link
 
+        # Add duration info in caption
+        if duration > 0:
+            minutes = duration // 60
+            seconds = duration % 60
+            duration_text = f"⏱️ Duration: {minutes}m {seconds}s"
+            if is_premium_video:
+                duration_text += " 💎 Premium"
+        else:
+            duration_text = "⏱️ Duration: Unknown"
+
         caption = (
             f"<b>{file_name}</b>\n\n"
+            f"{duration_text}\n\n"
             f"<i>Click the button below to watch the video.</i>"
         )
 
