@@ -32,8 +32,13 @@ def get_ist_today():
 
 # ---------- CHECK USER DURATION LIMIT ----------
 async def check_user_duration_limit(user_id, video_duration):
+    """Check if user can watch this video based on duration"""
     if await db.has_premium_access(user_id):
         return True, "Unlimited", None
+    
+    # ✅ FIX: Agar video_duration 0 है तो reject करें (क्योंकि यह आना ही नहीं चाहिए)
+    if video_duration <= 0:
+        return False, 0, FREE_VIDEO_DURATION
     
     user = await db.get_user(user_id)
     user_duration_limit = user.get("duration_limit", FREE_VIDEO_DURATION)
@@ -158,19 +163,18 @@ async def handle_video_request(client, m: Message):
                     )
 
     # ---------- GET NEW VIDEO ----------
-    # ✅ FIX: Always expect 2 values
     result = await db.get_unseen_video(user_id)
-    if result and isinstance(result, tuple) and len(result) == 2:
+
+    # ✅ Handle tuple return
+    if isinstance(result, tuple) and len(result) == 2:
         video_id, duration = result
     else:
-        # Fallback: agar function 1 value return kare
         video_id = result
         duration = 0
-    
+
     if not video_id:
-        # ✅ FIX: get_random_video bhi 2 values return kare
         random_result = await db.get_random_video(user_id)
-        if random_result and isinstance(random_result, tuple) and len(random_result) == 2:
+        if isinstance(random_result, tuple) and len(random_result) == 2:
             video_id, duration = random_result
         else:
             video_id = random_result
@@ -178,6 +182,27 @@ async def handle_video_request(client, m: Message):
             
     if not video_id:
         return await m.reply("❌ No videos found.")
+    
+    # ✅ SAFETY CHECK: Agar free user है और duration 0 है तो skip करें
+    if not await db.has_premium_access(user_id):
+        if duration <= 0:
+            # Try to get another video
+            random_result = await db.get_random_video(user_id)
+            if isinstance(random_result, tuple) and len(random_result) == 2:
+                video_id, duration = random_result
+            else:
+                video_id = random_result
+                duration = 0
+            
+            if not video_id or duration <= 0:
+                return await m.reply(
+                    "❌ No valid videos found with proper duration.\n\n"
+                    "💎 Buy premium to access all videos!",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
+                        [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
+                    ])
+                )
     
     # DURATION LIMIT CHECK
     is_allowed, remaining, limit_value = await check_user_duration_limit(user_id, duration)
@@ -229,7 +254,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             if is_premium_video:
                 duration_text += " 💎"
         else:
-            duration_text = ""
+            duration_text = "⏱️ Duration: Unknown"
         
         download_id = str(uuid.uuid4())[:8]
         
@@ -285,7 +310,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             caption=caption,
             reply_to_message_id=m.id,
             reply_markup=reply_markup,
-            has_spoiler=True  # ✅ SPOILER ENABLED
+            has_spoiler=True
         )
 
         # Increase count only for new videos (not for navigation)
@@ -549,6 +574,19 @@ async def video_navigation_callback(client, query: CallbackQuery):
             if not new_video:
                 await message.reply("❌ No more videos!")
                 return
+            
+            # ✅ SAFETY CHECK: Free user और duration 0 है तो skip करें
+            if not await db.has_premium_access(user_id) and duration <= 0:
+                # Try to get another video
+                result = await db.get_unseen_video(user_id)
+                if result and isinstance(result, tuple) and len(result) == 2:
+                    new_video, duration = result
+                else:
+                    new_video = result
+                    duration = 0
+                if not new_video or duration <= 0:
+                    await message.reply("❌ No valid videos found with proper duration.")
+                    return
 
         history.append(new_video)
         history_data["current_index"] = len(history) - 1
