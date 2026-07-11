@@ -133,20 +133,15 @@ async def verify_user_on_start(client, message):
         ist_timezone = pytz.timezone(TIMEZONE)     
         current_time = datetime.now(tz=ist_timezone)
         
-        # DB Update: Last Verified Time set karo
-        await db.update_notcopy_user(user_id, {"last_verified": current_time})
-        await db.update_verify_id_info(user_id, verify_id, {"verified": True})
-        
+        # Store file_id for auto send
         stored_file_id = verify_id_info.get("file_id")
-        if stored_file_id:
-            file_link = f"https://t.me/{temp.U_NAME}?start={stored_file_id}"
-        else:
-            file_link = f"https://t.me/{temp.U_NAME}?start=help"
-            
-        btn = InlineKeyboardMarkup([[
-            [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")]]
         
-        txt = script.VERIFY_COMPLETE_TEXT
+        # DB Update: Last Verified Time set karo
+        await db.update_notcopy_user(user_id, {
+            "last_verified": current_time,
+            "pending_file_id": stored_file_id
+        })
+        await db.update_verify_id_info(user_id, verify_id, {"verified": True})
         
         # Log Channel Message
         if VERIFIED_LOG:
@@ -163,13 +158,54 @@ async def verify_user_on_start(client, message):
             except Exception as e:
                 logger.warning(f"Failed to send log: {e}")
         
-        # ✅ COMPLETE VERIFICATION PHOTO
+        # ✅ SEND VERIFICATION COMPLETE MESSAGE WITH PHOTO
+        txt = script.VERIFY_COMPLETE_TEXT.format(message.from_user.mention)
+        
         await message.reply_photo(
-            photo=VERIFY_COMPLETE_IMG,  # ✅ Complete verification photo
-            caption=txt.format(message.from_user.mention), 
-            reply_markup=btn, 
+            photo=VERIFY_COMPLETE_IMG,
+            caption=txt,
             parse_mode=enums.ParseMode.HTML
         )
+        
+        # ✅ AUTO SEND FILE AFTER VERIFICATION
+        if stored_file_id:
+            try:
+                # Send the file automatically
+                await client.send_video(
+                    chat_id=user_id,
+                    video=stored_file_id,
+                    caption="✅ **Here is your file!**\n\nThank you for verifying.",
+                    supports_streaming=True
+                )
+                
+                # Clear pending file after sending
+                await db.update_notcopy_user(user_id, {"pending_file_id": None})
+                
+                logger.info(f"✅ Auto file sent to user {user_id}")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to send auto file to {user_id}: {e}")
+                # Send error message to user
+                try:
+                    await client.send_message(
+                        chat_id=user_id,
+                        text="⚠️ **Failed to send your file automatically.**\n\nPlease contact admin for support.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
+                        ])
+                    )
+                except:
+                    pass
+        else:
+            # No file found
+            await client.send_message(
+                chat_id=user_id,
+                text="⚠️ **No file found for you.**\n\nPlease request again or contact admin.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("👨‍💻 Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")]
+                ])
+            )
+        
         return True
         
     except Exception as e:
