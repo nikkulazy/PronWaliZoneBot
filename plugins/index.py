@@ -3,7 +3,7 @@ import time
 from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait, ChannelInvalid, ChatAdminRequired
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from info import ADMINS, VIDEO_CHANNEL, FREE_VIDEO_DURATION  # ✅ FREE_VIDEO_DURATION import
+from info import ADMINS, VIDEO_CHANNEL, FREE_VIDEO_DURATION
 from database.users_db import db  
 from utils import temp, get_progress_bar, get_readable_time
 
@@ -13,7 +13,7 @@ lock = asyncio.Lock()
 INDEX_CACHE = {}
 
 # =================================================
-# 📥 CALLBACK QUERY HANDLER (Fixed)
+# 📥 CALLBACK QUERY HANDLER
 # =================================================
 @Client.on_callback_query(filters.regex(r'^index'))
 async def index_files(bot, query):
@@ -45,7 +45,6 @@ async def index_files(bot, query):
     if action == 'yes':
         buttons = [
             [
-                # Ab hume data pass karne ki jarurat nahi, data already cache me hai
                 InlineKeyboardButton('🎬 Video Index', callback_data=f'index#start_main'),
                 InlineKeyboardButton('🔞 Brazzers Index', callback_data=f'index#start_brazzers')
             ],
@@ -125,9 +124,7 @@ async def send_for_index(bot, message):
         return await message.reply("❌ Invalid Number.")
     await s.delete()
 
-    # ----------------------------------------------------
-    # FIX: Store Data in Dictionary instead of Callback Data
-    # ----------------------------------------------------
+    # Store Data in Dictionary
     INDEX_CACHE[message.from_user.id] = {
         'chat': chat.id,
         'lst_msg_id': last_msg_id,
@@ -135,7 +132,6 @@ async def send_for_index(bot, message):
     }
 
     buttons = [[
-        # Sirf 'yes' bhejeinge, baki data cache se lenge
         InlineKeyboardButton('YES', callback_data='index#yes')
     ],[
         InlineKeyboardButton('CLOSE', callback_data='close_data'),
@@ -151,7 +147,7 @@ async def send_for_index(bot, message):
     )
 
 # =================================================
-# ⚙️ MAIN INDEXING LOGIC - UPDATED WITH DURATION
+# ⚙️ MAIN INDEXING LOGIC - FIXED WITH DURATION
 # =================================================
 async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
     start_time = time.time()
@@ -215,13 +211,14 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip, target_db):
                         file_id = media.file_id
                         file_unique_id = media.file_unique_id
                         
-                        # ✅ NEW: Get video duration
+                        # ✅ Get video duration
                         duration = 0
                         if hasattr(media, 'duration'):
                             duration = media.duration or 0
                         
-                        # ✅ NEW: Check if video is premium based on duration
-                        is_premium_video = duration > FREE_VIDEO_DURATION if duration > 0 else False
+                        # ✅ FIX: Only mark as premium if duration is greater than FREE_VIDEO_DURATION AND duration > 0
+                        # Videos with duration = 0 will NOT be marked premium
+                        is_premium_video = duration > 0 and duration > FREE_VIDEO_DURATION
                         
                         # --- DB SELECTION LOGIC ---
                         if target_db == "brazzers":
