@@ -255,7 +255,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         buttons.append(row1)
         
         # Row 2: Download Button
-        row2 = [InlineKeyboardButton("📥 Download", callback_data=f"dld_{download_id}")]
+        row2 = [InlineKeyboardButton("📂 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 📂", callback_data=f"dld_{download_id}")]
         buttons.append(row2)
         
         # Row 3: Close Button
@@ -335,8 +335,8 @@ async def download_callback_handler(client, query: CallbackQuery):
         print(f"🔗 New Download URL generated: {download_url}")
         
         new_buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-            [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
+            [InlineKeyboardButton("⚡ 𝗙𝗮𝘀𝘁 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 ⚡", url=download_url)],
+            [InlineKeyboardButton("* ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ *", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
         ])
         
         try:
@@ -345,8 +345,8 @@ async def download_callback_handler(client, query: CallbackQuery):
         except Exception as edit_error:
             print(f"⚠️ Edit error: {edit_error}")
             fallback_buttons = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚡Fast Download ⚡", url=download_url)],
-                [InlineKeyboardButton("🔙 Back", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
+                [InlineKeyboardButton("⚡ 𝗙𝗮𝘀𝘁 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 ⚡", url=download_url)],
+                [InlineKeyboardButton("* ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ *", callback_data=f"back_{'brazzers' if is_brazzers else 'video'}")]
             ])
             
             sent_message = await query.message.reply(
