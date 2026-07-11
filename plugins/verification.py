@@ -144,8 +144,7 @@ async def verify_user_on_start(client, message):
             file_link = f"https://t.me/{temp.U_NAME}?start=help"
             
         btn = InlineKeyboardMarkup([[
-            InlineKeyboardButton("📂 ɢᴇᴛ ʀᴇǫᴜᴇsᴛᴇᴅ ғɪʟᴇ 📂", url=file_link)
-        ]])
+            [InlineKeyboardButton("💢 Get Video 💢", callback_data="get_video")]]
         
         txt = script.VERIFY_COMPLETE_TEXT
         
