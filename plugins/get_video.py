@@ -247,14 +247,35 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         video_data = await db.videos.find_one({"file_id": video_id})
         is_premium_video = video_data.get("is_premium", False) if video_data else False
         
-        if duration > 0:
-            minutes = duration // 60
-            seconds = duration % 60
-            duration_text = f"⏱️ Duration: {minutes}m {seconds}s"
-            if is_premium_video:
-                duration_text += " 💎"
+        # Get user's daily limit info
+        limit_data = await check_user_limit(user_id)
+        used = limit_data["used"]
+        total_limit = limit_data["limit"]
+        remaining = total_limit - used
+        
+        # Check if user is premium
+        is_premium_user = await db.has_premium_access(user_id)
+        
+        # Build caption WITHOUT duration
+        caption = f"**{video_label}**\n\n"
+        
+        # ✅ Add file used / free limit caption
+        if is_premium_user:
+            caption += f"📊 **File Used:** {used}/{total_limit} (Premium - Unlimited)\n\n"
         else:
-            duration_text = "⏱️ Duration: Unknown"
+            if remaining <= 0:
+                caption += f"📊 **File Used:** {used}/{total_limit} (Limit Reached!)\n\n"
+            else:
+                caption += f"📊 **File Used:** {used}/{total_limit} | Remaining: {remaining}\n\n"
+        
+        caption += (
+            f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
+            "<blockquote>"
+            "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
+            "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
+            "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
+            "</blockquote>"
+        )
         
         download_id = str(uuid.uuid4())[:8]
         
@@ -288,19 +309,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         buttons.append(row3)
 
         reply_markup = InlineKeyboardMarkup(buttons)
-
-        # Build caption
-        caption = f"**{video_label}**\n\n"
-        if duration_text:
-            caption += f"{duration_text}\n\n"
-        caption += (
-            f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
-            "<blockquote>"
-            "ᴛʜɪꜱ ꜰɪʟᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴀꜰᴛᴇʀ 10 ᴍɪɴᴜᴛᴇꜱ.\n"
-            "ᴘʟᴇᴀꜱᴇ ꜰᴏʀᴡᴀʀᴅ ᴛʜɪꜱ ꜰɪʟᴇ ꜱᴏᴍᴇᴡʜᴇʀᴇ ᴇʟꜱᴇ "
-            "ᴏʀ ꜱᴀᴠᴇ ɪɴ ꜱᴀᴠᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ."
-            "</blockquote>"
-        )
 
         # ✅ Send video WITH SPOILER
         sent = await client.send_video(
