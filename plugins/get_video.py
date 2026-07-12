@@ -260,8 +260,8 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         
         # ✅ Only Used count with total
         if is_premium_user:
-            caption += f"📂 **File Limit:** Unlimited (Premium)\n"
-            caption += f"📉 **Used:** {used}/∞\n\n"
+            caption += f"📂 **File Limit:** {total_limit} Files (Premium)\n"
+            caption += f"📉 **Used:** {used}/{total_limit}\n\n"
         else:
             caption += f"📂 **File Limit:** {total_limit} Files\n"
             caption += f"📉 **Used:** {used}/{total_limit}\n\n"
