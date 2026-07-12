@@ -251,7 +251,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         limit_data = await check_user_limit(user_id)
         used = limit_data["used"]
         total_limit = limit_data["limit"]
-        remaining = total_limit - used
         
         # Check if user is premium
         is_premium_user = await db.has_premium_access(user_id)
@@ -259,14 +258,13 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         # Build caption WITHOUT duration
         caption = f"**{video_label}**\n\n"
         
-        # ✅ Add file used / free limit caption
+        # ✅ Only Used count with total
         if is_premium_user:
-            caption += f"📊 **File Used:** {used}/{total_limit} (Premium - Unlimited)\n\n"
+            caption += f"📂 **File Limit:** Unlimited (Premium)\n"
+            caption += f"📉 **Used:** {used}/∞\n\n"
         else:
-            if remaining <= 0:
-                caption += f"📊 **File Used:** {used}/{total_limit} (Limit Reached!)\n\n"
-            else:
-                caption += f"📊 **File Used:** {used}/{total_limit} | Remaining: {remaining}\n\n"
+            caption += f"📂 **File Limit:** {total_limit} Files\n"
+            caption += f"📉 **Used:** {used}/{total_limit}\n\n"
         
         caption += (
             f"𝘗𝘰𝘸𝘦𝘳𝘦𝘥 𝘉𝘺: {temp.B_LINK}\n\n"
