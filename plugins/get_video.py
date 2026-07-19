@@ -104,29 +104,34 @@ async def send_limit_message(client, message_or_query, limit_data):
     # Check if it's a callback query or regular message
     if hasattr(message_or_query, 'answer'):  # It's a CallbackQuery
         try:
-            # Try to edit the existing message
-            await message_or_query.message.edit_caption(
+            # DELETE the old video message first
+            try:
+                await message_or_query.message.delete()
+            except Exception as e:
+                print(f"⚠️ Could not delete old message: {e}")
+            
+            # Send new photo message with buttons
+            await message_or_query.message.reply_photo(
+                photo=VERIFY_START_IMG,
                 caption=text,
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
             await message_or_query.answer("⏳ Limit reached! Verify or upgrade to continue.", show_alert=False)
+            
         except Exception as e:
-            # If edit fails, send new message
+            print(f"❌ Error in callback send_limit_message: {e}")
+            # Fallback: try to send as text
             try:
-                await message_or_query.message.reply_photo(
-                    photo=VERIFY_START_IMG,
-                    caption=text,
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                    parse_mode=enums.ParseMode.HTML
-                )
-            except:
                 await message_or_query.message.reply_text(
                     text=text,
                     reply_markup=InlineKeyboardMarkup(buttons),
                     parse_mode=enums.ParseMode.HTML
                 )
-    else:  # It's a regular Message
+            except:
+                pass
+    
+    else:  # It's a regular Message (from /getvideo command)
         try:
             await message_or_query.reply_photo(
                 photo=VERIFY_START_IMG,
