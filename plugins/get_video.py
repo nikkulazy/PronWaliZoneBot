@@ -357,8 +357,8 @@ async def download_callback_handler(client, query: CallbackQuery):
         is_premium = await db.has_premium_access(user_id)
         
         if not is_premium:
-            await query.answer("💎 This feature is only for premium users!", show_alert=True)
-            return
+            await query.answer("💎 This feature is only for premium users!\n\nBUY PREMIUM AND ACCESS UNLIMITED INDIAN OR BRAZZERS VIDEO FULL ADMIN SUPPORT.", show_alert=True)
+            return 
         
         web_app_url = WEB_APP_URL.rstrip('/')
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
