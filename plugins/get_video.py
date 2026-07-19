@@ -10,6 +10,9 @@ from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
 from utils import temp, auto_delete_message, is_user_joined
+import string
+from info import VERIFY_START_IMG, TUTORIAL_LINK, TIMEZONE
+from utils import get_shortlink_av
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
@@ -104,20 +107,56 @@ async def send_limit_message(message, limit_data):
     limit = limit_data["limit"]
     user_type = limit_data["user_type"]
     
-    if user_type == "premium":
-        text = f"❌ **Premium Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n🔄 Please try again tomorrow."
-    elif user_type == "verified":
-        text = f"❌ **Verified Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for more!"
-    else:
-        text = f"❌ **Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for unlimited access!"
+    # Get IST time and calculate reset time (tomorrow 12:00 AM IST)
+    ist = pytz.timezone(TIMEZONE)
+    now = datetime.now(ist)
+    tomorrow = now + datetime.timedelta(days=1)
+    reset_time = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+    reset_str = reset_time.strftime("%I:%M %p")
     
-    await message.reply(
-        text,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-            [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-        ])
+    # Generate verify URL
+    from utils import get_shortlink_av
+    user_id = message.from_user.id
+    verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
+    await db.create_verify_id(user_id, verify_id, None)
+    long_url = f"https://telegram.me/{temp.U_NAME}?start=avbotz_{user_id}_{verify_id}"
+    
+    try:
+        verify_url = await get_shortlink_av(long_url) or long_url
+    except:
+        verify_url = long_url
+    
+    tutorial_url = TUTORIAL_LINK if TUTORIAL_LINK and TUTORIAL_LINK.startswith("http") else "https://t.me"
+    
+    # Build message with exact text format
+    text = (
+        f"🔞 **𝗬𝗼𝘂𝗿 𝗙𝗿𝗲𝗲 𝗟𝗶𝗺𝗶𝘁 𝗘𝘅𝗽𝗶𝗿𝗲𝗱**\n\n"
+        f"⌛ 𝚈𝚘𝚞𝚛 𝙻𝚒𝚖𝚒𝚝 𝚁𝚎𝚜𝚝𝚊𝚛𝚝 𝚃𝚘𝚖𝚘𝚛𝚛𝚘𝚠 {reset_str} (𝙸𝚂𝚃)\n\n"
+        f"💎 𝙶𝚎𝚝 𝚁𝚎𝚌𝚎𝚒𝚟𝚎𝚛 𝚂𝚞𝚋𝚜𝚌𝚛𝚒𝚙𝚝𝚒𝚘𝚗 𝙵𝚘𝚛 𝚄𝚗𝚕𝚒𝚖𝚒𝚝𝚎𝚍 𝙰𝚌𝚌𝚎𝚜𝚜\n\n"
+        f"📌 Click Verify Button Access More Video In 1 minute\n\n"
+        f"👇 **𝗖𝗵𝗼𝗼𝘀𝗲 𝗮𝗻 𝗢𝗽𝘁𝗶𝗼𝗻 !**"
     )
+    
+    buttons = [
+        [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
+        [InlineKeyboardButton("⚠️ Verify ⚠️", url=verify_url)],
+        [InlineKeyboardButton("❓ How to Verify ❓", url=tutorial_url)]
+    ]
+    
+    # Use START_IMG for limit reached message
+    try:
+        await message.reply_photo(
+            photo=VERIFY_START_IMG,
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
+        )
+    except:
+        await message.reply(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.HTML
+        )
 
 
 # ---------- MAIN COMMAND HANDLER ----------
