@@ -248,46 +248,46 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO
+    # GET VIDEO ✅ FIXED - Old message delete ho jayega
     # =============================================
     if data == "get_video":
-    await query.answer("⏳ Loading...", show_alert=False)
-    
-    # ✅ Delete old message
-    try:
-        await message.delete()
-    except Exception:
-        pass
-    
-    from plugins.get_video import handle_video_request
-    fake_msg = message
-    fake_msg.from_user = query.from_user
-    fake_msg.chat = message.chat
-    await handle_video_request(client, fake_msg)
-    return
-
-    # =============================================
-    # GET BRAZZERS
-    # =============================================
-    if data == "get_brazzers":
-    try:
-        await query.answer("⏳ Processing...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         
-        # ✅ Delete old message
+        # ✅ Delete old message first
         try:
             await message.delete()
         except Exception:
             pass
         
-        from plugins.brazzers import process_brazzers_request
+        from plugins.get_video import handle_video_request
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
-        await process_brazzers_request(client, fake_msg)
-    except Exception as e:
-        print(f"Brazzers callback error: {e}")
-        await query.answer("❌ Error processing request", show_alert=True)
-    return
+        await handle_video_request(client, fake_msg)
+        return
+
+    # =============================================
+    # GET BRAZZERS ✅ FIXED - Old message delete ho jayega
+    # =============================================
+    if data == "get_brazzers":
+        try:
+            await query.answer("⏳ Processing...", show_alert=False)
+            
+            # ✅ Delete old message first
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            
+            from plugins.brazzers import process_brazzers_request
+            fake_msg = message
+            fake_msg.from_user = query.from_user
+            fake_msg.chat = message.chat
+            await process_brazzers_request(client, fake_msg)
+        except Exception as e:
+            print(f"Brazzers callback error: {e}")
+            await query.answer("❌ Error processing request", show_alert=True)
+        return
 
     # =============================================
     # SUBSCRIPTION
