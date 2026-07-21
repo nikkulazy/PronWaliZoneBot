@@ -2,14 +2,19 @@ import asyncio
 import pytz
 import uuid
 import random
-from datetime import datetime
-from pyrogram import Client, filters
+import string
+from datetime import datetime, timedelta
+from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from database.users_db import db
-from info import PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT, FSUB, IS_VERIFY, TIMEZONE, WEB_APP_URL, FREE_VIDEO_DURATION
+from info import (
+    PROTECT_CONTENT, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, VERIFICATION_DAILY_LIMIT,
+    FSUB, IS_VERIFY, TIMEZONE, WEB_APP_URL, FREE_VIDEO_DURATION,
+    VERIFY_START_IMG, TUTORIAL_LINK
+)
 from plugins.verification import av_x_verification
 from plugins.ban_manager import ban_manager
-from utils import temp, auto_delete_message, is_user_joined
+from utils import temp, auto_delete_message, is_user_joined, get_shortlink_av
 
 
 # ---------- TEMP DOWNLOAD CACHE ----------
@@ -98,25 +103,99 @@ async def check_user_limit(user_id):
 
 
 # ---------- SEND LIMIT MESSAGE ----------
-async def send_limit_message(message, limit_data):
+async def send_limit_message(client, message_or_query, limit_data):
+    """Send limit reached message with proper buttons"""
     used = limit_data["used"]
     limit = limit_data["limit"]
     user_type = limit_data["user_type"]
     
-    if user_type == "premium":
-        text = f"❌ **Premium Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n🔄 Please try again tomorrow."
-    elif user_type == "verified":
-        text = f"❌ **Verified Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for more!"
+    # Get user_id from message or query
+    if hasattr(message_or_query, 'from_user'):
+        user_id = message_or_query.from_user.id
     else:
-        text = f"❌ **Daily Limit Reached!**\n\n📊 You have used {used}/{limit} videos today.\n💎 Buy premium for unlimited access!"
+        user_id = message_or_query.chat.id if hasattr(message_or_query, 'chat') else None
     
-    await message.reply(
-        text,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-            [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-        ])
+    if not user_id:
+        return
+    
+    # Get IST time and calculate reset time (tomorrow 12:00 AM IST)
+    ist = pytz.timezone(TIMEZONE)
+    now = datetime.now(ist)
+    tomorrow = now + timedelta(days=1)
+    reset_time = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+    reset_str = reset_time.strftime("%I:%M %p")
+    
+    # Generate verify URL
+    verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
+    await db.create_verify_id(user_id, verify_id, None)
+    long_url = f"https://telegram.me/{temp.U_NAME}?start=avbotz_{user_id}_{verify_id}"
+    
+    try:
+        verify_url = await get_shortlink_av(long_url) or long_url
+    except:
+        verify_url = long_url
+    
+    tutorial_url = TUTORIAL_LINK if TUTORIAL_LINK and TUTORIAL_LINK.startswith("http") else "https://t.me"
+    
+    # Build message with exact text format
+    text = (
+        f"🔞 **𝗬𝗼𝘂𝗿 𝗙𝗿𝗲𝗲 𝗟𝗶𝗺𝗶𝘁 𝗘𝘅𝗽𝗶𝗿𝗲𝗱**\n\n"
+        f"⌛ 𝚈𝚘𝚞𝚛 𝙻𝚒𝚖𝚒𝚝 𝚁𝚎𝚜𝚝𝚊𝚛𝚝 𝚃𝚘𝚖𝚘𝚛𝚛𝚘𝚠 {reset_str} (𝙸𝚂𝚃)\n\n"
+        f"💎 𝙶𝚎𝚝 𝚁𝚎𝚌𝚎𝚒𝚟𝚎𝚛 𝚂𝚞𝚋𝚜𝚌𝚛𝚒𝚙𝚝𝚒𝚘𝚗 𝙵𝚘𝚛 𝚄𝚗𝚕𝚒𝚖𝚒𝚝𝚎𝚍 𝙰𝚌𝚌𝚎𝚜𝚜\n\n"
+        f"📌 Click Verify Button Access More Video In 1 minute\n\n"
+        f"👇 **𝗖𝗵𝗼𝗼𝘀𝗲 𝗮𝗻 𝗢𝗽𝘁𝗶𝗼𝗻 !**"
     )
+    
+    buttons = [
+        [InlineKeyboardButton("💎 Upgrade To Premium", callback_data="get_subscription")],
+        [InlineKeyboardButton("⚠️ Verify ⚠️", url=verify_url)],
+        [InlineKeyboardButton("❓ How to Verify ❓", url=tutorial_url)]
+    ]
+    
+    # Check if it's a callback query or regular message
+    if hasattr(message_or_query, 'answer'):  # It's a CallbackQuery
+        try:
+            # DELETE the old video message first
+            try:
+                await message_or_query.message.delete()
+            except Exception as e:
+                print(f"⚠️ Could not delete old message: {e}")
+            
+            # Send new photo message with buttons
+            await message_or_query.message.reply_photo(
+                photo=VERIFY_START_IMG,
+                caption=text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML
+            )
+            await message_or_query.answer("⏳ Limit reached! Verify or upgrade to continue.", show_alert=False)
+            
+        except Exception as e:
+            print(f"❌ Error in callback send_limit_message: {e}")
+            # Fallback: try to send as text
+            try:
+                await message_or_query.message.reply_text(
+                    text=text,
+                    reply_markup=InlineKeyboardMarkup(buttons),
+                    parse_mode=enums.ParseMode.HTML
+                )
+            except:
+                pass
+    
+    else:  # It's a regular Message (from /getvideo command)
+        try:
+            await message_or_query.reply_photo(
+                photo=VERIFY_START_IMG,
+                caption=text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML
+            )
+        except:
+            await message_or_query.reply_text(
+                text=text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML
+            )
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -137,10 +216,10 @@ async def handle_video_request(client, m: Message):
     
     if limit_data["reached"]:
         if limit_data["is_premium"]:
-            return await m.reply(f"❌ Premium limit {PREMIUM_DAILY_LIMIT} reached. Try tomorrow!")
+            return await send_limit_message(client, m, limit_data)
         else:
             if limit_data["is_verified"]:
-                return await m.reply(f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎")
+                return await send_limit_message(client, m, limit_data)
             else:
                 if IS_VERIFY:
                     if not hasattr(m, 'command') or m.command is None:
@@ -151,15 +230,9 @@ async def handle_video_request(client, m: Message):
                         return
                     limit_data = await check_user_limit(user_id)
                     if limit_data["reached"]:
-                        return await m.reply(f"❌ Verified limit reached. Buy premium!")
+                        return await send_limit_message(client, m, limit_data)
                 else:
-                    return await m.reply(
-                        f"❌ Daily limit {limit_data['limit']} reached.\n✨ Upgrade to Premium for Unlimited Access! 💎",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("💎 Buy Premium", callback_data="get_subscription")],
-                            [InlineKeyboardButton("✖️Close✖️", callback_data="close_data")]
-                        ])
-                    )
+                    return await send_limit_message(client, m, limit_data)
 
     # ---------- GET NEW VIDEO ----------
     result = await db.get_unseen_video(user_id)
@@ -393,6 +466,8 @@ async def back_callback_handler(client, query: CallbackQuery):
         video_type = data.replace("back_", "")
         is_brazzers = video_type == "brazzers"
         
+        await query.answer("🔙 Loading...", show_alert=False)
+        
         history_data = temp.USER_VIDEO_HISTORY.get(user_id)
         if not history_data or not history_data["history"]:
             await query.answer("❌ No history found!", show_alert=True)
@@ -435,7 +510,6 @@ async def back_callback_handler(client, query: CallbackQuery):
         reply_markup = InlineKeyboardMarkup(buttons)
         
         await query.message.edit_reply_markup(reply_markup=reply_markup)
-        await query.answer("🔙 Back to original buttons", show_alert=False)
         
     except Exception as e:
         print(f"❌ Back button error: {e}")
@@ -449,7 +523,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
     data = query.data
     message = query.message
     
-    # ✅ Sabse pehle callback answer karo (Loading neeche dikhega)
     await query.answer()
     
     if data == "noop":
@@ -474,7 +547,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
     
     limit_data = await check_user_limit(user_id)
     if limit_data["reached"]:
-        await send_limit_message(message, limit_data)
+        await send_limit_message(client, query, limit_data)
         return
     
     if action == "prev":
