@@ -168,6 +168,7 @@ async def send_limit_message(client, message_or_query, limit_data):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
+            # ✅ Loading message neeche dikhega
             await message_or_query.answer("⏳ Limit reached! Verify or upgrade to continue.", show_alert=False)
             
         except Exception as e:
@@ -427,6 +428,7 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         try:
             await query.message.edit_reply_markup(reply_markup=new_buttons)
+            # ✅ Loading message neeche dikhega
             await query.answer("✅ Download link generated!", show_alert=False)
         except Exception as edit_error:
             print(f"⚠️ Edit error: {edit_error}")
@@ -448,6 +450,7 @@ async def download_callback_handler(client, query: CallbackQuery):
                     pass
             
             asyncio.create_task(delete_download_message())
+            # ✅ Loading message neeche dikhega
             await query.answer("✅ Download link generated!", show_alert=False)
         
     except Exception as e:
@@ -466,6 +469,7 @@ async def back_callback_handler(client, query: CallbackQuery):
         video_type = data.replace("back_", "")
         is_brazzers = video_type == "brazzers"
         
+        # ✅ Loading message neeche dikhega
         await query.answer("🔙 Loading...", show_alert=False)
         
         history_data = temp.USER_VIDEO_HISTORY.get(user_id)
@@ -523,6 +527,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
     data = query.data
     message = query.message
     
+    # ✅ Sabse pehle callback answer karo (Loading neeche dikhega)
     await query.answer()
     
     if data == "noop":
@@ -558,6 +563,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
         new_idx = current_idx - 1
         video_id = history[new_idx]
         
+        # ✅ Loading message neeche dikhega
         await query.answer("⏪ Loading previous video...", show_alert=False)
         history_data["current_index"] = new_idx
         
@@ -581,6 +587,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
             new_idx = current_idx + 1
             video_id = history[new_idx]
             
+            # ✅ Loading message neeche dikhega
             await query.answer("⏩ Loading...", show_alert=False)
             history_data["current_index"] = new_idx
             
@@ -599,6 +606,7 @@ async def video_navigation_callback(client, query: CallbackQuery):
             await send_video_with_buttons(client, fake_msg, user_id, video_id, duration, is_brazzers=is_brazzers)
             return
         
+        # ✅ Loading message neeche dikhega
         await query.answer("⏩ Loading....", show_alert=False)
         
         current_video = history[current_idx]
