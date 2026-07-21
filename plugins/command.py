@@ -241,10 +241,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO - Loading message neeche dikhega
+    # GET VIDEO - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         
         try:
             await message.delete()
@@ -259,11 +259,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS - Loading message neeche dikhega
+    # GET BRAZZERS - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "get_brazzers":
         try:
-            await query.answer("⏳ Processing...", show_alert=False)
+            await query.answer("⏳ Processing...", show_alert=False, cache_time=1)
             
             try:
                 await message.delete()
@@ -281,10 +281,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # SUBSCRIPTION - Loading message neeche dikhega
+    # SUBSCRIPTION - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "get_subscription":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         from plugins.premium import buy_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -293,10 +293,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # MY PLAN - Loading message neeche dikhega
+    # MY PLAN - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "my_plan":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -305,10 +305,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # REFER - Loading message neeche dikhega
+    # REFER - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "refer":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         from plugins.refer import invite_command_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -317,10 +317,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # HELP - Loading message neeche dikhega
+    # HELP - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "help":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -328,10 +328,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # ABOUT - Loading message neeche dikhega
+    # ABOUT - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "about":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -339,10 +339,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET (Subscription Buy) - Loading message neeche dikhega
+    # GET (Subscription Buy) - ✅ Loading message neeche dikhega (cache_time=1)
     # =============================================
     if data == "get":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -369,7 +369,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # MY PLAN FROM CALLBACK
     # =============================================
     if data == "my_plan_callback":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=1)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
