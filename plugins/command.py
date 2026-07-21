@@ -141,14 +141,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
     message = query.message
 
     # =============================================
-    # 🆕 BACK BUTTON HANDLER - Purane buttons wapas laane ke liye
+    # BACK BUTTON HANDLER
     # =============================================
     if data.startswith("back_"):
         try:
-            video_type = data.replace("back_", "")  # "video" ya "brazzers"
+            video_type = data.replace("back_", "")
             is_brazzers = video_type == "brazzers"
             
-            # User history se current video nikaalo
             history_data = temp.USER_VIDEO_HISTORY.get(user_id)
             if not history_data or not history_data["history"]:
                 await query.answer("❌ No history found!", show_alert=True)
@@ -161,10 +160,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
             
             video_id = history_data["history"][current_idx]
             
-            # Purane buttons rebuild karein
             buttons = []
             
-            # Row 1: Previous + Next
             row1 = []
             if current_idx > 0:
                 row1.append(InlineKeyboardButton("⏪ Previous", callback_data=f"prev_{video_type}"))
@@ -174,8 +171,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             row1.append(InlineKeyboardButton("⏩ Next", callback_data=f"next_{video_type}"))
             buttons.append(row1)
             
-            # Row 2: Download Button
-            # Naya download ID generate karein
             download_id = str(uuid.uuid4())[:8]
             DOWNLOAD_CACHE[download_id] = {
                 "file_id": video_id,
@@ -188,7 +183,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             ]
             buttons.append(row2)
             
-            # Row 3: Close Button
             row3 = [
                 InlineKeyboardButton("✖️ Close ✖️", callback_data="close_data")
             ]
@@ -196,7 +190,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             
             original_buttons = InlineKeyboardMarkup(buttons)
             
-            # ✅ Purane buttons wapas set karein
             await query.message.edit_reply_markup(
                 reply_markup=original_buttons
             )
@@ -209,7 +202,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # 🆕 DOWNLOAD HANDLER (dld_ - Short ID based)
+    # DOWNLOAD HANDLER
     # =============================================
     if data.startswith("dld_"):
         from plugins.get_video import download_callback_handler
@@ -217,7 +210,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # 🆕 NEXT / PREVIOUS NAVIGATION
+    # NEXT / PREVIOUS NAVIGATION
     # =============================================
     if data.startswith("next_") or data.startswith("prev_") or data == "noop":
         from plugins.get_video import video_navigation_callback
@@ -225,7 +218,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # 🆕 DELETE HANDLER
+    # DELETE HANDLER
     # =============================================
     if data.startswith("delete_"):
         from plugins.admin import delete_callback_handler
@@ -248,12 +241,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO ✅ FIXED - Old message delete ho jayega
+    # GET VIDEO - Loading message neeche dikhega
     # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False, cache_time=0)
+        await query.answer("⏳ Loading...", show_alert=False)
         
-        # ✅ Delete old message first
         try:
             await message.delete()
         except Exception:
@@ -267,13 +259,12 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS ✅ FIXED - Old message delete ho jayega
+    # GET BRAZZERS - Loading message neeche dikhega
     # =============================================
     if data == "get_brazzers":
         try:
             await query.answer("⏳ Processing...", show_alert=False)
             
-            # ✅ Delete old message first
             try:
                 await message.delete()
             except Exception:
@@ -290,7 +281,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # SUBSCRIPTION
+    # SUBSCRIPTION - Loading message neeche dikhega
     # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -302,7 +293,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # MY PLAN
+    # MY PLAN - Loading message neeche dikhega
     # =============================================
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -314,7 +305,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # REFER
+    # REFER - Loading message neeche dikhega
     # =============================================
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -326,7 +317,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # HELP
+    # HELP - Loading message neeche dikhega
     # =============================================
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -337,7 +328,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # ABOUT
+    # ABOUT - Loading message neeche dikhega
     # =============================================
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -348,7 +339,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET (Subscription Buy)
+    # GET (Subscription Buy) - Loading message neeche dikhega
     # =============================================
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
