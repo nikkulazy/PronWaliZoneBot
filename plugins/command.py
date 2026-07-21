@@ -251,7 +251,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # GET VIDEO ✅ FIXED - Old message delete ho jayega
     # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False, cache_time=0)
         
         # ✅ Delete old message first
         try:
