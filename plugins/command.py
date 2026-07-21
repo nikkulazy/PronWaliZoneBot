@@ -252,6 +252,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # =============================================
     if data == "get_video":
     await query.answer("⏳ Loading...", show_alert=False)
+    
     try:
         await message.delete()
     except Exception:
@@ -270,6 +271,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     if data == "get_brazzers":
     try:
         await query.answer("⏳ Processing...", show_alert=False)
+        
         try:
             await message.delete()
         except Exception:
