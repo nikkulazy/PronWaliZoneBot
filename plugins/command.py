@@ -251,29 +251,39 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # GET VIDEO
     # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
-        from plugins.get_video import handle_video_request
-        fake_msg = message
-        fake_msg.from_user = query.from_user
-        fake_msg.chat = message.chat
-        await handle_video_request(client, fake_msg)
-        return
+    await query.answer("⏳ Loading...", show_alert=False)
+    try:
+        await message.delete()
+    except Exception:
+        pass
+    
+    from plugins.get_video import handle_video_request
+    fake_msg = message
+    fake_msg.from_user = query.from_user
+    fake_msg.chat = message.chat
+    await handle_video_request(client, fake_msg)
+    return
 
     # =============================================
     # GET BRAZZERS
     # =============================================
     if data == "get_brazzers":
+    try:
+        await query.answer("⏳ Processing...", show_alert=False)
         try:
-            await query.answer("⏳ Processing...", show_alert=False)
-            from plugins.brazzers import process_brazzers_request
-            fake_msg = message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
-            await process_brazzers_request(client, fake_msg)
-        except Exception as e:
-            print(f"Brazzers callback error: {e}")
-            await query.answer("❌ Error processing request", show_alert=True)
-        return
+            await message.delete()
+        except Exception:
+            pass
+        
+        from plugins.brazzers import process_brazzers_request
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await process_brazzers_request(client, fake_msg)
+    except Exception as e:
+        print(f"Brazzers callback error: {e}")
+        await query.answer("❌ Error processing request", show_alert=True)
+    return
 
     # =============================================
     # SUBSCRIPTION
