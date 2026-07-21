@@ -253,6 +253,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     if data == "get_video":
     await query.answer("⏳ Loading...", show_alert=False)
     
+    # ✅ Delete old message
     try:
         await message.delete()
     except Exception:
@@ -272,6 +273,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     try:
         await query.answer("⏳ Processing...", show_alert=False)
         
+        # ✅ Delete old message
         try:
             await message.delete()
         except Exception:
