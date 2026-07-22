@@ -261,10 +261,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # =============================================
     # GET BRAZZERS - Loading please wait.... neeche dikhega
     # =============================================
-    if data == "get_brazzers":
-        try:
-            msg = await query.answer("⏳ Loading please wait....", show_alert=False)
-            
+    if data == "get_brazzers": 
             try:
                 await message.delete()
             except Exception:
