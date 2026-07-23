@@ -2,18 +2,25 @@ import datetime
 import asyncio
 import random
 import uuid
+import logging
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
 from pyrogram.errors import *
 from Script import script
 from database.users_db import db
-from info import START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS
+from info import (
+    START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, 
+    DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS,
+    EMOJI_MODE, REACTIONS
+)
 from utils import temp, is_user_joined, get_shortlink
 from plugins.verification import verify_user_on_start
 from plugins.send_file import send_requested_file
 from plugins.refer import refer_on_start
 from plugins.premium import approve_payment, reject_payment, payment_screenshot_handler
 from plugins.get_video import DOWNLOAD_CACHE
+
+logger = logging.getLogger(__name__)
 
 # =================================================
 # START COMMAND
@@ -23,6 +30,22 @@ async def start_command(client, message: Message):
     user_id = message.from_user.id
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
+    
+    # ✅ Send "Waiting..." message
+    waiting_msg = None
+    try:
+        waiting_msg = await message.reply_text(
+            "⏳ **Please wait...**"
+        )
+    except Exception as e:
+        logger.exception(f"Waiting message error: {e}")
+    
+    # Add reaction if enabled
+    if EMOJI_MODE:
+        try:
+            await message.react(emoji=random.choice(REACTIONS), big=True)
+        except Exception:
+            await message.react(emoji="⚡️")
     
     if FSUB and not await is_user_joined(client, message):
         return
@@ -83,6 +106,14 @@ async def start_command(client, message: Message):
         caption=script.START_TXT.format(mention, temp.U_NAME, temp.U_NAME),
         reply_markup=buttons,
     )
+    
+    # ✅ Delete "Waiting..." message after 2 seconds
+    if waiting_msg:
+        await asyncio.sleep(2)
+        try:
+            await waiting_msg.delete()
+        except Exception:
+            pass
     
     await asyncio.sleep(300)
     await msg.delete()  
@@ -148,6 +179,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
             video_type = data.replace("back_", "")
             is_brazzers = video_type == "brazzers"
             
+            # ✅ Loading message neeche dikhega
+            await query.answer("🔙 Loading...", show_alert=False)
+            
             history_data = temp.USER_VIDEO_HISTORY.get(user_id)
             if not history_data or not history_data["history"]:
                 await query.answer("❌ No history found!", show_alert=True)
@@ -194,8 +228,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 reply_markup=original_buttons
             )
             
-            await query.answer("🔙 Back to original buttons", show_alert=False)
-            
         except Exception as e:
             print(f"❌ Back button error: {e}")
             await query.answer("❌ Error loading previous buttons", show_alert=True)
@@ -241,10 +273,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO - Loading please wait.... neeche dikhega
+    # GET VIDEO - ✅ Loading message neeche
     # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         
         try:
             await message.delete()
@@ -259,9 +291,12 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS - Loading please wait.... neeche dikhega
+    # GET BRAZZERS - ✅ Loading message neeche
     # =============================================
-    if data == "get_brazzers": 
+    if data == "get_brazzers":
+        try:
+            await query.answer("⏳ Processing...", show_alert=False)
+            
             try:
                 await message.delete()
             except Exception:
@@ -278,10 +313,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # SUBSCRIPTION - Loading please wait.... neeche dikhega
+    # SUBSCRIPTION - ✅ Loading message neeche
     # =============================================
     if data == "get_subscription":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import buy_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -290,10 +325,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # MY PLAN - Loading please wait.... neeche dikhega
+    # MY PLAN - ✅ Loading message neeche
     # =============================================
     if data == "my_plan":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -302,10 +337,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # REFER - Loading please wait.... neeche dikhega
+    # REFER - ✅ Loading message neeche
     # =============================================
     if data == "refer":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.refer import invite_command_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -314,10 +349,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # HELP - Loading please wait.... neeche dikhega
+    # HELP - ✅ Loading message neeche
     # =============================================
     if data == "help":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -325,10 +360,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # ABOUT - Loading please wait.... neeche dikhega
+    # ABOUT - ✅ Loading message neeche
     # =============================================
     if data == "about":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -336,10 +371,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET (Subscription Buy) - Loading please wait.... neeche dikhega
+    # GET (Subscription Buy) - ✅ Loading message neeche
     # =============================================
     if data == "get":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -366,7 +401,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # MY PLAN FROM CALLBACK
     # =============================================
     if data == "my_plan_callback":
-        await query.answer("⏳ Loading please wait....", show_alert=False)
+        await query.answer("⏳ Loading...", show_alert=False)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
