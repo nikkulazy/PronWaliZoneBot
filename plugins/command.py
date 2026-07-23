@@ -284,7 +284,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             pass
         
         # Send waiting message (will auto delete after 3 sec)
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         
         from plugins.get_video import handle_video_request
         fake_msg = message
@@ -305,7 +305,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 pass
             
             # Send waiting message (will auto delete after 3 sec)
-            await send_waiting_and_delete(message, 2)
+            await send_waiting_and_delete(message, 0.1)
             
             from plugins.brazzers import process_brazzers_request
             fake_msg = message
@@ -321,7 +321,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # SUBSCRIPTION - Waiting message
     # =============================================
     if data == "get_subscription":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         from plugins.premium import buy_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -333,7 +333,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # MY PLAN - Waiting message
     # =============================================
     if data == "my_plan":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -345,7 +345,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # REFER - Waiting message
     # =============================================
     if data == "refer":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         from plugins.refer import invite_command_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -357,7 +357,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # HELP - Waiting message
     # =============================================
     if data == "help":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -368,7 +368,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # ABOUT - Waiting message
     # =============================================
     if data == "about":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -379,7 +379,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # GET (Subscription Buy) - Waiting message
     # =============================================
     if data == "get":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -406,7 +406,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # MY PLAN FROM CALLBACK
     # =============================================
     if data == "my_plan_callback":
-        await send_waiting_and_delete(message, 2)
+        await send_waiting_and_delete(message, 0.1)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
