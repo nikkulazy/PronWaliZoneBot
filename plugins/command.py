@@ -31,7 +31,7 @@ async def start_command(client, message: Message):
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
     
-    # ✅ Send "Waiting..." message
+    # Send "Waiting..." message
     waiting_msg = None
     try:
         waiting_msg = await message.reply_text(
@@ -107,7 +107,7 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    # ✅ Delete "Waiting..." message after 2 seconds
+    # Delete "Waiting..." message after 2 seconds
     if waiting_msg:
         await asyncio.sleep(2)
         try:
@@ -179,7 +179,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             video_type = data.replace("back_", "")
             is_brazzers = video_type == "brazzers"
             
-            # ✅ Loading message neeche dikhega
             await query.answer("🔙 Loading...", show_alert=False)
             
             history_data = temp.USER_VIDEO_HISTORY.get(user_id)
@@ -273,7 +272,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO - ✅ Loading message neeche
+    # GET VIDEO - Loading message neeche
     # =============================================
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -291,7 +290,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS - ✅ Loading message neeche
+    # GET BRAZZERS - Loading message neeche
     # =============================================
     if data == "get_brazzers":
         try:
@@ -313,7 +312,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # SUBSCRIPTION - ✅ Loading message neeche
+    # SUBSCRIPTION - Loading message neeche
     # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -325,7 +324,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # MY PLAN - ✅ Loading message neeche
+    # MY PLAN - Loading message neeche
     # =============================================
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -337,7 +336,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # REFER - ✅ Loading message neeche
+    # REFER - Loading message neeche
     # =============================================
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -349,7 +348,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # HELP - ✅ Loading message neeche
+    # HELP - Loading message neeche
     # =============================================
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -360,7 +359,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # ABOUT - ✅ Loading message neeche
+    # ABOUT - Loading message neeche
     # =============================================
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -371,7 +370,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET (Subscription Buy) - ✅ Loading message neeche
+    # GET (Subscription Buy) - Loading message neeche
     # =============================================
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
