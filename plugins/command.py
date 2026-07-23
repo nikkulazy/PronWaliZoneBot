@@ -10,8 +10,7 @@ from Script import script
 from database.users_db import db
 from info import (
     START_PIC, LOG_CHANNEL, PREMIUM_LOGS, FSUB, QR_CODE_IMAGE, 
-    DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS,
-    EMOJI_MODE, REACTIONS
+    DAILY_LIMIT, PREMIUM_DAILY_LIMIT, UPI_ID, PICS
 )
 from utils import temp, is_user_joined, get_shortlink
 from plugins.verification import verify_user_on_start
@@ -31,21 +30,11 @@ async def start_command(client, message: Message):
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
     
-    # Send "Waiting..." message
-    waiting_msg = None
-    try:
-        waiting_msg = await message.reply_text(
-            "⏳ **Please wait...**"
-        )
-    except Exception as e:
-        logger.exception(f"Waiting message error: {e}")
+    # Send "Please wait..." message (auto delete after 3 seconds)
+    waiting_msg = await message.reply_text("⏳ **Please wait...**")
     
-    # Add reaction if enabled
-    if EMOJI_MODE:
-        try:
-            await message.react(emoji=random.choice(REACTIONS), big=True)
-        except Exception:
-            await message.react(emoji="⚡️")
+    # Auto delete after 3 seconds
+    asyncio.create_task(delete_after_delay(waiting_msg, 3))
     
     if FSUB and not await is_user_joined(client, message):
         return
@@ -107,16 +96,20 @@ async def start_command(client, message: Message):
         reply_markup=buttons,
     )
     
-    # Delete "Waiting..." message after 2 seconds
-    if waiting_msg:
-        await asyncio.sleep(2)
-        try:
-            await waiting_msg.delete()
-        except Exception:
-            pass
-    
     await asyncio.sleep(300)
-    await msg.delete()  
+    await msg.delete()
+
+
+# =================================================
+# DELETE AFTER DELAY FUNCTION
+# =================================================
+async def delete_after_delay(message, delay):
+    """Delete a message after specified delay in seconds"""
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
 
 # =================================================
@@ -179,8 +172,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             video_type = data.replace("back_", "")
             is_brazzers = video_type == "brazzers"
             
-            await query.answer("🔙 Loading...", show_alert=False)
-            
             history_data = temp.USER_VIDEO_HISTORY.get(user_id)
             if not history_data or not history_data["history"]:
                 await query.answer("❌ No history found!", show_alert=True)
@@ -227,6 +218,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 reply_markup=original_buttons
             )
             
+            await query.answer("🔙 Back to original buttons", show_alert=False)
+            
         except Exception as e:
             print(f"❌ Back button error: {e}")
             await query.answer("❌ Error loading previous buttons", show_alert=True)
@@ -272,7 +265,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO - Loading message neeche
+    # GET VIDEO
     # =============================================
     if data == "get_video":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -290,7 +283,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS - Loading message neeche
+    # GET BRAZZERS
     # =============================================
     if data == "get_brazzers":
         try:
@@ -312,7 +305,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # SUBSCRIPTION - Loading message neeche
+    # SUBSCRIPTION
     # =============================================
     if data == "get_subscription":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -324,7 +317,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # MY PLAN - Loading message neeche
+    # MY PLAN
     # =============================================
     if data == "my_plan":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -336,7 +329,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # REFER - Loading message neeche
+    # REFER
     # =============================================
     if data == "refer":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -348,7 +341,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # HELP - Loading message neeche
+    # HELP
     # =============================================
     if data == "help":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -359,7 +352,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # ABOUT - Loading message neeche
+    # ABOUT
     # =============================================
     if data == "about":
         await query.answer("⏳ Loading...", show_alert=False)
@@ -370,7 +363,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET (Subscription Buy) - Loading message neeche
+    # GET (Subscription Buy)
     # =============================================
     if data == "get":
         await query.answer("⏳ Loading...", show_alert=False)
