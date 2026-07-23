@@ -168,7 +168,6 @@ async def send_limit_message(client, message_or_query, limit_data):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
-            # ✅ Loading message neeche dikhega
             await message_or_query.answer("⏳ Limit reached! Verify or upgrade to continue.", show_alert=False)
             
         except Exception as e:
@@ -197,6 +196,21 @@ async def send_limit_message(client, message_or_query, limit_data):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=enums.ParseMode.HTML
             )
+
+
+# ---------- ASYNC WAIT FUNCTION ----------
+async def send_waiting_and_wait(message, delay=1):
+    """Send waiting message, wait for it to delete, then return"""
+    try:
+        waiting_msg = await message.reply_text("⏳ **Please wait...**")
+        await asyncio.sleep(delay)
+        try:
+            await waiting_msg.delete()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
 
 
 # ---------- MAIN COMMAND HANDLER ----------
@@ -428,7 +442,6 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         try:
             await query.message.edit_reply_markup(reply_markup=new_buttons)
-            # ✅ Loading message neeche dikhega
             await query.answer("✅ Download link generated!", show_alert=False)
         except Exception as edit_error:
             print(f"⚠️ Edit error: {edit_error}")
@@ -450,7 +463,6 @@ async def download_callback_handler(client, query: CallbackQuery):
                     pass
             
             asyncio.create_task(delete_download_message())
-            # ✅ Loading message neeche dikhega
             await query.answer("✅ Download link generated!", show_alert=False)
         
     except Exception as e:
@@ -469,7 +481,6 @@ async def back_callback_handler(client, query: CallbackQuery):
         video_type = data.replace("back_", "")
         is_brazzers = video_type == "brazzers"
         
-        # ✅ Loading message neeche dikhega
         await query.answer("🔙 Loading...", show_alert=False)
         
         history_data = temp.USER_VIDEO_HISTORY.get(user_id)
@@ -527,17 +538,33 @@ async def video_navigation_callback(client, query: CallbackQuery):
     data = query.data
     message = query.message
     
-    # ✅ Sabse pehle callback answer karo (Loading neeche dikhega)
+    # Send waiting message
+    try:
+        waiting_msg = await message.reply_text("⏳ **Please wait...**")
+    except Exception:
+        waiting_msg = None
+    
+    # Answer callback
     await query.answer()
     
     if data == "noop":
         await query.answer("⚠️ This is the first video!", show_alert=True)
+        if waiting_msg:
+            try:
+                await waiting_msg.delete()
+            except Exception:
+                pass
         return
     
     try:
         action, video_type = data.split("_")
     except ValueError:
         await query.answer("❌ Invalid request!", show_alert=True)
+        if waiting_msg:
+            try:
+                await waiting_msg.delete()
+            except Exception:
+                pass
         return
     
     is_brazzers = video_type == "brazzers"
@@ -545,6 +572,11 @@ async def video_navigation_callback(client, query: CallbackQuery):
     history_data = temp.USER_VIDEO_HISTORY.get(user_id)
     if not history_data or not history_data["history"]:
         await query.answer("❌ No history found. Try /getvideo!", show_alert=True)
+        if waiting_msg:
+            try:
+                await waiting_msg.delete()
+            except Exception:
+                pass
         return
     
     history = history_data["history"]
@@ -552,8 +584,23 @@ async def video_navigation_callback(client, query: CallbackQuery):
     
     limit_data = await check_user_limit(user_id)
     if limit_data["reached"]:
+        if waiting_msg:
+            try:
+                await waiting_msg.delete()
+            except Exception:
+                pass
         await send_limit_message(client, query, limit_data)
         return
+    
+    # Wait 1 second
+    await asyncio.sleep(1)
+    
+    # Delete waiting message
+    if waiting_msg:
+        try:
+            await waiting_msg.delete()
+        except Exception:
+            pass
     
     if action == "prev":
         if current_idx <= 0:
@@ -563,7 +610,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
         new_idx = current_idx - 1
         video_id = history[new_idx]
         
-        # ✅ Loading message neeche dikhega
         await query.answer("⏪ Loading previous video...", show_alert=False)
         history_data["current_index"] = new_idx
         
@@ -587,7 +633,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
             new_idx = current_idx + 1
             video_id = history[new_idx]
             
-            # ✅ Loading message neeche dikhega
             await query.answer("⏩ Loading...", show_alert=False)
             history_data["current_index"] = new_idx
             
@@ -606,7 +651,6 @@ async def video_navigation_callback(client, query: CallbackQuery):
             await send_video_with_buttons(client, fake_msg, user_id, video_id, duration, is_brazzers=is_brazzers)
             return
         
-        # ✅ Loading message neeche dikhega
         await query.answer("⏩ Loading....", show_alert=False)
         
         current_video = history[current_idx]
