@@ -22,6 +22,26 @@ from plugins.get_video import DOWNLOAD_CACHE
 logger = logging.getLogger(__name__)
 
 # =================================================
+# DELETE AFTER DELAY FUNCTION
+# =================================================
+async def delete_after_delay(message, delay):
+    """Delete a message after specified delay in seconds"""
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+async def send_waiting_and_delete(message, delay=3):
+    """Send waiting message and delete after delay"""
+    try:
+        waiting_msg = await message.reply_text("⏳ **Please wait...**")
+        asyncio.create_task(delete_after_delay(waiting_msg, delay))
+        return waiting_msg
+    except Exception:
+        return None
+
+# =================================================
 # START COMMAND
 # =================================================
 @Client.on_message(filters.command("start") & filters.private)
@@ -30,11 +50,8 @@ async def start_command(client, message: Message):
     mention = message.from_user.mention
     me2 = (await client.get_me()).mention
     
-    # Send "Please wait..." message (auto delete after 3 seconds)
-    waiting_msg = await message.reply_text("⏳ **Please wait...**")
-    
-    # Auto delete after 3 seconds
-    asyncio.create_task(delete_after_delay(waiting_msg, 3))
+    # Send waiting message
+    await send_waiting_and_delete(message, 3)
     
     if FSUB and not await is_user_joined(client, message):
         return
@@ -101,35 +118,27 @@ async def start_command(client, message: Message):
 
 
 # =================================================
-# DELETE AFTER DELAY FUNCTION
-# =================================================
-async def delete_after_delay(message, delay):
-    """Delete a message after specified delay in seconds"""
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-    except Exception:
-        pass
-
-
-# =================================================
 # HELPER HANDLERS
 # =================================================
 
 @Client.on_message(filters.command("disclaimer") & filters.private)
 async def legal_disclaimer(client, message: Message):
+    await send_waiting_and_delete(message, 3)
     await send_legal_text(client, message, script.DISCLAIMER_TXT)
 
 @Client.on_message(filters.command("terms") & filters.private)
 async def legal_terms(client, message: Message):
+    await send_waiting_and_delete(message, 3)
     await send_legal_text(client, message, script.TERMS_TXT)
 
 @Client.on_message(filters.command("about") & filters.private)
 async def legal_about(client, message: Message):
+    await send_waiting_and_delete(message, 3)
     await send_about_text(client, message)
 
 @Client.on_message(filters.command("help") & filters.private)
 async def legal_help(client, message: Message):
+    await send_waiting_and_delete(message, 3)
     await send_legal_text(client, message, script.HELP_TXT)
     
 async def send_legal_text(client, message, text):
@@ -265,15 +274,17 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET VIDEO
+    # GET VIDEO - Old message delete + waiting message
     # =============================================
     if data == "get_video":
-        await query.answer("⏳ Loading...", show_alert=False)
-        
+        # Delete old message first
         try:
             await message.delete()
         except Exception:
             pass
+        
+        # Send waiting message (will auto delete after 3 sec)
+        await send_waiting_and_delete(message, 3)
         
         from plugins.get_video import handle_video_request
         fake_msg = message
@@ -283,16 +294,18 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS
+    # GET BRAZZERS - Old message delete + waiting message
     # =============================================
     if data == "get_brazzers":
         try:
-            await query.answer("⏳ Processing...", show_alert=False)
-            
+            # Delete old message first
             try:
                 await message.delete()
             except Exception:
                 pass
+            
+            # Send waiting message (will auto delete after 3 sec)
+            await send_waiting_and_delete(message, 3)
             
             from plugins.brazzers import process_brazzers_request
             fake_msg = message
@@ -305,10 +318,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # SUBSCRIPTION
+    # SUBSCRIPTION - Waiting message
     # =============================================
     if data == "get_subscription":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         from plugins.premium import buy_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -317,10 +330,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # MY PLAN
+    # MY PLAN - Waiting message
     # =============================================
     if data == "my_plan":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -329,10 +342,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # REFER
+    # REFER - Waiting message
     # =============================================
     if data == "refer":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         from plugins.refer import invite_command_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
@@ -341,10 +354,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # HELP
+    # HELP - Waiting message
     # =============================================
     if data == "help":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -352,10 +365,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # ABOUT
+    # ABOUT - Waiting message
     # =============================================
     if data == "about":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         fake_msg = message
         fake_msg.from_user = query.from_user
         fake_msg.chat = message.chat
@@ -363,10 +376,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET (Subscription Buy)
+    # GET (Subscription Buy) - Waiting message
     # =============================================
     if data == "get":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         buttons = [
             [InlineKeyboardButton('• 𝖢𝗅𝗈𝗌𝖾 •', callback_data='close_data')]
         ]
@@ -393,7 +406,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     # MY PLAN FROM CALLBACK
     # =============================================
     if data == "my_plan_callback":
-        await query.answer("⏳ Loading...", show_alert=False)
+        await send_waiting_and_delete(message, 3)
         from plugins.premium import myplan_handler
         fake_msg = message
         fake_msg.from_user = query.from_user
