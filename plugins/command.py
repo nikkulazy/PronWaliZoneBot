@@ -289,7 +289,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             pass
         
         # Send waiting message and wait for it to delete (1 second)
-        await send_waiting_and_wait(message, 1)
+        await send_waiting_and_wait(message, 2)
         
         from plugins.get_video import handle_video_request
         fake_msg = message
@@ -310,7 +310,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 pass
             
             # Send waiting message and wait for it to delete (1 second)
-            await send_waiting_and_wait(message, 1)
+            await send_waiting_and_wait(message, 2)
             
             from plugins.brazzers import process_brazzers_request
             fake_msg = message
