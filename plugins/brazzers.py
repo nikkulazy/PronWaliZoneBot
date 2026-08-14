@@ -84,7 +84,22 @@ async def brazzers_callback(client, query: CallbackQuery):
         )
         return
     
-    await query.answer("⏳ Processing...", show_alert=False)
+    # Show "Please wait" popup
+    await query.answer("⏳ Please wait...", show_alert=False)
+    
+    # Send "Please wait" message in chat
+    wait_msg = await query.message.reply_text("⏳ **Please wait...**")
+    
+    # Small delay to show the message
+    await asyncio.sleep(1)
+    
+    # Delete wait message
+    try:
+        await wait_msg.delete()
+    except Exception:
+        pass
+    
+    # Process the request
     fake_msg = query.message
     fake_msg.from_user = query.from_user
     fake_msg.chat = query.message.chat
