@@ -64,6 +64,26 @@ async def process_brazzers_request(client, m: Message):
 # ---------- BRAZZERS CALLBACK ----------
 @Client.on_callback_query(filters.regex(r"^get_brazzers$"))
 async def brazzers_callback(client, query: CallbackQuery):
+    user_id = query.from_user.id
+    
+    # Check if user has premium access
+    is_premium = await db.has_premium_access(user_id)
+    if not is_premium:
+        await query.answer(
+            "❌ For Premium User Only !\n\nPlease subscribe to access Brazzers content.", 
+            show_alert=True
+        )
+        return
+    
+    # Check daily limit
+    used_today = await db.get_video_count(user_id)
+    if used_today >= PREMIUM_DAILY_LIMIT:
+        await query.answer(
+            f"⚠️ Daily limit ({PREMIUM_DAILY_LIMIT}) reached!\n\nTry again tomorrow.", 
+            show_alert=True
+        )
+        return
+    
     await query.answer("⏳ Processing...", show_alert=False)
     fake_msg = query.message
     fake_msg.from_user = query.from_user
