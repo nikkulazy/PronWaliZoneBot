@@ -299,28 +299,25 @@ async def cb_handler(client: Client, query: CallbackQuery):
         return
 
     # =============================================
-    # GET BRAZZERS - Old message delete + waiting (1 sec) + new video
-    # =============================================
+    
     if data == "get_brazzers":
+    try:
         try:
-            # Delete old message first
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            
-            # Send waiting message and wait for it to delete (1 second)
-            await send_waiting_and_wait(message, 2)
-            
-            from plugins.brazzers import process_brazzers_request
-            fake_msg = message
-            fake_msg.from_user = query.from_user
-            fake_msg.chat = message.chat
-            await process_brazzers_request(client, fake_msg)
-        except Exception as e:
-            print(f"Brazzers callback error: {e}")
-            await query.answer("❌ Error processing request", show_alert=True)
-        return
+            await message.delete()
+        except Exception:
+            pass
+        
+        await send_waiting_and_wait(message, 2)
+        
+        from plugins.brazzers import process_brazzers_request
+        fake_msg = message
+        fake_msg.from_user = query.from_user
+        fake_msg.chat = message.chat
+        await process_brazzers_request(client, fake_msg)
+    except Exception as e:
+        print(f"Brazzers callback error: {e}")
+        await query.answer("❌ Error processing request", show_alert=True)
+    return
 
     # =============================================
     # SUBSCRIPTION - Waiting (1 sec) then new content
