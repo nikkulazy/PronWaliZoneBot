@@ -298,9 +298,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await handle_video_request(client, fake_msg)
         return
 
-    # =============================================
-    # GET BRAZZERS - Old message delete + waiting (1 sec) + new video
-    # =============================================
     if data == "get_brazzers":
         try:
             # Delete old message first
