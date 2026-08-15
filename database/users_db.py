@@ -1,3 +1,5 @@
+# users_db.py - ADD FILE_SIZE SUPPORT
+
 import pytz
 import random
 import logging
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 client = AsyncIOMotorClient(DB_URL)
 mydb = client[DB_NAME]
 
-# ⏰ IST Timezone Helper (Using pytz for accuracy)
+# ⏰ IST Timezone Helper
 def get_ist_now():
     return datetime.now(pytz.timezone(TIMEZONE))
 
@@ -76,7 +78,6 @@ class Database:
         return await self.codes.count_documents({})
         
     # ---------- REFERRAL SYSTEM ----------
-    
     async def is_user_in_list(self, user_id):
         user = await self.refer_collection.find_one({"user_id": int(user_id)})
         return True if user else False
@@ -130,14 +131,12 @@ class Database:
         return new_expiry
         
     # ---------- BLOCK SYSTEM ----------
-
     async def unblock_user(self, user_id: int):
         await self.blocked_users.delete_one({"user_id": user_id})
 
     async def get_all_blocked_users(self):
         return self.blocked_users.find({})
 
-    # ---------- ADVANCED BAN SYSTEM DB ----------
     async def is_user_blocked(self, user_id):
         user = await self.blocked_users.find_one({"user_id": user_id})
         return bool(user)
@@ -241,9 +240,11 @@ class Database:
         stats = await mydb.command("dbstats")
         return stats.get("dataSize", 0)
 
-    # ---------- VIDEOS SYSTEM ----------
-    async def add_video(self, file_unique_id, file_id, duration=0, is_premium=False):
-        """Add video with duration and premium status"""
+    # ---------- VIDEOS SYSTEM (UPDATED WITH FILE_SIZE) ----------
+    async def add_video(self, file_unique_id, file_id, duration=0, is_premium=False, file_size=0, file_name="video.mp4"):
+        """
+        Add video with duration, premium status, file_size and file_name
+        """
         exists = await self.videos.find_one({"file_unique_id": file_unique_id})
         if not exists:
             await self.videos.insert_one({
@@ -251,19 +252,46 @@ class Database:
                 "file_id": file_id,
                 "duration": duration,
                 "is_premium": is_premium,
+                "file_size": file_size,  # ✅ NEW FIELD
+                "file_name": file_name,  # ✅ NEW FIELD
                 "added_at": datetime.now(timezone.utc)
             })
             return True
         return False
 
+    # ✅ NEW: Update file size and name
+    async def update_file_info(self, file_id, file_size, file_name):
+        """
+        Update file size and name for existing video
+        """
+        try:
+            result = await self.videos.update_one(
+                {"file_id": file_id},
+                {"$set": {
+                    "file_size": file_size,
+                    "file_name": file_name
+                }}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            print(f"❌ Error updating file info: {e}")
+            return False
+
+    # ✅ NEW: Get file info with size
+    async def get_file_info(self, file_id):
+        """
+        Get file info including size and name
+        """
+        file_data = await self.videos.find_one({"file_id": file_id})
+        if not file_data:
+            file_data = await self.brazzers.find_one({"file_id": file_id})
+        return file_data
+
     async def total_videos(self):
         return await self.videos.count_documents({})
 
-    # =============================================
-    # 🆕 DELETE FUNCTIONS
-    # =============================================
+    # ---------- DELETE FUNCTIONS ----------
     async def delete_main_data(self):
-        """Delete all main videos and their history"""
         try:
             await self.videos.delete_many({})
             await self.historys.delete_many({})
@@ -273,7 +301,6 @@ class Database:
             return False
 
     async def delete_brazzers_data(self):
-        """Delete all Brazzers videos and their history"""
         try:
             await self.brazzers.delete_many({})
             await self.braz_history.delete_many({})
@@ -338,23 +365,19 @@ class Database:
                     return user.get("video_count", 0)
         return 0
 
-    # ---------- GET UNSEEN VIDEO (FIXED - Free users only get duration 1-120) ----------
+    # ---------- GET UNSEEN VIDEO ----------
     async def get_unseen_video(self, user_id):
-        """Get unseen video for user - free users get only videos with duration between 1 and FREE_VIDEO_DURATION"""
         seen = await self.historys.find_one({"user_id": user_id})
         seen_ids = seen.get("seen", []) if seen else []
 
         is_premium_user = await self.has_premium_access(user_id)
         
         if is_premium_user:
-            # Premium users can see all videos (including duration 0)
             cursor = self.videos.find(
                 {"file_id": {"$nin": seen_ids}}, 
                 {"file_id": 1, "duration": 1}
             ).limit(500)
         else:
-            # ✅ FIX: Free users ONLY get videos with duration > 0 AND duration <= FREE_VIDEO_DURATION
-            # Duration 0 वाले videos को SKIP करें
             cursor = self.videos.find(
                 {
                     "file_id": {"$nin": seen_ids},
@@ -372,9 +395,8 @@ class Database:
         await self.mark_seen(user_id, video["file_id"])
         return video["file_id"], video.get("duration", 0)
 
-    # ---------- GET RANDOM VIDEO (FIXED) ----------
+    # ---------- GET RANDOM VIDEO ----------
     async def get_random_video(self, user_id=None):
-        """Get random video - free users get only videos with duration between 1 and FREE_VIDEO_DURATION"""
         try:
             if user_id:
                 is_premium_user = await self.has_premium_access(user_id)
@@ -383,7 +405,6 @@ class Database:
             
             filter_query = {}
             if not is_premium_user:
-                # ✅ FIX: Free users ONLY get videos with duration > 0 AND duration <= FREE_VIDEO_DURATION
                 filter_query = {
                     "duration": {"$gt": 0, "$lte": FREE_VIDEO_DURATION}
                 }
@@ -412,15 +433,34 @@ class Database:
             upsert=True
         )
         
-    async def add_brazzers_video(self, file_unique_id, file_id):
+    # ---------- BRAZZERS VIDEOS (UPDATED WITH FILE_SIZE) ----------
+    async def add_brazzers_video(self, file_unique_id, file_id, file_size=0, file_name="video.mp4"):
         exists = await self.brazzers.find_one({"file_unique_id": file_unique_id})
         if not exists:
             await self.brazzers.insert_one({
                 "file_unique_id": file_unique_id,
-                "file_id": file_id
+                "file_id": file_id,
+                "file_size": file_size,  # ✅ NEW FIELD
+                "file_name": file_name,  # ✅ NEW FIELD
+                "added_at": datetime.now(timezone.utc)
             })
             return True
         return False
+
+    # ✅ NEW: Update Brazzers file info
+    async def update_brazzers_file_info(self, file_id, file_size, file_name):
+        try:
+            result = await self.brazzers.update_one(
+                {"file_id": file_id},
+                {"$set": {
+                    "file_size": file_size,
+                    "file_name": file_name
+                }}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            print(f"❌ Error updating Brazzers file info: {e}")
+            return False
 
     async def get_unseen_brazzers(self, user_id):
         seen = await self.braz_history.find_one({"user_id": user_id})
@@ -491,15 +531,8 @@ class Database:
             
         return False
 
-    # =================================================
-    # RESET USER LIMIT FUNCTION
-    # =================================================
-    
+    # ---------- RESET USER LIMIT ----------
     async def reset_user_video_limit(self, user_id: int):
-        """
-        Reset a user's daily video count to 0 and update last_date to today
-        Returns: True if successful, False if user not found
-        """
         try:
             today = get_ist_today()
             today_dt = datetime.combine(today, datetime.min.time())
@@ -514,10 +547,8 @@ class Database:
             if result.modified_count > 0:
                 return True
             else:
-                # Check if user exists
                 user = await self.users.find_one({"id": user_id})
                 if user:
-                    # User exists but video_count already 0 hai, last_date update karo
                     await self.users.update_one(
                         {"id": user_id},
                         {"$set": {"last_date": today_dt}}
@@ -543,7 +574,6 @@ class Database:
 
     async def get_verification_stats(self):
         midnight_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-
         level1_count = await self.misc.count_documents({
             "last_verified": {"$gte": midnight_utc}
         })
