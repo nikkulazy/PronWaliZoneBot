@@ -1,10 +1,8 @@
-# bot.py - Add pre-cache on startup
-
 import os
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
 from aiohttp import web
-from route import web_server, ping_server, check_expired_premium, start_scheduler, set_bot_client, pre_cache_files
+from route import web_server, ping_server, check_expired_premium, start_scheduler, set_bot_client
 import pytz
 from datetime import date, datetime
 from utils import temp 
@@ -34,7 +32,7 @@ class Bot(Client):
         # ✅ Set bot client for route.py
         set_bot_client(self)
 
-        # Plugin loading
+        # ----------------- PLUGINS PRINTING LOGIC -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("🛠  LOADING PLUGINS...")
         
@@ -47,6 +45,7 @@ class Bot(Client):
         
         print(f"🎉 Total {plugin_count} Plugins Loaded!")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        # ----------------------------------------------------------
 
         tz = pytz.timezone('Asia/Kolkata')
         today = date.today()
@@ -56,12 +55,8 @@ class Bot(Client):
         # --- BACKGROUND TASKS ---
         self.loop.create_task(check_expired_premium(self))
         self.loop.create_task(start_scheduler(self))
-        self.loop.create_task(ping_server())
+        self.loop.create_task(ping_server()) 
         
-        # ✅ START PRE-CACHE (New!)
-        self.loop.create_task(pre_cache_files())
-        
-        # --- WEB SERVER ---
         app_instance = await web_server()
         app_runner = web.AppRunner(app_instance)
         await app_runner.setup()
@@ -83,7 +78,7 @@ class Bot(Client):
             except:
                 pass
         
-        # ✅ LOG CHANNEL
+        # ✅ LOG CHANNEL MESSAGE
         try:
             await self.send_message(
                 LOG_CHANNEL,
