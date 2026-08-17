@@ -84,14 +84,11 @@ async def brazzers_callback(client, query: CallbackQuery):
         )
         return
     
-    # Show "Please wait" popup
-    await query.answer("⏳ Please wait...", show_alert=False)
-    
-    # Send "Please wait" message in chat
+    # Send "Please wait" message in chat (NECHE)
     wait_msg = await query.message.reply_text("⏳ **Please wait...**")
     
     # Small delay to show the message
-    await asyncio.sleep(1)
+    await asyncio.sleep(1.5)
     
     # Delete wait message
     try:
