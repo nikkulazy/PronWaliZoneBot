@@ -1,13 +1,16 @@
+# bot.py - Updated with Fast Multi-Client
+
 import os
-import asyncio
 from pyrogram import Client
-from pyrogram.errors import FloodWait
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
 from aiohttp import web
 from route import web_server, ping_server, check_expired_premium, start_scheduler, set_bot_client
 import pytz
 from datetime import date, datetime
 from utils import temp 
+
+# ✅ Import fast clients
+from fast_client import pre_start, get_client_count
 
 class Bot(Client):
     def __init__(self):
@@ -16,34 +19,14 @@ class Bot(Client):
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            workers=200,
+            workers=50,  # Reduced to avoid flood
             plugins={"root": "plugins"},
             sleep_threshold=15,
-            max_concurrent_transmissions=5,
-            workdir=".",  # 🔥 FIX: Session save karo
+            max_concurrent_transmissions=3,
         )
 
     async def start(self):
-        # 🔥 FIX: FloodWait handle with retry
-        max_retries = 3
-        
-        for attempt in range(max_retries):
-            try:
-                await super().start()
-                break  # Success - exit loop
-            except FloodWait as e:
-                wait_time = e.value if hasattr(e, 'value') else 753
-                print(f"⚠️ Telegram FloodWait: {wait_time} seconds required!")
-                print(f"⏳ Attempt {attempt+1}/{max_retries}")
-                
-                if attempt < max_retries - 1:
-                    print(f"⏳ Waiting {wait_time + 10} seconds...")
-                    await asyncio.sleep(wait_time + 10)
-                else:
-                    print("❌ Max retries reached! Bot failed to start.")
-                    raise
-        
-        # 🔥 Rest of your original code
+        await super().start()
         me = await self.get_me()
         temp.ME = me.id
         temp.U_NAME = me.username
@@ -51,10 +34,14 @@ class Bot(Client):
         temp.B_LINK = me.mention
         self.username = '@' + me.username
 
-        # ✅ Set bot client for route.py
+        # ✅ PRE-START FAST CLIENTS
+        await pre_start()
+        print(f"✅ Fast Clients Pre-Started! ({get_client_count()} clients)")
+
+        # ✅ Set bot client
         set_bot_client(self)
 
-        # ----------------- PLUGINS PRINTING LOGIC -----------------
+        # ----------------- PLUGINS LOADING -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("🛠  LOADING PLUGINS...")
         
@@ -67,7 +54,6 @@ class Bot(Client):
         
         print(f"🎉 Total {plugin_count} Plugins Loaded!")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-        # ----------------------------------------------------------
 
         tz = pytz.timezone('Asia/Kolkata')
         today = date.today()
@@ -85,18 +71,20 @@ class Bot(Client):
         site = web.TCPSite(app_runner, "0.0.0.0", int(PORT))
         await site.start()
 
-        print(f"{me.first_name} 𝚂𝚃𝙰𝚁𝚃𝙴𝙳 ⚡️⚡️⚡️")
+        print(f"\n✅ {me.first_name} STARTED ⚡️⚡️⚡️")
+        print(f"🔥 Multi-Client: {get_client_count()} Clients Ready!")
+        print(f"🛡️ Flood Protection: ✅ Active\n")
   
         # ✅ ADMINS MESSAGE
         if isinstance(ADMINS, list):
             for admin in ADMINS:
                 try:
-                    await self.send_message(admin, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
+                    await self.send_message(admin, f"**__{me.first_name} Is Started.....✨️😅😅😅__**")
                 except:
                     pass
         else:
             try:
-                await self.send_message(ADMINS, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
+                await self.send_message(ADMINS, f"**__{me.first_name} Is Started.....✨️😅😅😅__**")
             except:
                 pass
         
@@ -105,10 +93,11 @@ class Bot(Client):
             await self.send_message(
                 LOG_CHANNEL,
                 text=(
-                    f"<b>ʀᴇsᴛᴀʀᴛᴇᴅ 🤖\n\n"
-                    f"📆 ᴅᴀᴛᴇ - <code>{today}</code>\n"
-                    f"🕙 ᴛɪᴍᴇ - <code>{time}</code>\n"
-                    f"🌍 ᴛɪᴍᴇ ᴢᴏɴᴇ - <code>Asia/Kolkata</code></b>"
+                    f"<b>Restarted 🤖\n\n"
+                    f"📆 Date - <code>{today}</code>\n"
+                    f"🕙 Time - <code>{time}</code>\n"
+                    f"🔥 Multi-Client: ✅ {get_client_count()} Clients\n"
+                    f"🛡️ Flood Protection: ✅ Active</b>"
                 )
             )
         except:
