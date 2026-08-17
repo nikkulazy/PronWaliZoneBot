@@ -1,4 +1,4 @@
-# download_client.py - Apna Khud Ka Download Client
+# download_client.py - FIXED: Reuses main bot session
 
 import os
 import tempfile
@@ -13,27 +13,45 @@ _download_client = None
 _download_client_started = False
 
 # ============================================================
-# CLIENT START / GET
+# CLIENT START / GET - FIXED: Reuses main bot session
 # ============================================================
 async def get_client():
     """
-    Get or create download client
+    Get or create download client - REUSES main bot session
     """
     global _download_client, _download_client_started
     
     if not _download_client:
         try:
-            print("🔄 Creating new download client...")
-            _download_client = Client(
-                name="download_bot",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                bot_token=BOT_TOKEN,
-                in_memory=True
-            )
+            print("🔄 Creating download client...")
+            
+            # 🔥 FIX: Check if main bot session exists
+            session_path = "avbotz.session"
+            
+            if os.path.exists(session_path):
+                print("📂 Found main bot session! Reusing...")
+                _download_client = Client(
+                    name="avbotz",  # 🔥 SAME as main bot
+                    api_id=API_ID,
+                    api_hash=API_HASH,
+                    bot_token=BOT_TOKEN,
+                    workdir="."  # 🔥 Same directory
+                )
+            else:
+                print("⚠️ No session found, creating new...")
+                _download_client = Client(
+                    name="avbotz",  # 🔥 SAME name
+                    api_id=API_ID,
+                    api_hash=API_HASH,
+                    bot_token=BOT_TOKEN,
+                    in_memory=False,  # 🔥 Save session
+                    workdir="."
+                )
+            
             await _download_client.start()
             _download_client_started = True
             print("✅ Download Client Started Successfully!")
+            
         except Exception as e:
             print(f"❌ Error starting download client: {e}")
             return None
