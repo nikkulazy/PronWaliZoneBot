@@ -28,11 +28,12 @@ async def root_route_handler(request):
 # ============================================================
 # 📥 ULTRA FAST DOWNLOAD ROUTE
 # ============================================================
+# route.py - Updated download handler with streaming
 
 @routes.get("/d/{file_id}/{user_id}")
 async def download_handler(request):
     """
-    Ultra-fast download with multi-client support
+    Ultra-fast download with streaming (no memory issues)
     """
     start_time = time.time()
     
@@ -65,42 +66,61 @@ async def download_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Ultra-Fast Download
+        # ✅ Get file info (for size and name)
+        file_info = await get_file_info(file_id)
+        if not file_info:
+            return web.Response(text="❌ Could not get file info!", status=500)
+        
+        file_size = file_info.get('file_size', 0)
+        file_name = file_info.get('file_name', f'video_{user_id}.mp4')
+        
+        # ✅ Download file to temp
         downloaded_path = await download_file(file_id)
         
         if not downloaded_path:
             return web.Response(text="❌ Failed to download file!", status=500)
         
-        # ✅ Read and Send
+        # ✅ STREAM THE FILE (Chunk by chunk - NO MEMORY ISSUE)
+        response = web.StreamResponse()
+        response.headers['Content-Type'] = 'video/mp4'
+        response.headers['Content-Disposition'] = f'attachment; filename="{file_name}"'
+        response.headers['Content-Length'] = str(file_size)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Accept-Ranges'] = 'bytes'
+        
+        await response.prepare(request)
+        
+        # ✅ Stream in chunks (4MB at a time)
+        chunk_size = 1024 * 1024 * 4  # 4MB chunks
+        bytes_sent = 0
+        
         async with aiofiles.open(downloaded_path, 'rb') as f:
-            file_content = await f.read()
+            while True:
+                chunk = await f.read(chunk_size)
+                if not chunk:
+                    break
+                await response.write(chunk)
+                bytes_sent += len(chunk)
+                
+                # Show progress every 10MB
+                if bytes_sent % (1024 * 1024 * 10) < chunk_size:
+                    progress = (bytes_sent / file_size) * 100
+                    print(f"📤 Sent: {bytes_sent/1024/1024:.1f} MB ({progress:.1f}%)")
         
         # ✅ Cleanup
         cleanup_temp_file(downloaded_path)
         
-        # ✅ Calculate time
         total_time = (time.time() - start_time) * 1000
+        print(f"✅ Streamed {bytes_sent/1024/1024:.1f} MB in {total_time/1000:.2f}s")
         
-        # ✅ Response with timing header
-        return web.Response(
-            body=file_content,
-            headers={
-                'Content-Disposition': f'attachment; filename="video_{user_id}.mp4"',
-                'Content-Type': 'video/mp4',
-                'Content-Length': str(len(file_content)),
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-                'X-Download-Time': f'{total_time:.0f}ms',
-                'X-Clients': str(get_client_count())
-            }
-        )
+        return response
         
     except Exception as e:
         print(f"❌ Download error: {e}")
         import traceback
         traceback.print_exc()
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
+
 
 # ============================================================
 # 📥 TEST DOWNLOAD (Without User ID)
