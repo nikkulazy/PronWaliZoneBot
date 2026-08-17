@@ -1,61 +1,44 @@
-# download_client.py - Complete Version
+# download_client.py - Flood-Safe Download
 
 import os
 import tempfile
-import asyncio
-from pyrogram import Client
-from info import API_ID, API_HASH, BOT_TOKEN
+import time
+from fast_client import get_client, safe_download, manager, close_all_clients
 
 # ============================================================
-# GLOBAL VARIABLES
+# CACHE FOR FAST ACCESS
 # ============================================================
-_download_client = None
-_download_client_started = False
+
+_file_cache = {}
+_file_info_cache = {}
 
 # ============================================================
-# CLIENT START / GET
+# DOWNLOAD WITH FLOOD PROTECTION
 # ============================================================
-async def get_client():
-    """
-    Get or create download client
-    """
-    global _download_client, _download_client_started
-    
-    if not _download_client:
-        try:
-            print("🔄 Creating new download client...")
-            _download_client = Client(
-                name="download_bot",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                bot_token=BOT_TOKEN,
-                in_memory=True,
-                workers=20,
-                sleep_threshold=30
-            )
-            await _download_client.start()
-            _download_client_started = True
-            print("✅ Download Client Started Successfully!")
-        except Exception as e:
-            print(f"❌ Error starting download client: {e}")
-            return None
-    
-    return _download_client
 
-# ============================================================
-# DOWNLOAD FILE FUNCTION
-# ============================================================
 async def download_file(file_id, custom_name=None):
     """
-    Download file from Telegram
+    Download file with flood protection
     """
+    start_time = time.time()
+    
     try:
+        # ✅ Check cache first
+        if file_id in _file_cache:
+            cached_path = _file_cache[file_id]
+            if os.path.exists(cached_path):
+                print(f"⚡ Cache hit! ({time.time() - start_time:.2f}s)")
+                return cached_path
+            else:
+                del _file_cache[file_id]
+        
+        # ✅ Get client
         client = await get_client()
         if not client:
             print("❌ No client available!")
             return None
         
-        # Create temp file
+        # ✅ Create temp file
         suffix = '.mp4'
         if custom_name:
             ext = os.path.splitext(custom_name)[1]
@@ -65,23 +48,23 @@ async def download_file(file_id, custom_name=None):
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             temp_path = tmp.name
         
-        print(f"📥 Downloading file: {file_id[:20]}...")
-        print(f"📁 Temp path: {temp_path}")
+        # ✅ Safe download with flood handling
+        print(f"📥 Downloading: {file_id[:20]}...")
+        downloaded = await safe_download(client, file_id, temp_path)
         
-        # Download the file
-        downloaded = await client.download_media(
-            message=file_id,
-            file_name=temp_path
-        )
+        # ✅ Release client
+        manager.release_client(client)
         
         if downloaded and os.path.exists(downloaded):
             file_size = os.path.getsize(downloaded)
-            print(f"✅ Download successful! Size: {file_size} bytes")
+            # ✅ Save to cache
+            _file_cache[file_id] = downloaded
+            print(f"✅ Downloaded {file_size/1024/1024:.2f} MB in {time.time() - start_time:.2f}s")
             return downloaded
-        else:
-            print("❌ Download failed! File not found.")
-            return None
-            
+        
+        print("❌ Download failed!")
+        return None
+        
     except Exception as e:
         print(f"❌ Download error: {e}")
         import traceback
@@ -89,12 +72,16 @@ async def download_file(file_id, custom_name=None):
         return None
 
 # ============================================================
-# GET FILE INFO FUNCTION  ← ✅ ADDED THIS
+# GET FILE INFO WITH CACHE
 # ============================================================
+
 async def get_file_info(file_id):
     """
-    Get file information from Telegram
+    Get file information with caching
     """
+    if file_id in _file_info_cache:
+        return _file_info_cache[file_id]
+    
     try:
         client = await get_client()
         if not client:
@@ -105,11 +92,13 @@ async def get_file_info(file_id):
             message_ids=file_id
         )
         
+        manager.release_client(client)
+        
         if msg and msg.media:
             media_type = msg.media.value
             media = getattr(msg, media_type)
             
-            return {
+            info = {
                 'file_id': media.file_id,
                 'file_unique_id': media.file_unique_id,
                 'file_name': getattr(media, 'file_name', 'unknown'),
@@ -119,44 +108,52 @@ async def get_file_info(file_id):
                 'width': getattr(media, 'width', 0),
                 'height': getattr(media, 'height', 0)
             }
-        else:
-            print("❌ No media found in message!")
-            return None
             
+            # ✅ Save to cache
+            _file_info_cache[file_id] = info
+            return info
+        
+        return None
+        
     except Exception as e:
         print(f"❌ Get file info error: {e}")
         return None
 
 # ============================================================
-# CLOSE CLIENT FUNCTION
-# ============================================================
-async def close_client():
-    """
-    Close the download client
-    """
-    global _download_client, _download_client_started
-    
-    if _download_client and _download_client_started:
-        try:
-            await _download_client.stop()
-            _download_client = None
-            _download_client_started = False
-            print("❌ Download Client Closed!")
-        except Exception as e:
-            print(f"❌ Error closing client: {e}")
-
-# ============================================================
 # CLEANUP FUNCTION
 # ============================================================
+
 def cleanup_temp_file(file_path):
     """
-    Delete temporary file
+    Delete temporary file and remove from cache
     """
     try:
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
-            print(f"🗑️ Temp file deleted: {file_path}")
+            # Remove from cache
+            for key, value in list(_file_cache.items()):
+                if value == file_path:
+                    del _file_cache[key]
+                    break
+            print(f"🗑️ Cleaned: {os.path.basename(file_path)}")
             return True
     except Exception as e:
         print(f"❌ Cleanup error: {e}")
     return False
+
+# ============================================================
+# CLOSE FUNCTIONS
+# ============================================================
+
+async def close_client():
+    """Close all download clients"""
+    await close_all_clients()
+    _file_cache.clear()
+    _file_info_cache.clear()
+    print("✅ All clients and cache cleared!")
+
+def clear_cache():
+    """Clear download cache"""
+    _file_cache.clear()
+    _file_info_cache.clear()
+    print("🗑️ Cache cleared!")
