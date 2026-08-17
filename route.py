@@ -1,4 +1,4 @@
-# route.py - Fast Download with Flood Protection
+# route.py - Fast Download with Streaming
 
 from aiohttp import web
 import os
@@ -26,14 +26,13 @@ async def root_route_handler(request):
     })
 
 # ============================================================
-# 📥 ULTRA FAST DOWNLOAD ROUTE
+# 📥 ULTRA FAST DOWNLOAD WITH STREAMING
 # ============================================================
-# route.py - Updated download handler with streaming
 
 @routes.get("/d/{file_id}/{user_id}")
 async def download_handler(request):
     """
-    Ultra-fast download with streaming (no memory issues)
+    Fast download with streaming (no memory issues)
     """
     start_time = time.time()
     
@@ -66,7 +65,7 @@ async def download_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Get file info (for size and name)
+        # ✅ Get file info
         file_info = await get_file_info(file_id)
         if not file_info:
             return web.Response(text="❌ Could not get file info!", status=500)
@@ -74,13 +73,15 @@ async def download_handler(request):
         file_size = file_info.get('file_size', 0)
         file_name = file_info.get('file_name', f'video_{user_id}.mp4')
         
-        # ✅ Download file to temp
+        print(f"📊 File Size: {file_size/1024/1024:.1f} MB")
+        
+        # ✅ Download file
         downloaded_path = await download_file(file_id)
         
         if not downloaded_path:
             return web.Response(text="❌ Failed to download file!", status=500)
         
-        # ✅ STREAM THE FILE (Chunk by chunk - NO MEMORY ISSUE)
+        # ✅ STREAM FILE (Chunk by chunk - NO MEMORY ISSUE)
         response = web.StreamResponse()
         response.headers['Content-Type'] = 'video/mp4'
         response.headers['Content-Disposition'] = f'attachment; filename="{file_name}"'
@@ -90,8 +91,8 @@ async def download_handler(request):
         
         await response.prepare(request)
         
-        # ✅ Stream in chunks (4MB at a time)
-        chunk_size = 1024 * 1024 * 4  # 4MB chunks
+        # ✅ Stream in 4MB chunks
+        chunk_size = 1024 * 1024 * 4
         bytes_sent = 0
         
         async with aiofiles.open(downloaded_path, 'rb') as f:
@@ -102,9 +103,9 @@ async def download_handler(request):
                 await response.write(chunk)
                 bytes_sent += len(chunk)
                 
-                # Show progress every 10MB
-                if bytes_sent % (1024 * 1024 * 10) < chunk_size:
-                    progress = (bytes_sent / file_size) * 100
+                # Show progress every 50MB
+                if bytes_sent % (1024 * 1024 * 50) < chunk_size:
+                    progress = (bytes_sent / file_size) * 100 if file_size > 0 else 0
                     print(f"📤 Sent: {bytes_sent/1024/1024:.1f} MB ({progress:.1f}%)")
         
         # ✅ Cleanup
@@ -121,16 +122,13 @@ async def download_handler(request):
         traceback.print_exc()
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
-
 # ============================================================
-# 📥 TEST DOWNLOAD (Without User ID)
+# 📥 TEST DOWNLOAD
 # ============================================================
 
 @routes.get("/download/{file_id}")
 async def simple_download_handler(request):
-    """
-    Simple download for testing
-    """
+    """Simple download for testing"""
     try:
         file_id = request.match_info.get('file_id')
         
@@ -142,20 +140,24 @@ async def simple_download_handler(request):
         if not downloaded_path:
             return web.Response(text="❌ Download failed!", status=500)
         
+        # Stream
+        response = web.StreamResponse()
+        response.headers['Content-Type'] = 'video/mp4'
+        response.headers['Content-Disposition'] = 'attachment; filename="video.mp4"'
+        response.headers['Cache-Control'] = 'no-cache'
+        
+        await response.prepare(request)
+        
+        chunk_size = 1024 * 1024 * 4
         async with aiofiles.open(downloaded_path, 'rb') as f:
-            file_content = await f.read()
+            while True:
+                chunk = await f.read(chunk_size)
+                if not chunk:
+                    break
+                await response.write(chunk)
         
         cleanup_temp_file(downloaded_path)
-        
-        return web.Response(
-            body=file_content,
-            headers={
-                'Content-Disposition': 'attachment; filename="video.mp4"',
-                'Content-Type': 'video/mp4',
-                'Content-Length': str(len(file_content)),
-                'Cache-Control': 'no-cache'
-            }
-        )
+        return response
         
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -167,7 +169,7 @@ async def simple_download_handler(request):
 
 @routes.get("/test")
 async def test_handler(request):
-    """Test route with status"""
+    """Test route"""
     from download_client import _file_cache
     return web.json_response({
         "status": "alive",
@@ -177,23 +179,8 @@ async def test_handler(request):
         "endpoints": {
             "/d/{file_id}/{user_id}": "Fast download (premium only)",
             "/download/{file_id}": "Simple download (testing)",
-            "/ping": "Health check",
-            "/clients": "Client status"
+            "/ping": "Health check"
         }
-    })
-
-# ============================================================
-# 📊 CLIENT STATUS
-# ============================================================
-
-@routes.get("/clients")
-async def clients_handler(request):
-    """Show client status"""
-    from fast_client import manager
-    return web.json_response({
-        "total_clients": len(manager.clients),
-        "ready": manager.ready,
-        "loads": manager.loads
     })
 
 # ============================================================
@@ -202,7 +189,7 @@ async def clients_handler(request):
 
 @routes.get("/ping")
 async def ping_handler(request):
-    """Health check endpoint"""
+    """Health check"""
     return web.json_response({
         "status": "alive",
         "clients": get_client_count(),
@@ -210,15 +197,15 @@ async def ping_handler(request):
     })
 
 # ============================================================
-# ❌ CLOSE CLIENTS ROUTE
+# ❌ CLOSE ROUTE
 # ============================================================
 
 @routes.get("/close")
 async def close_handler(request):
-    """Close all download clients"""
+    """Close client"""
     try:
         await close_client()
-        return web.json_response({"status": "all clients closed"})
+        return web.json_response({"status": "client closed"})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
@@ -227,7 +214,7 @@ async def close_handler(request):
 # ============================================================
 
 async def web_server():
-    """Create and return web application"""
+    """Create web application"""
     web_app = web.Application(client_max_size=30000000)
     web_app.add_routes(routes)
     return web_app
@@ -237,13 +224,11 @@ async def web_server():
 # ============================================================
 
 async def keep_alive():
-    """Keep the server alive"""
     while True:
         await asyncio.sleep(600)
         print("🔄 Keep alive...")
 
 async def ping_server():
-    """Ping server to keep alive"""
     while True:
         await asyncio.sleep(600)
         try:
@@ -255,7 +240,6 @@ async def ping_server():
             print(f"❌ Ping error: {e}")
 
 async def check_expired_premium(client):
-    """Check expired premium users"""
     while True:
         try:
             from datetime import datetime
@@ -269,7 +253,6 @@ async def check_expired_premium(client):
         await asyncio.sleep(60)
 
 async def start_scheduler(client):
-    """Start scheduler for daily reports"""
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     import pytz
     
@@ -295,9 +278,8 @@ async def start_scheduler(client):
 bot_client = None
 
 def set_bot_client(client):
-    """Set bot client"""
     global bot_client
     bot_client = client
     print("✅ Bot client set!")
 
-URL = os.getenv("WEB_APP_URL", "https://favourite-caresa-misslazy-34708588.koyeb.app/")
+URL = os.getenv("WEB_APP_URL", "https://your-app.com/")
