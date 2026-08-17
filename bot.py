@@ -1,5 +1,7 @@
 import os
+import asyncio
 from pyrogram import Client
+from pyrogram.errors import FloodWait
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
 from aiohttp import web
 from route import web_server, ping_server, check_expired_premium, start_scheduler, set_bot_client
@@ -18,10 +20,30 @@ class Bot(Client):
             plugins={"root": "plugins"},
             sleep_threshold=15,
             max_concurrent_transmissions=5,
+            workdir=".",  # 🔥 FIX: Session save karo
         )
 
     async def start(self):
-        await super().start()
+        # 🔥 FIX: FloodWait handle with retry
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                await super().start()
+                break  # Success - exit loop
+            except FloodWait as e:
+                wait_time = e.value if hasattr(e, 'value') else 753
+                print(f"⚠️ Telegram FloodWait: {wait_time} seconds required!")
+                print(f"⏳ Attempt {attempt+1}/{max_retries}")
+                
+                if attempt < max_retries - 1:
+                    print(f"⏳ Waiting {wait_time + 10} seconds...")
+                    await asyncio.sleep(wait_time + 10)
+                else:
+                    print("❌ Max retries reached! Bot failed to start.")
+                    raise
+        
+        # 🔥 Rest of your original code
         me = await self.get_me()
         temp.ME = me.id
         temp.U_NAME = me.username
