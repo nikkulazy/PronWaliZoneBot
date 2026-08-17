@@ -1,4 +1,4 @@
-# bot.py - Updated with Fast Multi-Client
+# bot.py - Updated with Fast Client
 
 import os
 from pyrogram import Client
@@ -9,7 +9,7 @@ import pytz
 from datetime import date, datetime
 from utils import temp 
 
-# ✅ Import fast clients
+# ✅ Import fast client
 from fast_client import pre_start, get_client_count
 
 class Bot(Client):
@@ -19,7 +19,7 @@ class Bot(Client):
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            workers=50,  # Reduced to avoid flood
+            workers=50,
             plugins={"root": "plugins"},
             sleep_threshold=15,
             max_concurrent_transmissions=3,
@@ -34,9 +34,9 @@ class Bot(Client):
         temp.B_LINK = me.mention
         self.username = '@' + me.username
 
-        # ✅ PRE-START FAST CLIENTS
+        # ✅ PRE-START FAST CLIENT
         await pre_start()
-        print(f"✅ Fast Clients Pre-Started! ({get_client_count()} clients)")
+        print(f"✅ Fast Client Pre-Started! ({get_client_count()} client)")
 
         # ✅ Set bot client
         set_bot_client(self)
@@ -72,7 +72,7 @@ class Bot(Client):
         await site.start()
 
         print(f"\n✅ {me.first_name} STARTED ⚡️⚡️⚡️")
-        print(f"🔥 Multi-Client: {get_client_count()} Clients Ready!")
+        print(f"🔥 Client: {get_client_count()} Ready!")
         print(f"🛡️ Flood Protection: ✅ Active\n")
   
         # ✅ ADMINS MESSAGE
@@ -96,7 +96,7 @@ class Bot(Client):
                     f"<b>Restarted 🤖\n\n"
                     f"📆 Date - <code>{today}</code>\n"
                     f"🕙 Time - <code>{time}</code>\n"
-                    f"🔥 Multi-Client: ✅ {get_client_count()} Clients\n"
+                    f"🔥 Client: ✅ {get_client_count()} Ready\n"
                     f"🛡️ Flood Protection: ✅ Active</b>"
                 )
             )
