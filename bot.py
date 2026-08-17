@@ -1,4 +1,8 @@
+# bot.py - WITH AUTO WAIT FOR FLOODWAIT
+
 import os
+import asyncio
+import sys
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
 from aiohttp import web
@@ -14,14 +18,46 @@ class Bot(Client):
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            workers=200,
+            workers=5,
             plugins={"root": "plugins"},
-            sleep_threshold=15,
-            max_concurrent_transmissions=5,
+            sleep_threshold=60,
+            max_concurrent_transmissions=1,
+            no_updates=True,
         )
 
     async def start(self):
-        await super().start()
+        try:
+            await super().start()
+        except Exception as e:
+            error_str = str(e)
+            if "FLOOD_WAIT" in error_str:
+                # Extract wait time
+                import re
+                match = re.search(r'wait of (\d+) seconds', error_str)
+                if match:
+                    wait_time = int(match.group(1))
+                    print(f"⏳ FloodWait: Waiting {wait_time} seconds ({wait_time//60} minutes)...")
+                    
+                    # Send notification to admins
+                    try:
+                        for admin in ADMINS:
+                            await self.send_message(
+                                admin,
+                                f"⏳ Bot is rate limited by Telegram.\nWaiting {wait_time//60} minutes..."
+                            )
+                    except:
+                        pass
+                    
+                    # Wait
+                    await asyncio.sleep(wait_time + 10)
+                    
+                    # Retry
+                    print("🔄 Retrying...")
+                    return await self.start()
+            else:
+                raise e
+        
+        # If we get here, start was successful
         me = await self.get_me()
         temp.ME = me.id
         temp.U_NAME = me.username
@@ -29,10 +65,9 @@ class Bot(Client):
         temp.B_LINK = me.mention
         self.username = '@' + me.username
 
-        # ✅ Set bot client for route.py
         set_bot_client(self)
 
-        # ----------------- PLUGINS PRINTING LOGIC -----------------
+        # Plugin loading
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("🛠  LOADING PLUGINS...")
         
@@ -45,17 +80,15 @@ class Bot(Client):
         
         print(f"🎉 Total {plugin_count} Plugins Loaded!")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-        # ----------------------------------------------------------
 
         tz = pytz.timezone('Asia/Kolkata')
         today = date.today()
         now = datetime.now(tz)
         time = now.strftime("%H:%M:%S %p")
         
-        # --- BACKGROUND TASKS ---
         self.loop.create_task(check_expired_premium(self))
         self.loop.create_task(start_scheduler(self))
-        self.loop.create_task(ping_server()) 
+        self.loop.create_task(ping_server())
         
         app_instance = await web_server()
         app_runner = web.AppRunner(app_instance)
@@ -65,20 +98,21 @@ class Bot(Client):
 
         print(f"{me.first_name} 𝚂𝚃𝙰𝚁𝚃𝙴𝙳 ⚡️⚡️⚡️")
   
-        # ✅ ADMINS MESSAGE
-        if isinstance(ADMINS, list):
-            for admin in ADMINS:
+        try:
+            if isinstance(ADMINS, list):
+                for admin in ADMINS:
+                    try:
+                        await self.send_message(admin, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
+                    except:
+                        pass
+            else:
                 try:
-                    await self.send_message(admin, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
+                    await self.send_message(ADMINS, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
                 except:
                     pass
-        else:
-            try:
-                await self.send_message(ADMINS, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
-            except:
-                pass
+        except:
+            pass
         
-        # ✅ LOG CHANNEL MESSAGE
         try:
             await self.send_message(
                 LOG_CHANNEL,
