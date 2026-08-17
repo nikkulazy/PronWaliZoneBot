@@ -282,4 +282,4 @@ def set_bot_client(client):
     bot_client = client
     print("✅ Bot client set!")
 
-URL = os.getenv("WEB_APP_URL", "https://your-app.com/")
+URL = os.getenv("WEB_APP_URL", "https://favourite-caresa-misslazy-34708588.koyeb.app/")
