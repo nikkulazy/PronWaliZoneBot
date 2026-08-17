@@ -318,6 +318,8 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
     try:
         username = m.from_user.username or m.from_user.first_name or "Unknown"
         
+        await db.increase_video_count(user_id, username)
+        
         init_user_history(user_id, is_brazzers)
         
         history = temp.USER_VIDEO_HISTORY[user_id]
@@ -360,8 +362,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             "user_id": user_id
         }
         
-        print(f"📦 Download Cache Created: {download_id} -> {video_id[:20]}...")
-        
         buttons = []
         
         row1 = []
@@ -390,9 +390,6 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             reply_markup=reply_markup,
             has_spoiler=True
         )
-
-        if not is_brazzers:
-            await db.increase_video_count(user_id, username)
 
         asyncio.create_task(auto_delete_message(m, sent))
         
