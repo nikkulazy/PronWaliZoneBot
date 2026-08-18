@@ -138,6 +138,18 @@
     "TIMEZONE": {
       "description": "Bot Timezone",
       "value": "Asia/Kolkata"
+    },
+    "DOWNLOAD_POOL_SIZE": {
+      "description": "Number of download clients (Default: 3)",
+      "value": "3"
+    },
+    "MAX_CACHE_AGE_HOURS": {
+      "description": "Cache file expiry in hours (Default: 24)",
+      "value": "24"
+    },
+    "MAX_CACHE_SIZE_GB": {
+      "description": "Maximum cache size in GB (Default: 5)",
+      "value": "5"
     }
   },
   "buildpacks": [
@@ -146,4 +158,3 @@
     }
   ]
 }
-
