@@ -1,15 +1,7 @@
 {
   "name": "PronWaliZoneBot",
   "description": "A powerful Telegram bot to manage premium video subscriptions, daily limits, and auto-delete functionalities.",
-  "keywords": [
-    "telegram",
-    "bot",
-    "python",
-    "pyrogram",
-    "mongodb",
-    "premium-bot",
-    "av-botz"
-  ],
+  "keywords": ["telegram", "bot", "python", "pyrogram", "mongodb", "premium-bot", "av-botz"],
   "repository": "https://github.com/Botsthe/PronWaliZoneBot.git",
   "logo": "https://files.catbox.moe/xg20ri.jpg",
   "success_url": "https://t.me/PronWaliZoneBot",
