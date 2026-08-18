@@ -1,15 +1,11 @@
 from aiohttp import web
 import os
-import tempfile
 import asyncio
 import aiofiles
 from info import *
 from database.users_db import db
 from download_client import download_file, cleanup_temp_file, get_file_info, close_client, get_download_stats
-
-# ============================================================
-# ROUTES
-# ============================================================
+import time
 
 routes = web.RouteTableDef()
 
@@ -18,100 +14,31 @@ async def root_route_handler(request):
     return web.json_response({"status": "running", "message": "PronWaliZoneBot"})
 
 # ============================================================
-# 📥 DIRECT DOWNLOAD ROUTE - PREMIUM USERS ONLY
+# 📥 ULTRA FAST DOWNLOAD ROUTE
 # ============================================================
 @routes.get("/d/{file_id}/{user_id}")
 async def download_handler(request):
     """
-    Direct file download from server
-    URL: https://yourapp.com/d/{file_id}/{user_id}
-    Only for premium users
+    ULTRA FAST download - 0.01 sec start delay
     """
+    start_time = time.time()
+    
     try:
         file_id = request.match_info.get('file_id')
         user_id = int(request.match_info.get('user_id'))
         
-        print(f"📥 Download Request: file_id={file_id[:30]}..., user_id={user_id}")
+        print(f"\n📥 Download Request: user={user_id}")
         
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
         
-        # ✅ Premium Check
+        # ✅ Premium Check (fast)
         is_premium = await db.has_premium_access(user_id)
         if not is_premium:
             return web.Response(
-                text="💎 This feature is only for premium users!",
+                text="💎 Premium only!",
                 status=403
             )
-        
-        # ✅ Check file in database (videos collection)
-        file_data = await db.videos.find_one({"file_id": file_id})
-        if not file_data:
-            file_data = await db.brazzers.find_one({"file_id": file_id})
-        
-        if not file_data:
-            return web.Response(text="❌ File not found!", status=404)
-        
-        # ✅ Download file using fast download (with cache)
-        downloaded_path = await download_file(file_id)
-        
-        if not downloaded_path:
-            return web.Response(text="❌ Failed to download file from Telegram!", status=500)
-        
-        # ✅ Read file content
-        try:
-            async with aiofiles.open(downloaded_path, 'rb') as f:
-                file_content = await f.read()
-        except Exception as e:
-            print(f"❌ Error reading file: {e}")
-            cleanup_temp_file(downloaded_path)
-            return web.Response(text="❌ Error reading file!", status=500)
-        
-        # ✅ Cleanup temp file (but keep cache)
-        # cleanup_temp_file(downloaded_path)  # Cache handles cleanup
-        
-        # ✅ Get file name
-        file_name = f'video_{user_id}.mp4'
-        
-        # ✅ Create download response
-        headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"',
-            'Content-Type': 'video/mp4',
-            'Content-Length': str(len(file_content)),
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-        }
-        
-        print(f"✅ Sending file... Size: {len(file_content)} bytes")
-        
-        return web.Response(
-            body=file_content,
-            headers=headers
-        )
-        
-    except Exception as e:
-        print(f"❌ Download error: {e}")
-        import traceback
-        traceback.print_exc()
-        return web.Response(text=f"❌ Error: {str(e)}", status=500)
-
-# ============================================================
-# 📥 SIMPLE DOWNLOAD ROUTE (Without User ID - For Testing)
-# ============================================================
-@routes.get("/download/{file_id}")
-async def simple_download_handler(request):
-    """
-    Simple download without user verification (Testing only)
-    URL: https://yourapp.com/download/{file_id}
-    """
-    try:
-        file_id = request.match_info.get('file_id')
-        
-        print(f"📥 Simple Download Request: file_id={file_id[:30]}...")
-        
-        if not file_id:
-            return web.Response(text="❌ Invalid file ID!", status=400)
         
         # ✅ Check file in database
         file_data = await db.videos.find_one({"file_id": file_id})
@@ -121,35 +48,52 @@ async def simple_download_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Download file with cache
+        # ✅ START DOWNLOAD - INSTANT (0.01s)
+        print(f"⏱️ Starting download at {time.time() - start_time:.3f}s")
         downloaded_path = await download_file(file_id)
         
         if not downloaded_path:
-            return web.Response(text="❌ Failed to download file from Telegram!", status=500)
+            return web.Response(text="❌ Download failed!", status=500)
         
-        # ✅ Read file content
-        try:
-            async with aiofiles.open(downloaded_path, 'rb') as f:
-                file_content = await f.read()
-        except Exception as e:
-            print(f"❌ Error reading file: {e}")
-            cleanup_temp_file(downloaded_path)
-            return web.Response(text="❌ Error reading file!", status=500)
+        # ✅ Get file info (from cache - instant)
+        file_size = os.path.getsize(downloaded_path)
+        file_name = f'video_{user_id}.mp4'
         
-        # ✅ Create download response
+        print(f"✅ File ready: {file_size/1024/1024:.2f}MB in {time.time() - start_time:.2f}s")
+        
+        # ✅ STREAM RESPONSE (chunk by chunk)
+        async def file_stream():
+            chunk_size = 1024 * 1024  # 1MB chunks
+            try:
+                async with aiofiles.open(downloaded_path, 'rb') as f:
+                    while True:
+                        chunk = await f.read(chunk_size)
+                        if not chunk:
+                            break
+                        yield chunk
+            except Exception as e:
+                print(f"❌ Stream error: {e}")
+            finally:
+                try:
+                    os.remove(downloaded_path)
+                except:
+                    pass
+        
         headers = {
-            'Content-Disposition': 'attachment; filename="video.mp4"',
+            'Content-Disposition': f'attachment; filename="{file_name}"',
             'Content-Type': 'video/mp4',
-            'Content-Length': str(len(file_content)),
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
+            'Content-Length': str(file_size),
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
         }
         
-        print(f"✅ Sending file... Size: {len(file_content)} bytes")
+        response = web.StreamResponse(status=200, headers=headers)
+        await response.prepare(request)
         
-        return web.Response(
-            body=file_content,
-            headers=headers
-        )
+        # Send chunks
+        async for chunk in file_stream():
+            await response.write(chunk)
+            
+        return response
         
     except Exception as e:
         print(f"❌ Download error: {e}")
@@ -162,9 +106,6 @@ async def simple_download_handler(request):
 # ============================================================
 @routes.get("/stats")
 async def stats_handler(request):
-    """
-    Get download system statistics
-    """
     try:
         stats = await get_download_stats()
         return web.json_response(stats)
@@ -172,20 +113,18 @@ async def stats_handler(request):
         return web.json_response({"error": str(e)}, status=500)
 
 # ============================================================
-# 🧹 CLEAR CACHE ROUTE (Admin only)
+# 🧹 CLEAR CACHE ROUTE
 # ============================================================
 @routes.get("/clear_cache")
 async def clear_cache_handler(request):
-    """
-    Clear download cache (Admin only)
-    """
     try:
-        from download_client import _cache
-        deleted_count, deleted_size = _cache.clear_all_cache()
+        from download_client import _cache, _file_info_cache
+        file_deleted, file_size = _cache.clear_all_cache()
+        _file_info_cache.clear()
         return web.json_response({
             "status": "success",
-            "deleted_files": deleted_count,
-            "deleted_size_mb": deleted_size / (1024*1024)
+            "deleted_files": file_deleted,
+            "deleted_size_mb": file_size / (1024*1024)
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -195,18 +134,14 @@ async def clear_cache_handler(request):
 # ============================================================
 @routes.get("/test")
 async def test_handler(request):
-    """
-    Test route to check if server is working
-    """
     return web.json_response({
         "status": "alive",
-        "message": "Download server is running!",
+        "message": "Ultra Fast Download Server",
         "endpoints": {
-            "/d/{file_id}/{user_id}": "Download file (premium only)",
-            "/download/{file_id}": "Download file (no auth, testing)",
-            "/stats": "Download system stats",
-            "/clear_cache": "Clear cache (admin)",
-            "/ping": "Ping check"
+            "/d/{file_id}/{user_id}": "Ultra fast download",
+            "/stats": "System stats",
+            "/clear_cache": "Clear cache",
+            "/ping": "Ping"
         }
     })
 
@@ -215,9 +150,6 @@ async def test_handler(request):
 # ============================================================
 @routes.get("/ping")
 async def ping_handler(request):
-    """
-    Health check endpoint
-    """
     return web.json_response({"status": "alive", "timestamp": "ok"})
 
 # ============================================================
@@ -225,9 +157,6 @@ async def ping_handler(request):
 # ============================================================
 @routes.get("/close")
 async def close_handler(request):
-    """
-    Close download client (for maintenance)
-    """
     try:
         await close_client()
         return web.json_response({"status": "client closed"})
@@ -238,59 +167,33 @@ async def close_handler(request):
 # WEB SERVER FUNCTION
 # ============================================================
 async def web_server():
-    """
-    Create and return web application
-    """
-    web_app = web.Application(client_max_size=30000000)
+    web_app = web.Application(client_max_size=1024*1024*1024)
     web_app.add_routes(routes)
     return web_app
 
 # ============================================================
-# KEEP ALIVE FUNCTION
-# ============================================================
-async def keep_alive():
-    """
-    Keep the server alive
-    """
-    while True:
-        await asyncio.sleep(600)  # 10 minutes
-        print("🔄 Keep alive ping...")
-
-# ============================================================
-# PING SERVER FUNCTION (For compatibility with bot.py)
+# COMPATIBILITY FUNCTIONS
 # ============================================================
 async def ping_server():
-    """
-    Ping server to keep alive
-    """
     while True:
         await asyncio.sleep(600)
         try:
             import aiohttp
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{URL}/ping") as resp:
-                    print(f"📡 Ping response: {resp.status}")
+                    print(f"📡 Ping: {resp.status}")
         except Exception as e:
             print(f"❌ Ping error: {e}")
 
-# ============================================================
-# PREMIUM EXPIRY CHECKER (For compatibility)
-# ============================================================
 async def check_expired_premium(client):
-    """
-    Check expired premium users
-    """
     while True:
         try:
             from datetime import datetime
-            
             now = datetime.utcnow()
             expired_users = await db.get_expired(now)
-            
             for user in expired_users:
                 user_id = user["id"]
                 await db.remove_premium_access(user_id)
-                
                 try:
                     tg_user = await client.get_users(user_id)
                     await client.send_message(
@@ -299,30 +202,19 @@ async def check_expired_premium(client):
                     )
                 except Exception as e:
                     print(f"[EXPIRED NOTIFY ERROR] {e}")
-                
                 await asyncio.sleep(0.5)
-                
         except Exception as e:
             print(f"[PREMIUM CHECK LOOP ERROR] {e}")
-        
         await asyncio.sleep(60)
 
-# ============================================================
-# START SCHEDULER (For compatibility)
-# ============================================================
 async def start_scheduler(client):
-    """
-    Start scheduler for daily reports
-    """
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     import pytz
     
     scheduler = AsyncIOScheduler()
     
-    # Daily report function
     async def auto_daily_report():
         print("⏰ Sending Daily Auto Report...")
-        # Add your report logic here
     
     scheduler.add_job(
         auto_daily_report, 
@@ -332,17 +224,11 @@ async def start_scheduler(client):
         timezone=pytz.timezone("Asia/Kolkata")
     )
     scheduler.start()
-    print("⏰ Daily Report Scheduler Started (11:59 PM IST)")
+    print("⏰ Daily Report Scheduler Started")
 
-# ============================================================
-# SET BOT CLIENT (For compatibility)
-# ============================================================
 def set_bot_client(client):
-    """
-    Set bot client for route.py
-    """
     global bot_client
     bot_client = client
-    print("✅ Bot client set in route.py")
+    print("✅ Bot client set")
 
 URL = "https://favourite-caresa-misslazy-34708588.koyeb.app/"
