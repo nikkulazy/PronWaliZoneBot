@@ -6,6 +6,7 @@ from route import web_server, ping_server, check_expired_premium, start_schedule
 import pytz
 from datetime import date, datetime
 from utils import temp 
+from download_client import init_download_system  # ✅ ADD THIS
 
 class Bot(Client):
     def __init__(self):
@@ -28,6 +29,13 @@ class Bot(Client):
         temp.B_NAME = me.first_name
         temp.B_LINK = me.mention
         self.username = '@' + me.username
+
+        # ✅ Initialize Download System (PRE-START)
+        print("\n" + "="*50)
+        print("🚀 INITIALIZING FAST DOWNLOAD SYSTEM...")
+        await init_download_system()
+        print("✅ Fast Download System Ready!")
+        print("="*50 + "\n")
 
         # ✅ Set bot client for route.py
         set_bot_client(self)
@@ -86,13 +94,16 @@ class Bot(Client):
                     f"<b>ʀᴇsᴛᴀʀᴛᴇᴅ 🤖\n\n"
                     f"📆 ᴅᴀᴛᴇ - <code>{today}</code>\n"
                     f"🕙 ᴛɪᴍᴇ - <code>{time}</code>\n"
-                    f"🌍 ᴛɪᴍᴇ ᴢᴏɴᴇ - <code>Asia/Kolkata</code></b>"
+                    f"🌍 ᴛɪᴍᴇ ᴢᴏɴᴇ - <code>Asia/Kolkata</code>\n"
+                    f"⚡ Fast Download: Enabled (3 clients + Cache)</b>"
                 )
             )
         except:
             pass
 
     async def stop(self, *args):
+        from download_client import close_client
+        await close_client()
         await super().stop()
         print("Bot Stopped")
 
