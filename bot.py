@@ -1,5 +1,3 @@
-# bot.py - Updated with Fast Client
-
 import os
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
@@ -9,9 +7,6 @@ import pytz
 from datetime import date, datetime
 from utils import temp 
 
-# ✅ Import fast client
-from fast_client import pre_start, get_client_count
-
 class Bot(Client):
     def __init__(self):
         super().__init__(
@@ -19,10 +14,10 @@ class Bot(Client):
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            workers=50,
+            workers=200,
             plugins={"root": "plugins"},
             sleep_threshold=15,
-            max_concurrent_transmissions=3,
+            max_concurrent_transmissions=5,
         )
 
     async def start(self):
@@ -34,14 +29,10 @@ class Bot(Client):
         temp.B_LINK = me.mention
         self.username = '@' + me.username
 
-        # ✅ PRE-START FAST CLIENT
-        await pre_start()
-        print(f"✅ Fast Client Pre-Started! ({get_client_count()} client)")
-
-        # ✅ Set bot client
+        # ✅ Set bot client for route.py
         set_bot_client(self)
 
-        # ----------------- PLUGINS LOADING -----------------
+        # ----------------- PLUGINS PRINTING LOGIC -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("🛠  LOADING PLUGINS...")
         
@@ -54,6 +45,7 @@ class Bot(Client):
         
         print(f"🎉 Total {plugin_count} Plugins Loaded!")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        # ----------------------------------------------------------
 
         tz = pytz.timezone('Asia/Kolkata')
         today = date.today()
@@ -71,20 +63,18 @@ class Bot(Client):
         site = web.TCPSite(app_runner, "0.0.0.0", int(PORT))
         await site.start()
 
-        print(f"\n✅ {me.first_name} STARTED ⚡️⚡️⚡️")
-        print(f"🔥 Client: {get_client_count()} Ready!")
-        print(f"🛡️ Flood Protection: ✅ Active\n")
+        print(f"{me.first_name} 𝚂𝚃𝙰𝚁𝚃𝙴𝙳 ⚡️⚡️⚡️")
   
         # ✅ ADMINS MESSAGE
         if isinstance(ADMINS, list):
             for admin in ADMINS:
                 try:
-                    await self.send_message(admin, f"**__{me.first_name} Is Started.....✨️😅😅😅__**")
+                    await self.send_message(admin, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
                 except:
                     pass
         else:
             try:
-                await self.send_message(ADMINS, f"**__{me.first_name} Is Started.....✨️😅😅😅__**")
+                await self.send_message(ADMINS, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️😅😅😅__**")
             except:
                 pass
         
@@ -93,11 +83,10 @@ class Bot(Client):
             await self.send_message(
                 LOG_CHANNEL,
                 text=(
-                    f"<b>Restarted 🤖\n\n"
-                    f"📆 Date - <code>{today}</code>\n"
-                    f"🕙 Time - <code>{time}</code>\n"
-                    f"🔥 Client: ✅ {get_client_count()} Ready\n"
-                    f"🛡️ Flood Protection: ✅ Active</b>"
+                    f"<b>ʀᴇsᴛᴀʀᴛᴇᴅ 🤖\n\n"
+                    f"📆 ᴅᴀᴛᴇ - <code>{today}</code>\n"
+                    f"🕙 ᴛɪᴍᴇ - <code>{time}</code>\n"
+                    f"🌍 ᴛɪᴍᴇ ᴢᴏɴᴇ - <code>Asia/Kolkata</code></b>"
                 )
             )
         except:
