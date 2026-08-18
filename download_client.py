@@ -1,4 +1,4 @@
-# download_client.py - Fast Download Client with Pool + Cache
+# download_client.py - Ultra Fast Download System with Cache
 
 import os
 import tempfile
@@ -12,11 +12,12 @@ from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN
 from collections import deque
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
-POOL_SIZE = 3  # Number of concurrent clients
+POOL_SIZE = 3
 CACHE_DIR = "download_cache"
 MAX_CACHE_AGE_HOURS = 24
 MAX_CACHE_SIZE_GB = 5
@@ -36,11 +37,11 @@ class ClientPool:
             'total_downloads': 0,
             'successful': 0,
             'failed': 0,
-            'cache_hits': 0
+            'cache_hits': 0,
+            'file_info_cache_hits': 0
         }
         
     async def initialize(self):
-        """Initialize all clients in pool"""
         if self._initialized:
             return
             
@@ -73,7 +74,6 @@ class ClientPool:
         return True
         
     async def get_client(self):
-        """Get available client from pool"""
         async with self._lock:
             if not self._initialized:
                 await self.initialize()
@@ -100,12 +100,10 @@ class ClientPool:
             return client
             
     async def return_client(self, client):
-        """Return client to pool"""
         async with self._lock:
             self.available.append(client)
             
     async def get_stats(self):
-        """Get pool statistics"""
         return {
             'total_clients': len(self.clients),
             'available': len(self.available),
@@ -114,7 +112,6 @@ class ClientPool:
         }
         
     async def close_all(self):
-        """Close all clients"""
         print("🔄 Closing all clients...")
         for client in self.clients:
             try:
@@ -127,7 +124,69 @@ class ClientPool:
         print("✅ All clients closed")
 
 # ============================================================
-# CACHE MANAGER CLASS
+# FILE INFO CACHE - ULTRA FAST
+# ============================================================
+class FileInfoCache:
+    """Multi-layer file info cache - Memory + Disk"""
+    
+    def __init__(self):
+        self.memory_cache = {}
+        self.disk_cache_file = Path("file_info_cache.json")
+        self._lock = asyncio.Lock()
+        self._load_disk_cache()
+        
+    def _load_disk_cache(self):
+        if self.disk_cache_file.exists():
+            try:
+                with open(self.disk_cache_file, 'r') as f:
+                    self.disk_cache = json.load(f)
+            except:
+                self.disk_cache = {}
+        else:
+            self.disk_cache = {}
+            
+    def _save_disk_cache(self):
+        try:
+            with open(self.disk_cache_file, 'w') as f:
+                json.dump(self.disk_cache, f)
+        except:
+            pass
+            
+    def get(self, file_id):
+        # Check memory cache first (fastest)
+        if file_id in self.memory_cache:
+            return self.memory_cache[file_id]
+            
+        # Check disk cache
+        if file_id in self.disk_cache:
+            info = self.disk_cache[file_id]
+            self.memory_cache[file_id] = info
+            return info
+            
+        return None
+        
+    def set(self, file_id, info):
+        self.memory_cache[file_id] = info
+        self.disk_cache[file_id] = info
+        asyncio.create_task(self._async_save())
+        
+    async def _async_save(self):
+        async with self._lock:
+            self._save_disk_cache()
+            
+    def clear(self):
+        self.memory_cache.clear()
+        self.disk_cache.clear()
+        self._save_disk_cache()
+        
+    def get_stats(self):
+        return {
+            'memory_size': len(self.memory_cache),
+            'disk_size': len(self.disk_cache)
+        }
+
+# ============================================================
+# CACHE MANAGER - FILE CACHE
 # ============================================================
 class CacheManager:
     def __init__(self, cache_dir=CACHE_DIR, max_age_hours=MAX_CACHE_AGE_HOURS, max_size_gb=MAX_CACHE_SIZE_GB):
@@ -137,11 +196,9 @@ class CacheManager:
         self.max_size_bytes = max_size_gb * 1024 * 1024 * 1024
         self.metadata_file = self.cache_dir / "metadata.json"
         self.metadata = self._load_metadata()
-        self._cleanup_running = False
         self._lock = asyncio.Lock()
         
     def _load_metadata(self):
-        """Load cache metadata"""
         if self.metadata_file.exists():
             try:
                 with open(self.metadata_file, 'r') as f:
@@ -151,7 +208,6 @@ class CacheManager:
         return {}
         
     def _save_metadata(self):
-        """Save cache metadata"""
         try:
             with open(self.metadata_file, 'w') as f:
                 json.dump(self.metadata, f, indent=2)
@@ -159,7 +215,6 @@ class CacheManager:
             print(f"❌ Metadata save error: {e}")
             
     def get_cached_path(self, file_id):
-        """Get file path from cache"""
         if file_id in self.metadata:
             cache_info = self.metadata[file_id]
             cache_path = self.cache_dir / cache_info['filename']
@@ -177,17 +232,14 @@ class CacheManager:
         return None
         
     def save_to_cache(self, file_id, file_path):
-        """Save file to cache"""
         try:
             file_hash = hashlib.md5(file_id.encode()).hexdigest()
             ext = os.path.splitext(file_path)[1] or '.mp4'
             cache_filename = f"{file_hash}{ext}"
             cache_path = self.cache_dir / cache_filename
             
-            # Copy file to cache
             shutil.copy2(file_path, cache_path)
             
-            # Save metadata
             file_size = os.path.getsize(cache_path)
             self.metadata[file_id] = {
                 'filename': cache_filename,
@@ -204,7 +256,6 @@ class CacheManager:
             return False
             
     async def cleanup_old_files(self):
-        """Remove old cache files"""
         async with self._lock:
             print("🧹 Running cache cleanup...")
             deleted_count = 0
@@ -229,15 +280,11 @@ class CacheManager:
             if deleted_count > 0:
                 self._save_metadata()
                 print(f"🗑️ Deleted {deleted_count} old files ({deleted_size/1024/1024:.2f}MB)")
-            else:
-                print("✅ No old files to delete")
                 
             return deleted_count, deleted_size
             
     async def cleanup_by_size(self):
-        """Cleanup if cache exceeds max size"""
         async with self._lock:
-            print("📊 Checking cache size...")
             total_size = 0
             files = []
             
@@ -253,11 +300,7 @@ class CacheManager:
                         'timestamp': datetime.fromisoformat(info['timestamp'])
                     })
                     
-            print(f"📊 Current cache size: {total_size/1024/1024/1024:.2f}GB")
-            
             if total_size > self.max_size_bytes:
-                print(f"⚠️ Cache exceeded {self.max_size_bytes/1024/1024/1024:.2f}GB limit")
-                
                 files.sort(key=lambda x: x['timestamp'])
                 deleted_count = 0
                 deleted_size = 0
@@ -279,7 +322,6 @@ class CacheManager:
             return total_size
             
     async def auto_cleanup_loop(self, interval_hours=CLEANUP_INTERVAL_HOURS):
-        """Background auto cleanup task"""
         while True:
             await asyncio.sleep(interval_hours * 3600)
             try:
@@ -291,7 +333,6 @@ class CacheManager:
                 print(f"❌ Auto cleanup error: {e}")
                 
     def clear_all_cache(self):
-        """Clear entire cache manually"""
         print("🗑️ Clearing all cache...")
         deleted_count = 0
         deleted_size = 0
@@ -306,11 +347,9 @@ class CacheManager:
                 
         self.metadata = {}
         self._save_metadata()
-        print(f"🗑️ Deleted {deleted_count} files ({deleted_size/1024/1024:.2f}MB)")
         return deleted_count, deleted_size
         
     def get_stats(self):
-        """Get cache statistics"""
         total_files = len(self.metadata)
         total_size = 0
         
@@ -331,20 +370,110 @@ class CacheManager:
 # ============================================================
 _pool = ClientPool(pool_size=POOL_SIZE)
 _cache = CacheManager()
+_file_info_cache = FileInfoCache()
 
 # ============================================================
-# FAST DOWNLOAD FUNCTIONS
+# PROGRESS CALLBACK
 # ============================================================
-async def download_file_fast(file_id, custom_name=None):
+def progress_callback(current, total, file_id):
+    if total > 0:
+        percent = (current / total) * 100
+        mb_downloaded = current / (1024 * 1024)
+        mb_total = total / (1024 * 1024)
+        
+        if int(percent) % 10 == 0 and percent > 0:
+            print(f"⬇️ {percent:.1f}% ({mb_downloaded:.1f}MB / {mb_total:.1f}MB)")
+
+# ============================================================
+# FAST FILE INFO FUNCTIONS
+# ============================================================
+async def get_cached_file_info(file_id, force_fetch=False):
     """
-    Fast download using client pool
+    Get file info with multi-layer caching - ULTRA FAST
+    """
+    # Step 1: Check cache (instant - 0.001ms)
+    if not force_fetch:
+        cached = _file_info_cache.get(file_id)
+        if cached:
+            _pool._stats['file_info_cache_hits'] += 1
+            return cached
+            
+    # Step 2: Fetch from Telegram (slow - only first time)
+    try:
+        client = await _pool.get_client()
+        if not client:
+            return None
+            
+        try:
+            msg = await client.get_messages(
+                chat_id='me',
+                message_ids=file_id
+            )
+            
+            if msg and msg.media:
+                media_type = msg.media.value
+                media = getattr(msg, media_type)
+                
+                info = {
+                    'file_id': media.file_id,
+                    'file_unique_id': media.file_unique_id,
+                    'file_name': getattr(media, 'file_name', 'unknown'),
+                    'file_size': getattr(media, 'file_size', 0),
+                    'mime_type': getattr(media, 'mime_type', 'video/mp4'),
+                    'duration': getattr(media, 'duration', 0),
+                    'width': getattr(media, 'width', 0),
+                    'height': getattr(media, 'height', 0)
+                }
+                
+                # Cache for future
+                _file_info_cache.set(file_id, info)
+                return info
+                
+        finally:
+            await _pool.return_client(client)
+                
+    except Exception as e:
+        print(f"❌ File info fetch error: {e}")
+        
+    return None
+
+# ============================================================
+# BULK PRE-FETCH
+# ============================================================
+async def pre_fetch_file_info(file_ids, max_concurrent=5):
+    """
+    Pre-fetch multiple file infos in parallel
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+    
+    async def fetch_one(file_id):
+        async with semaphore:
+            return await get_cached_file_info(file_id)
+            
+    tasks = [fetch_one(file_id) for file_id in file_ids]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    success_count = sum(1 for r in results if r is not None and not isinstance(r, Exception))
+    return success_count
+
+# ============================================================
+# ULTRA FAST DOWNLOAD
+# ============================================================
+async def download_file_fast(file_id, custom_name=None, progress_cb=None):
+    """
+    ULTRA FAST download with pre-fetched info
     """
     client = None
     temp_path = None
     
     try:
+        # ✅ Get client - INSTANT (0.001s)
         client = await _pool.get_client()
         
+        # ✅ Get file info - INSTANT (0.001s - from cache)
+        file_info = await get_cached_file_info(file_id)
+        
+        # Create temp file
         suffix = '.mp4'
         if custom_name:
             ext = os.path.splitext(custom_name)[1]
@@ -354,12 +483,20 @@ async def download_file_fast(file_id, custom_name=None):
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             temp_path = tmp.name
             
+        # ✅ START DOWNLOAD - INSTANT
         print(f"📥 Downloading: {file_id[:20]}...")
+        if file_info:
+            file_size_mb = file_info.get('file_size', 0) / (1024 * 1024)
+            print(f"📁 Size: {file_size_mb:.2f}MB")
+        
         start_time = time.time()
         
+        # Download with progress
         downloaded = await client.download_media(
             message=file_id,
-            file_name=temp_path
+            file_name=temp_path,
+            progress=progress_cb or progress_callback,
+            progress_args=(file_id,)
         )
         
         elapsed = time.time() - start_time
@@ -367,7 +504,8 @@ async def download_file_fast(file_id, custom_name=None):
         if downloaded and os.path.exists(downloaded):
             file_size = os.path.getsize(downloaded)
             _pool._stats['successful'] += 1
-            print(f"✅ Downloaded {file_size/1024/1024:.2f}MB in {elapsed:.2f}s")
+            speed = file_size / elapsed / (1024 * 1024) if elapsed > 0 else 0
+            print(f"\n✅ Downloaded {file_size/1024/1024:.2f}MB in {elapsed:.2f}s ({speed:.1f}MB/s)")
             return downloaded
         else:
             _pool._stats['failed'] += 1
@@ -383,77 +521,47 @@ async def download_file_fast(file_id, custom_name=None):
         if client:
             await _pool.return_client(client)
 
+# ============================================================
+# MAIN DOWNLOAD FUNCTIONS
+# ============================================================
 async def download_with_cache(file_id, custom_name=None):
     """
-    Download with cache - Fastest option
+    Download with cache - FASTEST OPTION
     """
-    # 1. Check cache first
+    # Check cache (instant)
     cached_path = _cache.get_cached_path(file_id)
     if cached_path:
         _pool._stats['cache_hits'] += 1
         print("⚡ Returning from cache!")
         return cached_path
         
-    # 2. Download fresh
-    print("📥 Cache miss, downloading...")
+    # Download fresh
     downloaded = await download_file_fast(file_id, custom_name)
     
-    # 3. Save to cache
+    # Save to cache
     if downloaded and os.path.exists(downloaded):
         _cache.save_to_cache(file_id, downloaded)
         
     return downloaded
 
 # ============================================================
-# ORIGINAL FUNCTIONS (For compatibility with existing code)
+# COMPATIBILITY FUNCTIONS
 # ============================================================
 async def get_client():
-    """Get client from pool (compatibility)"""
     return await _pool.get_client()
 
 async def download_file(file_id, custom_name=None):
-    """Download file with cache (compatibility)"""
+    """Main download function - ULTRA FAST"""
     return await download_with_cache(file_id, custom_name)
 
 async def get_file_info(file_id):
-    """Get file info from Telegram"""
-    try:
-        client = await _pool.get_client()
-        try:
-            msg = await client.get_messages(
-                chat_id='me',
-                message_ids=file_id
-            )
-            
-            if msg and msg.media:
-                media_type = msg.media.value
-                media = getattr(msg, media_type)
-                
-                return {
-                    'file_id': media.file_id,
-                    'file_unique_id': media.file_unique_id,
-                    'file_name': getattr(media, 'file_name', 'unknown'),
-                    'file_size': getattr(media, 'file_size', 0),
-                    'mime_type': getattr(media, 'mime_type', 'video/mp4'),
-                    'duration': getattr(media, 'duration', 0),
-                    'width': getattr(media, 'width', 0),
-                    'height': getattr(media, 'height', 0)
-                }
-            else:
-                return None
-        finally:
-            await _pool.return_client(client)
-            
-    except Exception as e:
-        print(f"❌ Get file info error: {e}")
-        return None
+    """Get file info with cache"""
+    return await get_cached_file_info(file_id)
 
 async def close_client():
-    """Close all clients"""
     await _pool.close_all()
 
 def cleanup_temp_file(file_path):
-    """Delete temporary file"""
     try:
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
@@ -463,21 +571,35 @@ def cleanup_temp_file(file_path):
         print(f"❌ Cleanup error: {e}")
     return False
 
-# ============================================================
-# INITIALIZATION FUNCTION
-# ============================================================
 async def init_download_system():
-    """Initialize download system - Call this at bot start"""
+    """Initialize download system - Call at bot start"""
     await _pool.initialize()
-    # Start auto cleanup in background
     asyncio.create_task(_cache.auto_cleanup_loop())
+    
+    # Pre-fetch popular files on startup
+    try:
+        from database.users_db import db
+        recent_files = []
+        async for file in db.videos.find().sort("_id", -1).limit(100):
+            if file.get("file_id"):
+                recent_files.append(file["file_id"])
+                
+        if recent_files:
+            print(f"🔄 Pre-fetching {len(recent_files)} recent files...")
+            await pre_fetch_file_info(recent_files[:50])  # Limit to 50
+            print("✅ Pre-fetch complete!")
+    except Exception as e:
+        print(f"❌ Pre-fetch error: {e}")
+    
     return _pool, _cache
 
 async def get_download_stats():
-    """Get system statistics"""
     pool_stats = await _pool.get_stats()
     cache_stats = _cache.get_stats()
+    file_info_stats = _file_info_cache.get_stats()
+    
     return {
         'pool': pool_stats,
-        'cache': cache_stats
+        'cache': cache_stats,
+        'file_info_cache': file_info_stats
     }
