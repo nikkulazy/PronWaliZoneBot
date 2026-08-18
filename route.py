@@ -5,7 +5,7 @@ import asyncio
 import aiofiles
 from info import *
 from database.users_db import db
-from download_client import download_file, cleanup_temp_file, get_file_info, close_client
+from download_client import download_file, cleanup_temp_file, get_file_info, close_client, get_download_stats
 
 # ============================================================
 # ROUTES
@@ -52,7 +52,7 @@ async def download_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Download file using our custom client
+        # ✅ Download file using fast download (with cache)
         downloaded_path = await download_file(file_id)
         
         if not downloaded_path:
@@ -67,8 +67,8 @@ async def download_handler(request):
             cleanup_temp_file(downloaded_path)
             return web.Response(text="❌ Error reading file!", status=500)
         
-        # ✅ Cleanup temp file
-        cleanup_temp_file(downloaded_path)
+        # ✅ Cleanup temp file (but keep cache)
+        # cleanup_temp_file(downloaded_path)  # Cache handles cleanup
         
         # ✅ Get file name
         file_name = f'video_{user_id}.mp4'
@@ -121,7 +121,7 @@ async def simple_download_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Download file
+        # ✅ Download file with cache
         downloaded_path = await download_file(file_id)
         
         if not downloaded_path:
@@ -135,9 +135,6 @@ async def simple_download_handler(request):
             print(f"❌ Error reading file: {e}")
             cleanup_temp_file(downloaded_path)
             return web.Response(text="❌ Error reading file!", status=500)
-        
-        # ✅ Cleanup temp file
-        cleanup_temp_file(downloaded_path)
         
         # ✅ Create download response
         headers = {
@@ -161,6 +158,39 @@ async def simple_download_handler(request):
         return web.Response(text=f"❌ Error: {str(e)}", status=500)
 
 # ============================================================
+# 📊 STATS ROUTE
+# ============================================================
+@routes.get("/stats")
+async def stats_handler(request):
+    """
+    Get download system statistics
+    """
+    try:
+        stats = await get_download_stats()
+        return web.json_response(stats)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+# ============================================================
+# 🧹 CLEAR CACHE ROUTE (Admin only)
+# ============================================================
+@routes.get("/clear_cache")
+async def clear_cache_handler(request):
+    """
+    Clear download cache (Admin only)
+    """
+    try:
+        from download_client import _cache
+        deleted_count, deleted_size = _cache.clear_all_cache()
+        return web.json_response({
+            "status": "success",
+            "deleted_files": deleted_count,
+            "deleted_size_mb": deleted_size / (1024*1024)
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+# ============================================================
 # 🧪 TEST ROUTE
 # ============================================================
 @routes.get("/test")
@@ -174,6 +204,8 @@ async def test_handler(request):
         "endpoints": {
             "/d/{file_id}/{user_id}": "Download file (premium only)",
             "/download/{file_id}": "Download file (no auth, testing)",
+            "/stats": "Download system stats",
+            "/clear_cache": "Clear cache (admin)",
             "/ping": "Ping check"
         }
     })
