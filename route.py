@@ -19,7 +19,7 @@ async def root_route_handler(request):
 @routes.get("/d/{file_id}/{user_id}")
 async def download_handler(request):
     """
-    ULTRA FAST download - 0.01 sec start delay
+    ULTRA FAST download - Fixed for large files
     """
     start_time = time.time()
     
@@ -32,103 +32,7 @@ async def download_handler(request):
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
         
-        # ✅ FIX: Remove 'l' suffix and convert to int
-        user_id_str = user_id_str.rstrip('lL')  # Remove 'l' or 'L' from end
-        try:
-            user_id = int(user_id_str)
-        except ValueError:
-            return web.Response(text="❌ Invalid user ID!", status=400)
-        
-        # ✅ Premium Check (fast)
-        is_premium = await db.has_premium_access(user_id)
-        if not is_premium:
-            return web.Response(
-                text="💎 Premium only!",
-                status=403
-            )
-        
-        # ✅ Check file in database
-        file_data = await db.videos.find_one({"file_id": file_id})
-        if not file_data:
-            file_data = await db.brazzers.find_one({"file_id": file_id})
-        
-        if not file_data:
-            return web.Response(text="❌ File not found!", status=404)
-        
-        # ✅ START DOWNLOAD - INSTANT (0.01s)
-        print(f"⏱️ Starting download at {time.time() - start_time:.3f}s")
-        downloaded_path = await download_file(file_id)
-        
-        if not downloaded_path:
-            return web.Response(text="❌ Download failed!", status=500)
-        
-        # ✅ Get file info (from cache - instant)
-        file_size = os.path.getsize(downloaded_path)
-        file_name = f'video_{user_id}.mp4'
-        
-        print(f"✅ File ready: {file_size/1024/1024:.2f}MB in {time.time() - start_time:.2f}s")
-        
-        # ✅ STREAM RESPONSE (chunk by chunk)
-        async def file_stream():
-            chunk_size = 1024 * 1024  # 1MB chunks
-            try:
-                async with aiofiles.open(downloaded_path, 'rb') as f:
-                    while True:
-                        chunk = await f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
-            except Exception as e:
-                print(f"❌ Stream error: {e}")
-            finally:
-                try:
-                    os.remove(downloaded_path)
-                except:
-                    pass
-        
-        headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"',
-            'Content-Type': 'video/mp4',
-            'Content-Length': str(file_size),
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-        }
-        
-        response = web.StreamResponse(status=200, headers=headers)
-        await response.prepare(request)
-        
-        # Send chunks
-        async for chunk in file_stream():
-            await response.write(chunk)
-            
-        return response
-        
-    except Exception as e:
-        print(f"❌ Download error: {e}")
-        import traceback
-        traceback.print_exc()
-        return web.Response(text=f"❌ Error: {str(e)}", status=500)
-
-# ============================================================
-# 📥 DOWNLOAD WITH CUSTOM FILE NAME - FIXED
-# ============================================================
-@routes.get("/d/{file_id}/{user_id}/{file_name}")
-async def download_with_name_handler(request):
-    """
-    Download with custom file name
-    """
-    start_time = time.time()
-    
-    try:
-        file_id = request.match_info.get('file_id')
-        user_id_str = request.match_info.get('user_id')
-        file_name = request.match_info.get('file_name', 'video.mp4')
-        
-        print(f"\n📥 Download Request: user={user_id_str}")
-        
-        if not file_id:
-            return web.Response(text="❌ Invalid file ID!", status=400)
-        
-        # ✅ FIX: Remove 'l' suffix and convert to int
+        # ✅ Fix: Remove 'l' suffix
         user_id_str = user_id_str.rstrip('lL')
         try:
             user_id = int(user_id_str)
@@ -152,18 +56,20 @@ async def download_with_name_handler(request):
             return web.Response(text="❌ File not found!", status=404)
         
         # ✅ START DOWNLOAD
-        downloaded_path = await download_file(file_id, custom_name=file_name)
+        print(f"⏱️ Starting download at {time.time() - start_time:.3f}s")
+        downloaded_path = await download_file(file_id)
         
         if not downloaded_path:
             return web.Response(text="❌ Download failed!", status=500)
         
         file_size = os.path.getsize(downloaded_path)
+        file_name = f'video_{user_id}.mp4'
         
         print(f"✅ File ready: {file_size/1024/1024:.2f}MB in {time.time() - start_time:.2f}s")
         
-        # ✅ STREAM RESPONSE
+        # ✅ STREAM RESPONSE with better error handling
         async def file_stream():
-            chunk_size = 1024 * 1024
+            chunk_size = 1024 * 1024  # 1MB chunks
             try:
                 async with aiofiles.open(downloaded_path, 'rb') as f:
                     while True:
@@ -171,11 +77,15 @@ async def download_with_name_handler(request):
                         if not chunk:
                             break
                         yield chunk
+            except asyncio.CancelledError:
+                print("⚠️ Stream cancelled by client")
             except Exception as e:
                 print(f"❌ Stream error: {e}")
             finally:
                 try:
-                    os.remove(downloaded_path)
+                    if os.path.exists(downloaded_path):
+                        os.remove(downloaded_path)
+                        print(f"🗑️ Cleaned up: {downloaded_path}")
                 except:
                     pass
         
@@ -184,13 +94,36 @@ async def download_with_name_handler(request):
             'Content-Type': 'video/mp4',
             'Content-Length': str(file_size),
             'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Accept-Ranges': 'bytes',
         }
         
         response = web.StreamResponse(status=200, headers=headers)
-        await response.prepare(request)
         
-        async for chunk in file_stream():
-            await response.write(chunk)
+        try:
+            await response.prepare(request)
+        except Exception as e:
+            print(f"❌ Prepare error: {e}")
+            # Client disconnected, cleanup
+            try:
+                if os.path.exists(downloaded_path):
+                    os.remove(downloaded_path)
+            except:
+                pass
+            return web.Response(text="❌ Connection lost", status=500)
+        
+        # Send chunks with error handling
+        try:
+            async for chunk in file_stream():
+                try:
+                    await response.write(chunk)
+                except (ConnectionResetError, asyncio.CancelledError):
+                    print("⚠️ Client disconnected during send")
+                    break
+                except Exception as e:
+                    print(f"❌ Write error: {e}")
+                    break
+        except Exception as e:
+            print(f"❌ Stream error: {e}")
             
         return response
         
@@ -238,7 +171,6 @@ async def test_handler(request):
         "message": "Ultra Fast Download Server",
         "endpoints": {
             "/d/{file_id}/{user_id}": "Ultra fast download",
-            "/d/{file_id}/{user_id}/{file_name}": "Download with custom name",
             "/stats": "System stats",
             "/clear_cache": "Clear cache",
             "/ping": "Ping"
