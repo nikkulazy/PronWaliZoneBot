@@ -1,4 +1,4 @@
-# download_client.py - Ultra Fast Download System with Cache
+# download_client.py - Ultra Fast Download System with Cache (FIXED)
 
 import os
 import tempfile
@@ -12,12 +12,11 @@ from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN
 from collections import deque
 from datetime import datetime, timedelta
-from functools import lru_cache
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
-POOL_SIZE = 3
+POOL_SIZE = 2  # Reduced from 3 to avoid connection issues
 CACHE_DIR = "download_cache"
 MAX_CACHE_AGE_HOURS = 24
 MAX_CACHE_SIZE_GB = 5
@@ -55,9 +54,10 @@ class ClientPool:
                     api_id=API_ID,
                     api_hash=API_HASH,
                     bot_token=BOT_TOKEN,
-                    in_memory=False,
+                    in_memory=True,  # ✅ Fixed: Use in_memory to avoid SQLite lock
                     sleep_threshold=30,
-                    max_concurrent_transmissions=10
+                    max_concurrent_transmissions=5,  # Reduced
+                    no_updates=True  # ✅ Add this
                 )
                 
                 await client.start()
@@ -90,7 +90,8 @@ class ClientPool:
                     api_id=API_ID,
                     api_hash=API_HASH,
                     bot_token=BOT_TOKEN,
-                    in_memory=False
+                    in_memory=True,
+                    no_updates=True
                 )
                 await client.start()
                 self.clients.append(client)
@@ -127,62 +128,26 @@ class ClientPool:
 # FILE INFO CACHE - ULTRA FAST
 # ============================================================
 class FileInfoCache:
-    """Multi-layer file info cache - Memory + Disk"""
+    """Multi-layer file info cache - Memory only (no disk to avoid lock)"""
     
     def __init__(self):
         self.memory_cache = {}
-        self.disk_cache_file = Path("file_info_cache.json")
         self._lock = asyncio.Lock()
-        self._load_disk_cache()
         
-    def _load_disk_cache(self):
-        if self.disk_cache_file.exists():
-            try:
-                with open(self.disk_cache_file, 'r') as f:
-                    self.disk_cache = json.load(f)
-            except:
-                self.disk_cache = {}
-        else:
-            self.disk_cache = {}
-            
-    def _save_disk_cache(self):
-        try:
-            with open(self.disk_cache_file, 'w') as f:
-                json.dump(self.disk_cache, f)
-        except:
-            pass
-            
     def get(self, file_id):
-        # Check memory cache first (fastest)
         if file_id in self.memory_cache:
             return self.memory_cache[file_id]
-            
-        # Check disk cache
-        if file_id in self.disk_cache:
-            info = self.disk_cache[file_id]
-            self.memory_cache[file_id] = info
-            return info
-            
         return None
         
     def set(self, file_id, info):
         self.memory_cache[file_id] = info
-        self.disk_cache[file_id] = info
-        asyncio.create_task(self._async_save())
         
-    async def _async_save(self):
-        async with self._lock:
-            self._save_disk_cache()
-            
     def clear(self):
         self.memory_cache.clear()
-        self.disk_cache.clear()
-        self._save_disk_cache()
         
     def get_stats(self):
         return {
-            'memory_size': len(self.memory_cache),
-            'disk_size': len(self.disk_cache)
+            'memory_size': len(self.memory_cache)
         }
 
 # ============================================================
@@ -389,45 +354,69 @@ def progress_callback(current, total, file_id):
 # ============================================================
 async def get_cached_file_info(file_id, force_fetch=False):
     """
-    Get file info with multi-layer caching - ULTRA FAST
+    Get file info with caching - FIXED
     """
-    # Step 1: Check cache (instant - 0.001ms)
+    # Step 1: Check cache (instant)
     if not force_fetch:
         cached = _file_info_cache.get(file_id)
         if cached:
             _pool._stats['file_info_cache_hits'] += 1
             return cached
             
-    # Step 2: Fetch from Telegram (slow - only first time)
+    # Step 2: Fetch from Telegram (only first time)
     try:
         client = await _pool.get_client()
         if not client:
             return None
             
         try:
-            msg = await client.get_messages(
-                chat_id='me',
-                message_ids=file_id
-            )
+            # ✅ FIX: Use get_messages with proper error handling
+            try:
+                msg = await client.get_messages(
+                    chat_id='me',
+                    message_ids=int(file_id) if file_id.isdigit() else file_id
+                )
+            except:
+                # If int conversion fails, use as string
+                msg = await client.get_messages(
+                    chat_id='me',
+                    message_ids=file_id
+                )
             
             if msg and msg.media:
-                media_type = msg.media.value
-                media = getattr(msg, media_type)
+                media = msg.media
                 
-                info = {
-                    'file_id': media.file_id,
-                    'file_unique_id': media.file_unique_id,
-                    'file_name': getattr(media, 'file_name', 'unknown'),
-                    'file_size': getattr(media, 'file_size', 0),
-                    'mime_type': getattr(media, 'mime_type', 'video/mp4'),
-                    'duration': getattr(media, 'duration', 0),
-                    'width': getattr(media, 'width', 0),
-                    'height': getattr(media, 'height', 0)
-                }
-                
-                # Cache for future
-                _file_info_cache.set(file_id, info)
-                return info
+                # ✅ FIX: Handle different media types
+                if hasattr(media, 'file_id'):
+                    info = {
+                        'file_id': media.file_id,
+                        'file_unique_id': getattr(media, 'file_unique_id', ''),
+                        'file_name': getattr(media, 'file_name', 'unknown'),
+                        'file_size': getattr(media, 'file_size', 0),
+                        'mime_type': getattr(media, 'mime_type', 'video/mp4'),
+                        'duration': getattr(media, 'duration', 0),
+                        'width': getattr(media, 'width', 0),
+                        'height': getattr(media, 'height', 0)
+                    }
+                    
+                    # Cache for future
+                    _file_info_cache.set(file_id, info)
+                    return info
+                else:
+                    # Try to get from document
+                    if hasattr(media, 'file_id'):
+                        info = {
+                            'file_id': media.file_id,
+                            'file_unique_id': getattr(media, 'file_unique_id', ''),
+                            'file_name': getattr(media, 'file_name', 'unknown'),
+                            'file_size': getattr(media, 'file_size', 0),
+                            'mime_type': getattr(media, 'mime_type', 'video/mp4'),
+                            'duration': 0,
+                            'width': 0,
+                            'height': 0
+                        }
+                        _file_info_cache.set(file_id, info)
+                        return info
                 
         finally:
             await _pool.return_client(client)
@@ -438,12 +427,18 @@ async def get_cached_file_info(file_id, force_fetch=False):
     return None
 
 # ============================================================
-# BULK PRE-FETCH
+# BULK PRE-FETCH - DISABLED TO AVOID ISSUES
 # ============================================================
-async def pre_fetch_file_info(file_ids, max_concurrent=5):
+async def pre_fetch_file_info(file_ids, max_concurrent=2):
     """
-    Pre-fetch multiple file infos in parallel
+    Pre-fetch multiple file infos - LIMITED to avoid issues
     """
+    if not file_ids:
+        return 0
+        
+    # ✅ Only fetch first 10 files to avoid overload
+    file_ids = file_ids[:10]
+    
     semaphore = asyncio.Semaphore(max_concurrent)
     
     async def fetch_one(file_id):
@@ -467,10 +462,10 @@ async def download_file_fast(file_id, custom_name=None, progress_cb=None):
     temp_path = None
     
     try:
-        # ✅ Get client - INSTANT (0.001s)
+        # Get client
         client = await _pool.get_client()
         
-        # ✅ Get file info - INSTANT (0.001s - from cache)
+        # Get file info (from cache if available)
         file_info = await get_cached_file_info(file_id)
         
         # Create temp file
@@ -483,7 +478,7 @@ async def download_file_fast(file_id, custom_name=None, progress_cb=None):
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             temp_path = tmp.name
             
-        # ✅ START DOWNLOAD - INSTANT
+        # START DOWNLOAD
         print(f"📥 Downloading: {file_id[:20]}...")
         if file_info:
             file_size_mb = file_info.get('file_size', 0) / (1024 * 1024)
@@ -528,7 +523,7 @@ async def download_with_cache(file_id, custom_name=None):
     """
     Download with cache - FASTEST OPTION
     """
-    # Check cache (instant)
+    # Check cache
     cached_path = _cache.get_cached_path(file_id)
     if cached_path:
         _pool._stats['cache_hits'] += 1
@@ -576,20 +571,8 @@ async def init_download_system():
     await _pool.initialize()
     asyncio.create_task(_cache.auto_cleanup_loop())
     
-    # Pre-fetch popular files on startup
-    try:
-        from database.users_db import db
-        recent_files = []
-        async for file in db.videos.find().sort("_id", -1).limit(100):
-            if file.get("file_id"):
-                recent_files.append(file["file_id"])
-                
-        if recent_files:
-            print(f"🔄 Pre-fetching {len(recent_files)} recent files...")
-            await pre_fetch_file_info(recent_files[:50])  # Limit to 50
-            print("✅ Pre-fetch complete!")
-    except Exception as e:
-        print(f"❌ Pre-fetch error: {e}")
+    # ✅ Skip pre-fetch to avoid issues
+    print("✅ Download System Initialized (Pre-fetch disabled)")
     
     return _pool, _cache
 
