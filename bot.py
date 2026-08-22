@@ -32,13 +32,17 @@ class Bot(Client):
         # ✅ Bot client set for route.py
         set_bot_client(self)
 
-        # ✅ PRE-START DOWNLOAD CLIENT - ⚡ FAST
+        # ✅ PRE-START DOWNLOAD CLIENT
         from download_client import init_download_client
         await init_download_client()
 
-        # ✅ START CACHE CLEANUP - FIXED (await ke andar use karo)
-        from get_video import start_cache_cleanup
-        self.loop.create_task(start_cache_cleanup())  # ✅ CORRECT
+        # ✅ START CACHE CLEANUP - FIXED
+        try:
+            from plugins.get_video import start_cache_cleanup
+            self.loop.create_task(start_cache_cleanup())
+            print("✅ Cache cleanup task started")
+        except Exception as e:
+            print(f"⚠️ Cache cleanup not available: {e}")
 
         # ----------------- PLUGINS PRINTING LOGIC -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
