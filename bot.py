@@ -1,5 +1,3 @@
-# bot.py mein start function mein yeh add karo
-
 import os
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
@@ -8,8 +6,6 @@ from route import web_server, ping_server, check_expired_premium, start_schedule
 import pytz
 from datetime import date, datetime
 from utils import temp 
-from get_video import start_cache_cleanup
-await start_cache_cleanup()
 
 class Bot(Client):
     def __init__(self):
@@ -36,9 +32,13 @@ class Bot(Client):
         # ✅ Bot client set for route.py
         set_bot_client(self)
 
-        # ✅ PRE-START DOWNLOAD CLIENT - ⚡ FAST (IMPORTANT)
+        # ✅ PRE-START DOWNLOAD CLIENT - ⚡ FAST
         from download_client import init_download_client
-        await init_download_client()  # ✅ Bot start pe hi client ready
+        await init_download_client()
+
+        # ✅ START CACHE CLEANUP - FIXED (await ke andar use karo)
+        from get_video import start_cache_cleanup
+        self.loop.create_task(start_cache_cleanup())  # ✅ CORRECT
 
         # ----------------- PLUGINS PRINTING LOGIC -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
