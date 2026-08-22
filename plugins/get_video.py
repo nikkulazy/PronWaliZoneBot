@@ -361,7 +361,7 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
             "file_id": video_id,
             "video_type": "brazzers" if is_brazzers else "video",
             "user_id": user_id,
-            "timestamp": time.time()  # ✅ Add timestamp for expiry
+            "timestamp": time.time()
         }
         
         buttons = []
@@ -415,7 +415,6 @@ async def download_callback_handler(client, query: CallbackQuery):
             await query.answer("❌ Download link expired! Please get a new video.", show_alert=True)
             return
         
-        # ✅ Check if cache is expired (5 minutes)
         if time.time() - cache_data.get("timestamp", 0) > 300:
             await query.answer("❌ Link expired! Please request a new video.", show_alert=True)
             return
@@ -434,7 +433,6 @@ async def download_callback_handler(client, query: CallbackQuery):
             await query.answer("💎 This feature is only for premium users!\n\nBUY PREMIUM AND ACCESS UNLIMITED INDIAN OR BRAZZERS VIDEO FULL ADMIN SUPPORT.", show_alert=True)
             return
         
-        # ✅ WEB_APP_URL check
         web_app_url = WEB_APP_URL.rstrip('/')
         if not web_app_url:
             await query.answer("❌ Server URL not configured!", show_alert=True)
@@ -512,7 +510,7 @@ async def back_callback_handler(client, query: CallbackQuery):
             "file_id": video_id,
             "video_type": "brazzers" if is_brazzers else "video",
             "user_id": user_id,
-            "timestamp": time.time()  # ✅ Add timestamp
+            "timestamp": time.time()
         }
         
         buttons = []
@@ -721,23 +719,22 @@ async def video_navigation_callback(client, query: CallbackQuery):
         await send_video_with_buttons(client, fake_msg, user_id, new_video, duration, is_brazzers=is_brazzers)
 
 
-# ---------- CLEANUP EXPIRED CACHE ----------
-async def cleanup_expired_cache():
-    """Background task to clean expired cache entries"""
-    while True:
-        await asyncio.sleep(60)  # Run every minute
-        current_time = time.time()
-        expired_keys = []
-        for key, data in DOWNLOAD_CACHE.items():
-            if current_time - data.get("timestamp", 0) > 300:  # 5 minutes
-                expired_keys.append(key)
-        for key in expired_keys:
-            del DOWNLOAD_CACHE[key]
-        if expired_keys:
-            print(f"🗑️ Cleaned {len(expired_keys)} expired cache entries")
-
-
-# ---------- START CLEANUP TASK ----------
-# Run this when bot starts (add to bot.py)
+# ---------- START CACHE CLEANUP TASK ----------
 async def start_cache_cleanup():
-    asyncio.create_task(cleanup_expired_cache())
+    """Start the cache cleanup background task"""
+    while True:
+        try:
+            await asyncio.sleep(60)  # Run every minute
+            current_time = time.time()
+            expired_keys = []
+            for key, data in DOWNLOAD_CACHE.items():
+                if current_time - data.get("timestamp", 0) > 300:  # 5 minutes
+                    expired_keys.append(key)
+            for key in expired_keys:
+                if key in DOWNLOAD_CACHE:
+                    del DOWNLOAD_CACHE[key]
+            if expired_keys:
+                print(f"🗑️ Cleaned {len(expired_keys)} expired cache entries")
+        except Exception as e:
+            print(f"Cache cleanup error: {e}")
+            await asyncio.sleep(60)
