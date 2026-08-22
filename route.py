@@ -1,26 +1,37 @@
 from aiohttp import web
 import os
+import time
 import tempfile
 import asyncio
-import aiofiles
 import logging
 from info import *
 from database.users_db import db
-from download_client import (
-    download_file, 
-    cleanup_temp_file, 
-    get_file_info, 
-    close_client, 
-    file_exists,
-    get_download_stats
-)
+from download_client import download_file, cleanup_temp_file
 
 logger = logging.getLogger(__name__)
 
 # ============================================================
 # URL
 # ============================================================
-URL = environ.get("WEB_APP_URL", "https://casual-cristin-misslazy-9a60a509.koyeb.app/")
+URL = environ.get("WEB_APP_URL", "https://your-app.koyeb.app/")
+
+# ✅ CACHE for file data (MongoDB queries reduce karo)
+FILE_CACHE = {}
+CACHE_EXPIRY = 300  # 5 minutes
+
+def get_cached_file(file_id):
+    """Get file from cache"""
+    if file_id in FILE_CACHE:
+        data, timestamp = FILE_CACHE[file_id]
+        if time.time() - timestamp < CACHE_EXPIRY:
+            return data
+        else:
+            del FILE_CACHE[file_id]
+    return None
+
+def set_cached_file(file_id, data):
+    """Set file in cache"""
+    FILE_CACHE[file_id] = (data, time.time())
 
 # ============================================================
 # ROUTES
@@ -44,125 +55,99 @@ async def root_route_handler(request):
 @routes.get("/stats")
 async def stats_handler(request):
     """Get download statistics"""
+    from download_client import get_download_stats
     stats = get_download_stats()
     return web.json_response(stats)
 
 # ============================================================
-# 📥 DIRECT DOWNLOAD ROUTE - ✅ FIXED
+# 📥 FAST DOWNLOAD ROUTE - ⚡ OPTIMIZED
 # ============================================================
 @routes.get("/d/{file_id}/{user_id}")
 async def download_handler(request):
-    """
-    Direct file download from server
-    URL: https://yourapp.com/d/{file_id}/{user_id}
-    """
+    """⚡ FAST DOWNLOAD - Optimized for speed"""
     temp_path = None
+    start_time = time.time()
+    
     try:
         file_id = request.match_info.get('file_id')
         user_id = int(request.match_info.get('user_id'))
         
-        logger.info(f"📥 Download Request: file_id={file_id[:30]}..., user_id={user_id}")
+        logger.info(f"⚡ Download Request: {file_id[:20]}... user={user_id}")
         
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
         
-        # ✅ Premium Check
-        try:
-            is_premium = await db.has_premium_access(user_id)
-        except Exception as e:
-            logger.error(f"Premium check error: {e}")
-            is_premium = False
-        
+        # ✅ STEP 1: Premium Check (Fast)
+        is_premium = await db.has_premium_access(user_id)
         if not is_premium:
             return web.Response(
-                text="💎 This feature is only for premium users!\n\nBuy premium to access downloads.",
+                text="💎 Premium feature! Buy premium to access downloads.",
                 status=403
             )
         
-        # ✅ Check file in database
-        file_data = await db.videos.find_one({"file_id": file_id})
+        # ✅ STEP 2: Get File Data (Cache se)
+        file_data = get_cached_file(file_id)
         if not file_data:
-            file_data = await db.brazzers.find_one({"file_id": file_id})
+            # MongoDB se fetch
+            file_data = await db.videos.find_one({"file_id": file_id})
+            if not file_data:
+                file_data = await db.brazzers.find_one({"file_id": file_id})
+            if file_data:
+                set_cached_file(file_id, file_data)
         
         if not file_data:
-            logger.warning(f"File not found in DB: {file_id[:30]}...")
+            logger.warning(f"File not found: {file_id[:20]}...")
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Check if file exists in Telegram
-        file_exists_check = await file_exists(file_id)
-        if not file_exists_check:
-            logger.warning(f"File not found in Telegram: {file_id[:30]}...")
-            return web.Response(text="❌ File not accessible in Telegram!", status=404)
+        # ✅ STEP 3: SKIP file_exists() - Direct download (1-2 sec bachao)
         
-        # ✅ Download file
-        downloaded_path = await download_file(file_id)
+        # ✅ STEP 4: Download File (Fast)
+        try:
+            downloaded_path = await download_file(file_id)
+        except Exception as e:
+            logger.error(f"Download error: {e}")
+            return web.Response(text="❌ Download failed!", status=500)
         
-        if not downloaded_path:
-            return web.Response(text="❌ Failed to download file from Telegram!", status=500)
-        
-        if not os.path.exists(downloaded_path):
-            logger.error(f"❌ Downloaded file not found at: {downloaded_path}")
-            return web.Response(text="❌ Downloaded file not found!", status=500)
+        if not downloaded_path or not os.path.exists(downloaded_path):
+            return web.Response(text="❌ File not accessible!", status=404)
         
         temp_path = downloaded_path
         
-        # ✅ Get file size
-        file_size = os.path.getsize(downloaded_path)
-        logger.info(f"📁 File size: {file_size} bytes")
-        
-        if file_size == 0:
-            logger.error("❌ Downloaded file is empty!")
-            cleanup_temp_file(downloaded_path)
-            return web.Response(text="❌ Downloaded file is empty!", status=500)
-        
-        # ✅ Read file content - ✅ FIXED with better error handling
+        # ✅ STEP 5: Read File (FAST - without aiofiles)
         try:
-            # ✅ Method 1: Read with aiofiles
-            async with aiofiles.open(downloaded_path, 'rb') as f:
-                file_content = await f.read()
-            logger.info(f"✅ File read successfully! Size: {len(file_content)} bytes")
+            with open(downloaded_path, 'rb') as f:
+                file_content = f.read()
         except Exception as e:
-            logger.error(f"❌ aiofiles read error: {e}")
-            try:
-                # ✅ Method 2: Read with normal open (fallback)
-                with open(downloaded_path, 'rb') as f:
-                    file_content = f.read()
-                logger.info(f"✅ File read with fallback! Size: {len(file_content)} bytes")
-            except Exception as e2:
-                logger.error(f"❌ Both read methods failed: {e2}")
-                cleanup_temp_file(downloaded_path)
-                return web.Response(text=f"❌ Error reading file: {str(e2)}", status=500)
+            logger.error(f"File read error: {e}")
+            cleanup_temp_file(downloaded_path)
+            return web.Response(text="❌ Error reading file!", status=500)
         
-        # ✅ Cleanup temp file
+        # ✅ STEP 6: Cleanup
         cleanup_temp_file(downloaded_path)
         temp_path = None
         
-        # ✅ Get file name
+        # ✅ STEP 7: Get file name
         file_name = file_data.get('file_name', f'video_{user_id}.mp4')
-        if not file_name or file_name == 'None' or file_name == 'unknown':
+        if not file_name or file_name in ['None', 'unknown', '']:
             file_name = f'video_{user_id}.mp4'
         
-        # ✅ Get mime type
         mime_type = file_data.get('mime_type', 'video/mp4')
         if not mime_type or mime_type == 'None':
             mime_type = 'video/mp4'
         
-        # ✅ Create download response
-        headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"',
-            'Content-Type': mime_type,
-            'Content-Length': str(len(file_content)),
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-            'Accept-Ranges': 'bytes',
-        }
-        
-        logger.info(f"✅ Sending file... Name: {file_name}, Size: {len(file_content)} bytes")
+        # ✅ STEP 8: Send Response
+        elapsed = (time.time() - start_time) * 1000
+        logger.info(f"✅ Download ready! Size: {len(file_content)/1024/1024:.1f}MB, Time: {elapsed:.0f}ms")
         
         return web.Response(
             body=file_content,
-            headers=headers,
+            headers={
+                'Content-Disposition': f'attachment; filename="{file_name}"',
+                'Content-Type': mime_type,
+                'Content-Length': str(len(file_content)),
+                'Cache-Control': 'public, max-age=300',
+                'Accept-Ranges': 'bytes',
+            },
             status=200
         )
         
@@ -170,7 +155,7 @@ async def download_handler(request):
         logger.error(f"Invalid user_id: {e}")
         return web.Response(text="❌ Invalid user ID!", status=400)
     except Exception as e:
-        logger.error(f"❌ Download error: {e}")
+        logger.error(f"Download error: {e}")
         import traceback
         traceback.print_exc()
         if temp_path and os.path.exists(temp_path):
@@ -178,18 +163,16 @@ async def download_handler(request):
         return web.Response(text=f"❌ Error: {str(e)[:100]}", status=500)
 
 # ============================================================
-# 📥 SIMPLE DOWNLOAD ROUTE - ✅ FIXED
+# 📥 SIMPLE DOWNLOAD ROUTE (Testing)
 # ============================================================
 @routes.get("/download/{file_id}")
 async def simple_download_handler(request):
-    """
-    Simple download without user verification (Testing only)
-    """
+    """Simple download without user verification (Testing only)"""
     temp_path = None
     try:
         file_id = request.match_info.get('file_id')
         
-        logger.info(f"📥 Simple Download Request: file_id={file_id[:30]}...")
+        logger.info(f"📥 Simple Download Request: {file_id[:30]}...")
         
         if not file_id:
             return web.Response(text="❌ Invalid file ID!", status=400)
@@ -202,84 +185,44 @@ async def simple_download_handler(request):
         if not file_data:
             return web.Response(text="❌ File not found!", status=404)
         
-        # ✅ Check if file exists in Telegram
-        file_exists_check = await file_exists(file_id)
-        if not file_exists_check:
-            return web.Response(text="❌ File not accessible in Telegram!", status=404)
-        
         # ✅ Download file
         downloaded_path = await download_file(file_id)
         
-        if not downloaded_path:
-            return web.Response(text="❌ Failed to download file from Telegram!", status=500)
-        
-        if not os.path.exists(downloaded_path):
-            logger.error(f"❌ Downloaded file not found at: {downloaded_path}")
-            return web.Response(text="❌ Downloaded file not found!", status=500)
+        if not downloaded_path or not os.path.exists(downloaded_path):
+            return web.Response(text="❌ Failed to download file!", status=500)
         
         temp_path = downloaded_path
         
-        # ✅ Get file size
-        file_size = os.path.getsize(downloaded_path)
-        logger.info(f"📁 File size: {file_size} bytes")
+        # ✅ Read file
+        with open(downloaded_path, 'rb') as f:
+            file_content = f.read()
         
-        if file_size == 0:
-            logger.error("❌ Downloaded file is empty!")
-            cleanup_temp_file(downloaded_path)
-            return web.Response(text="❌ Downloaded file is empty!", status=500)
-        
-        # ✅ Read file content - ✅ FIXED
-        try:
-            async with aiofiles.open(downloaded_path, 'rb') as f:
-                file_content = await f.read()
-            logger.info(f"✅ File read successfully! Size: {len(file_content)} bytes")
-        except Exception as e:
-            logger.error(f"❌ aiofiles read error: {e}")
-            try:
-                with open(downloaded_path, 'rb') as f:
-                    file_content = f.read()
-                logger.info(f"✅ File read with fallback! Size: {len(file_content)} bytes")
-            except Exception as e2:
-                logger.error(f"❌ Both read methods failed: {e2}")
-                cleanup_temp_file(downloaded_path)
-                return web.Response(text=f"❌ Error reading file: {str(e2)}", status=500)
-        
-        # ✅ Cleanup temp file
         cleanup_temp_file(downloaded_path)
         temp_path = None
         
-        # ✅ Get file name
         file_name = file_data.get('file_name', 'video.mp4')
-        if not file_name or file_name == 'None' or file_name == 'unknown':
+        if not file_name or file_name in ['None', 'unknown', '']:
             file_name = 'video.mp4'
         
-        # ✅ Get mime type
         mime_type = file_data.get('mime_type', 'video/mp4')
         if not mime_type or mime_type == 'None':
             mime_type = 'video/mp4'
         
-        # ✅ Create download response
-        headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"',
-            'Content-Type': mime_type,
-            'Content-Length': str(len(file_content)),
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-        }
-        
-        logger.info(f"✅ Sending file... Name: {file_name}, Size: {len(file_content)} bytes")
-        
         return web.Response(
             body=file_content,
-            headers=headers,
+            headers={
+                'Content-Disposition': f'attachment; filename="{file_name}"',
+                'Content-Type': mime_type,
+                'Content-Length': str(len(file_content)),
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            },
             status=200
         )
         
     except Exception as e:
-        logger.error(f"❌ Download error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Download error: {e}")
         if temp_path and os.path.exists(temp_path):
             cleanup_temp_file(temp_path)
         return web.Response(text=f"❌ Error: {str(e)[:100]}", status=500)
