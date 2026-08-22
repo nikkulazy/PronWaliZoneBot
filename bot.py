@@ -1,3 +1,5 @@
+# bot.py mein start function mein yeh add karo
+
 import os
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL, PORT, ADMINS
@@ -29,8 +31,12 @@ class Bot(Client):
         temp.B_LINK = me.mention
         self.username = '@' + me.username
 
-        # ✅ Set bot client for route.py
+        # ✅ Bot client set for route.py
         set_bot_client(self)
+
+        # ✅ PRE-START DOWNLOAD CLIENT - ⚡ FAST (IMPORTANT)
+        from download_client import init_download_client
+        await init_download_client()  # ✅ Bot start pe hi client ready
 
         # ----------------- PLUGINS PRINTING LOGIC -----------------
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
