@@ -313,4 +313,4 @@ def set_bot_client(client):
     bot_client = client
     print("✅ Bot client set in route.py")
 
-URL = "https://casual-cristin-misslazy-9a60a509.koyeb.app/"
+URL = "https://favourite-caresa-misslazy-34708588.koyeb.app/"
