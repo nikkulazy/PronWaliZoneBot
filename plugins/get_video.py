@@ -3,6 +3,7 @@ import pytz
 import uuid
 import random
 import string
+import time
 from datetime import datetime, timedelta
 from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
@@ -359,7 +360,8 @@ async def send_video_with_buttons(client, m, user_id, video_id, duration=0, is_b
         DOWNLOAD_CACHE[download_id] = {
             "file_id": video_id,
             "video_type": "brazzers" if is_brazzers else "video",
-            "user_id": user_id
+            "user_id": user_id,
+            "timestamp": time.time()  # ✅ Add timestamp for expiry
         }
         
         buttons = []
@@ -413,6 +415,11 @@ async def download_callback_handler(client, query: CallbackQuery):
             await query.answer("❌ Download link expired! Please get a new video.", show_alert=True)
             return
         
+        # ✅ Check if cache is expired (5 minutes)
+        if time.time() - cache_data.get("timestamp", 0) > 300:
+            await query.answer("❌ Link expired! Please request a new video.", show_alert=True)
+            return
+        
         if cache_data["user_id"] != user_id:
             await query.answer("❌ This download link is not for you!", show_alert=True)
             return
@@ -425,9 +432,14 @@ async def download_callback_handler(client, query: CallbackQuery):
         
         if not is_premium:
             await query.answer("💎 This feature is only for premium users!\n\nBUY PREMIUM AND ACCESS UNLIMITED INDIAN OR BRAZZERS VIDEO FULL ADMIN SUPPORT.", show_alert=True)
-            return 
+            return
         
+        # ✅ WEB_APP_URL check
         web_app_url = WEB_APP_URL.rstrip('/')
+        if not web_app_url:
+            await query.answer("❌ Server URL not configured!", show_alert=True)
+            return
+        
         download_url = f"{web_app_url}/d/{file_id}/{user_id}"
         
         print(f"🔗 New Download URL generated: {download_url}")
@@ -499,7 +511,8 @@ async def back_callback_handler(client, query: CallbackQuery):
         DOWNLOAD_CACHE[download_id] = {
             "file_id": video_id,
             "video_type": "brazzers" if is_brazzers else "video",
-            "user_id": user_id
+            "user_id": user_id,
+            "timestamp": time.time()  # ✅ Add timestamp
         }
         
         buttons = []
@@ -706,3 +719,25 @@ async def video_navigation_callback(client, query: CallbackQuery):
         fake_msg.chat = message.chat
 
         await send_video_with_buttons(client, fake_msg, user_id, new_video, duration, is_brazzers=is_brazzers)
+
+
+# ---------- CLEANUP EXPIRED CACHE ----------
+async def cleanup_expired_cache():
+    """Background task to clean expired cache entries"""
+    while True:
+        await asyncio.sleep(60)  # Run every minute
+        current_time = time.time()
+        expired_keys = []
+        for key, data in DOWNLOAD_CACHE.items():
+            if current_time - data.get("timestamp", 0) > 300:  # 5 minutes
+                expired_keys.append(key)
+        for key in expired_keys:
+            del DOWNLOAD_CACHE[key]
+        if expired_keys:
+            print(f"🗑️ Cleaned {len(expired_keys)} expired cache entries")
+
+
+# ---------- START CLEANUP TASK ----------
+# Run this when bot starts (add to bot.py)
+async def start_cache_cleanup():
+    asyncio.create_task(cleanup_expired_cache())
