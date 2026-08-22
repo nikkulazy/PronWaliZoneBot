@@ -29,9 +29,7 @@ _download_stats = {
 # CLIENT START / GET
 # ============================================================
 async def get_client():
-    """
-    Get or create download client
-    """
+    """Get or create download client"""
     global _download_client, _download_client_started, _download_client_starting
     
     if _download_client and _download_client_started:
@@ -77,9 +75,7 @@ async def get_client():
 # INIT CLIENT ON START
 # ============================================================
 async def init_download_client():
-    """
-    Initialize download client on bot start
-    """
+    """Initialize download client on bot start"""
     global _download_client, _download_client_started
     
     if not _download_client or not _download_client_started:
@@ -91,11 +87,11 @@ async def init_download_client():
     return _download_client
 
 # ============================================================
-# DOWNLOAD FILE FUNCTION
+# DOWNLOAD FILE FUNCTION - ✅ FIXED
 # ============================================================
 async def download_file(file_id, custom_name=None):
     """
-    Download file from Telegram
+    Download file from Telegram with better error handling
     """
     global _download_stats
     temp_path = None
@@ -107,8 +103,13 @@ async def download_file(file_id, custom_name=None):
         
         # Check cache first
         if file_id in _file_cache:
-            logger.info(f"📦 Cache hit for: {file_id[:20]}...")
-            return _file_cache[file_id]
+            cached_path = _file_cache[file_id]
+            if os.path.exists(cached_path):
+                logger.info(f"📦 Cache hit for: {file_id[:20]}...")
+                return cached_path
+            else:
+                # Cache exists but file not found
+                del _file_cache[file_id]
         
         # Create temp file
         suffix = '.mp4'
@@ -117,43 +118,70 @@ async def download_file(file_id, custom_name=None):
             if ext:
                 suffix = ext
         
+        # Create temp file with proper permissions
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             temp_path = tmp.name
         
         logger.info(f"📥 Downloading: {file_id[:20]}...")
         _download_stats["active_downloads"] += 1
         
-        downloaded = await client.download_media(
-            message=file_id,
-            file_name=temp_path
-        )
-        
-        _download_stats["active_downloads"] -= 1
-        
-        if downloaded and os.path.exists(downloaded):
-            file_size = os.path.getsize(downloaded)
-            _download_stats["total_downloads"] += 1
-            _download_stats["total_size"] += file_size
-            logger.info(f"✅ Downloaded! Size: {file_size/1024/1024:.2f} MB")
-            
-            # Cache for future
-            _file_cache[file_id] = downloaded
-            
-            # Auto cleanup after 10 minutes
-            asyncio.create_task(auto_cleanup(file_id, downloaded))
-            
-            return downloaded
-        else:
-            logger.error("❌ Download failed!")
+        # ✅ Download with proper error handling
+        try:
+            downloaded = await client.download_media(
+                message=file_id,
+                file_name=temp_path
+            )
+        except Exception as e:
+            logger.error(f"❌ Download media error: {e}")
+            _download_stats["active_downloads"] -= 1
             if temp_path and os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
                 except:
                     pass
             return None
+        
+        _download_stats["active_downloads"] -= 1
+        
+        # ✅ Check if download was successful
+        if not downloaded:
+            logger.error("❌ Download returned None!")
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+            return None
+        
+        if not os.path.exists(downloaded):
+            logger.error(f"❌ Downloaded file not found at: {downloaded}")
+            return None
+        
+        file_size = os.path.getsize(downloaded)
+        if file_size == 0:
+            logger.error("❌ Downloaded file is empty (0 bytes)!")
+            try:
+                os.remove(downloaded)
+            except:
+                pass
+            return None
+        
+        _download_stats["total_downloads"] += 1
+        _download_stats["total_size"] += file_size
+        logger.info(f"✅ Downloaded! Size: {file_size/1024/1024:.2f} MB")
+        
+        # Cache for future
+        _file_cache[file_id] = downloaded
+        
+        # Auto cleanup after 10 minutes
+        asyncio.create_task(auto_cleanup(file_id, downloaded))
+        
+        return downloaded
             
     except Exception as e:
         logger.error(f"❌ Download error: {e}")
+        import traceback
+        traceback.print_exc()
         _download_stats["active_downloads"] -= 1
         if temp_path and os.path.exists(temp_path):
             try:
@@ -166,9 +194,7 @@ async def download_file(file_id, custom_name=None):
 # AUTO CLEANUP
 # ============================================================
 async def auto_cleanup(file_id, file_path):
-    """
-    Auto delete cached file after 10 minutes
-    """
+    """Auto delete cached file after 10 minutes"""
     await asyncio.sleep(600)
     try:
         if file_path and os.path.exists(file_path):
@@ -183,9 +209,7 @@ async def auto_cleanup(file_id, file_path):
 # GET FILE INFO
 # ============================================================
 async def get_file_info(file_id):
-    """
-    Get file information from Telegram
-    """
+    """Get file information from Telegram"""
     cache_key = f"info_{file_id}"
     if cache_key in _file_cache:
         return _file_cache[cache_key]
@@ -229,9 +253,7 @@ async def get_file_info(file_id):
 # CHECK FILE EXISTS
 # ============================================================
 async def file_exists(file_id):
-    """
-    Check if file exists in Telegram
-    """
+    """Check if file exists in Telegram"""
     try:
         client = await get_client()
         if not client:
@@ -249,12 +271,10 @@ async def file_exists(file_id):
         return False
 
 # ============================================================
-# GET DOWNLOAD STATS - ✅ NEW FUNCTION (FIX)
+# GET DOWNLOAD STATS
 # ============================================================
 def get_download_stats():
-    """
-    Get download statistics
-    """
+    """Get download statistics"""
     global _download_stats
     return {
         "total_downloads": _download_stats["total_downloads"],
@@ -268,9 +288,7 @@ def get_download_stats():
 # CLOSE CLIENT
 # ============================================================
 async def close_client():
-    """
-    Close the download client
-    """
+    """Close the download client"""
     global _download_client, _download_client_started, _file_cache, _download_stats
     
     if _download_client and _download_client_started:
@@ -288,9 +306,7 @@ async def close_client():
 # CLEANUP FUNCTION
 # ============================================================
 def cleanup_temp_file(file_path):
-    """
-    Delete temporary file safely
-    """
+    """Delete temporary file safely"""
     try:
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
@@ -304,9 +320,7 @@ def cleanup_temp_file(file_path):
 # CLEAR CACHE
 # ============================================================
 def clear_cache():
-    """
-    Clear download cache
-    """
+    """Clear download cache"""
     global _file_cache
     _file_cache.clear()
     logger.info("🗑️ Cache cleared!")
@@ -315,7 +329,5 @@ def clear_cache():
 # GET CACHE SIZE
 # ============================================================
 def get_cache_size():
-    """
-    Get number of cached files
-    """
+    """Get number of cached files"""
     return len(_file_cache)
