@@ -8,6 +8,8 @@ from route import web_server, ping_server, check_expired_premium, start_schedule
 import pytz
 from datetime import date, datetime
 from utils import temp 
+from get_video import start_cache_cleanup
+await start_cache_cleanup()
 
 class Bot(Client):
     def __init__(self):
