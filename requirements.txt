@@ -5,7 +5,7 @@ aiohttp==3.9.5
 motor==3.5.0
 pymongo==4.7.3
 python-dotenv==1.0.1
-shortzy==0.2.1
+shortzy==0.0.8
 apscheduler==3.10.4
 ffmpeg-python==0.2.0
 aiofiles==23.2.1
